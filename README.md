@@ -44,7 +44,7 @@ Interactive browser features can improve speed and convenience, but the core tri
 - Expanded Rust DPI substrate via `marlinspike-dpi`: 34 protocol dissectors, Bronze v2 event output, frame-integrity inspection, ICMP anomaly inspection, and stateful L2 anomaly analysis
 - Topology construction with Purdue-level inference and vendor fingerprinting
 - Risk surfacing for remote access exposure, C2-like beaconing, suspicious external channels, DNS entropy anomalies, policy violations, full MITRE ATT&CK mapping with tactics, sub-techniques, matrix views, response guidance, and IEC 62443 SR-oriented remediation guidance
-- Flask web UI with an upgraded multi-mode analyst workbench, project management, report viewer, baseline/drift comparison, asset inventory, scan history, optional local live capture mode, and a source-backed `/findings` detection coverage catalog
+- Flask web UI with an upgraded multi-mode analyst workbench, project management, report viewer, baseline/drift comparison, asset inventory, scan history, optional local live capture mode, and a source-backed `/capabilities` detection coverage catalog
 - Docker Compose deployment with PostgreSQL backing the application
 - Optional Rust DPI stage via [`marlinspike-dpi`](https://github.com/riverrisk/marlinspike-dpi), built into the image from a pinned GitHub ref while Python analysis and report shaping remain above it
 - MITRE ATT&CK runtime surfaces sourced from the standalone [`marlinspike-mitre`](https://github.com/riverrisk/marlinspike-mitre) repo at a pinned GitHub ref during image build
@@ -117,7 +117,7 @@ The key repo-family terminology is:
 
 The component repos are intended to be authoritative. The suite repo exists to pin and vendor a known-good combination for teams that want one clone with all updated parts.
 The initial `msengine/` subtree prefix now exists in bootstrap form. Until full extraction completes, the root `_ms_engine.py` remains the operational engine source and [`scripts/sync-msengine-bootstrap.sh`](scripts/sync-msengine-bootstrap.sh) mirrors it into the subtree copy.
-The current Docker build pins `marlinspike-dpi` to `de7ed06a28096a3da482831bc674ef0652c0e479` by default via `MARLINSPIKE_DPI_REF`, `marlinspike-mitre` to `c3583ec2d189b8cde69f2160da6a5e8e5b643f7b` via `MARLINSPIKE_MITRE_REF`, `marlinspike-malware` to `e2574a97a7407516a93a452442278ebf8756520a` via `MARLINSPIKE_MALWARE_REF`, and `marlinspike-malware-rules` to `f57d56d6d958856452e939116553919a3f64aa31` via `MARLINSPIKE_MALWARE_RULES_REF`. Override those build args in your environment if you need newer known-good refs. The app prefers the published `packs/` surface over the engine repo's dev/test copy when discovering rules.
+The current Docker build pins `marlinspike-dpi` to `de7ed06a28096a3da482831bc674ef0652c0e479` by default via `MARLINSPIKE_DPI_REF`, `marlinspike-mitre` to `c3583ec2d189b8cde69f2160da6a5e8e5b643f7b` via `MARLINSPIKE_MITRE_REF`, `marlinspike-malware` to `02eb369c32e5050796c76be500c009dc0cb8940d` via `MARLINSPIKE_MALWARE_REF`, and `marlinspike-malware-rules` to `99cbe9358d0a5047d9b5e57a7e4ff5eafdee9bd4` via `MARLINSPIKE_MALWARE_RULES_REF`. On March 28, 2026, the rules ref was refreshed to a valid published commit and the malware repo was confirmed publicly readable at the pinned ref. Override those build args in your environment if you need a different known-good combination. The app prefers the published `packs/` surface over the engine repo's dev/test copy when discovering rules.
 
 ## ATT&CK Walkthrough
 
@@ -253,8 +253,8 @@ MarlinSpike's current public detection and standards story is intentionally boun
 - `marlinspike-dpi` now contributes a broader passive-observable surface: 34 protocol dissectors, Bronze v2 event families, and parser-adjacent anomaly streams from `stovetop`, `icmpeeker`, and `bilgepump`
 - Purdue Model inference and cross-level communication checks are part of the core triage workflow
 - Stage 4 remediation guidance is aligned to IEC 62443 SR requirements for the finding classes currently produced by the engine
-- Deployed instances publish a built-in detection coverage catalog at `/findings` that is explicitly framed as what MarlinSpike can detect, not what it has already detected in a given environment
-- The `/findings` page now groups current report finding classes, `marlinspike-dpi` parser coverage, `marlinspike-malware` observable and rule coverage, and the current ATT&CK mapping set behind filterable source, type, family, severity, and search controls
+- Deployed instances publish a built-in detection coverage catalog at `/capabilities` that is explicitly framed as what MarlinSpike can detect, not what it has already detected in a given environment
+- The `/capabilities` page now groups current report finding classes, `marlinspike-dpi` parser coverage, `marlinspike-malware` observable and rule coverage, and the current ATT&CK mapping set behind filterable source, type, family, severity, and search controls
 - The current `marlinspike-malware` section reflects the published `marlinspike-malware-rules` content surface, now at 30 packs and 921 rules, and the ATT&CK section reflects the vendored full ATT&CK implementation shipped by `marlinspike-mitre`
 
 This is now positioned as a full ATT&CK implementation for MarlinSpike's report-facing workflow. It is still intentionally scoped to passive-traffic evidence and analyst triage rather than a broader compliance crosswalk or every possible ATT&CK analytic.

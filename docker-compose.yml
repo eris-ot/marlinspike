@@ -8,9 +8,9 @@ services:
         MARLINSPIKE_MITRE_REPO: ${MARLINSPIKE_MITRE_REPO:-https://github.com/riverrisk/marlinspike-mitre.git}
         MARLINSPIKE_MITRE_REF: ${MARLINSPIKE_MITRE_REF:-c3583ec2d189b8cde69f2160da6a5e8e5b643f7b}
         MARLINSPIKE_MALWARE_REPO: ${MARLINSPIKE_MALWARE_REPO:-https://github.com/riverrisk/marlinspike-malware.git}
-        MARLINSPIKE_MALWARE_REF: ${MARLINSPIKE_MALWARE_REF:-7d1c33f18d66f86ee4bc1796e4d88460f84d4a1a}
+        MARLINSPIKE_MALWARE_REF: ${MARLINSPIKE_MALWARE_REF:-02eb369c32e5050796c76be500c009dc0cb8940d}
         MARLINSPIKE_MALWARE_RULES_REPO: ${MARLINSPIKE_MALWARE_RULES_REPO:-https://github.com/riverrisk/marlinspike-malware-rules.git}
-        MARLINSPIKE_MALWARE_RULES_REF: ${MARLINSPIKE_MALWARE_RULES_REF:-038dab65a77927efe8d66abf12f3a564865d9e01}
+        MARLINSPIKE_MALWARE_RULES_REF: ${MARLINSPIKE_MALWARE_RULES_REF:-99cbe9358d0a5047d9b5e57a7e4ff5eafdee9bd4}
     container_name: marlinspike-app
     restart: unless-stopped
     ports:
@@ -19,6 +19,7 @@ services:
       - DATABASE_URL=postgresql://marlinspike:${DB_PASSWORD}@db:5432/marlinspike
       - SECRET_KEY=${SECRET_KEY}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-false}
       - MARLINSPIKE_DPI_BIN=/usr/local/bin/marlinspike-dpi
       - MARLINSPIKE_MALWARE_BIN=/opt/marlinspike-malware/bin/marlinspike-malware
       - MARLINSPIKE_MALWARE_RULES=/usr/share/marlinspike-malware/rules/packs

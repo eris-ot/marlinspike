@@ -1729,7 +1729,7 @@ def create_app():
     app.config["SQLALCHEMY_DATABASE_URI"] = config.DATABASE_URL
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config.update(
-        SESSION_COOKIE_SECURE=True,
+        SESSION_COOKIE_SECURE=config.SESSION_COOKIE_SECURE,
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE='Lax',
         PERMANENT_SESSION_LIFETIME=86400,
@@ -1990,9 +1990,9 @@ def create_app():
     def projects_page():
         return render_template("projects.html")
 
-    @app.route("/findings")
+    @app.route("/capabilities")
     @login_required
-    def findings_page():
+    def capabilities_page():
         catalog = _build_findings_catalog()
         entries = list(catalog["entries"])
 

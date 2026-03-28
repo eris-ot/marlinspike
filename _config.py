@@ -55,6 +55,7 @@ DATABASE_URL = os.environ.get(
 # Server
 PORT = int(os.environ.get("PORT", 5001))
 HOST = os.environ.get("HOST", "0.0.0.0")
+SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", default=False)
 
 # Run cleanup
 RUN_CLEANUP_SECONDS = 3600
