@@ -552,3 +552,7 @@ Learn more at [riverriskpartners.com](https://riverriskpartners.com).
 ## License
 
 This repository is licensed under the GNU Affero General Public License v3.0. See [LICENSE](LICENSE).
+
+## Contact
+
+Questions? Contact me, river@riverman.io
