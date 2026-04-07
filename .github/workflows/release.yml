@@ -1,0 +1,117 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to publish or update
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile source files
+        run: python -m py_compile app.py _auth.py _config.py _models.py _ms_engine.py
+
+  publish:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - name: Resolve release tag
+        id: tag
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG_NAME="${{ inputs.tag }}"
+            git fetch --force origin "refs/tags/${TAG_NAME}:refs/tags/${TAG_NAME}"
+          else
+            TAG_NAME="${GITHUB_REF_NAME}"
+          fi
+
+          if [[ ! "${TAG_NAME}" =~ ^v[0-9]+(\.[0-9]+){1,2}([-.].+)?$ ]]; then
+            echo "Expected a semver-like tag such as v2.0.0, got: ${TAG_NAME}" >&2
+            exit 1
+          fi
+
+          if [[ "${TAG_NAME}" == *-* ]]; then
+            echo "prerelease=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "prerelease=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+          echo "name=${TAG_NAME}" >> "${GITHUB_OUTPUT}"
+
+      - name: Publish GitHub release
+        uses: actions/github-script@v7
+        env:
+          TAG_NAME: ${{ steps.tag.outputs.name }}
+          PRERELEASE: ${{ steps.tag.outputs.prerelease }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const tag = process.env.TAG_NAME;
+            const prerelease = process.env.PRERELEASE === "true";
+            const { owner, repo } = context.repo;
+
+            const releases = await github.paginate(github.rest.repos.listReleases, {
+              owner,
+              repo,
+              per_page: 100,
+            });
+
+            const existing = releases.find((release) => release.tag_name === tag);
+
+            if (existing) {
+              core.info(
+                `Updating existing release ${existing.id} for ${tag} (draft=${existing.draft}, prerelease=${existing.prerelease})`
+              );
+
+              await github.rest.repos.updateRelease({
+                owner,
+                repo,
+                release_id: existing.id,
+                tag_name: tag,
+                name: existing.name || `MarlinSpike ${tag}`,
+                body: existing.body || undefined,
+                draft: false,
+                prerelease,
+              });
+
+              core.notice(`Published existing release for ${tag}`);
+              return;
+            }
+
+            await github.rest.repos.createRelease({
+              owner,
+              repo,
+              tag_name: tag,
+              name: `MarlinSpike ${tag}`,
+              generate_release_notes: true,
+              draft: false,
+              prerelease,
+            });
+
+            core.notice(`Created published release for ${tag}`);
