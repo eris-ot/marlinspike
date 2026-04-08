@@ -3196,29 +3196,53 @@ class TopologyBuilder:
                 # Identify well-known OT vendor cloud ranges
                 node.device_type = self._identify_external_service(ip)
 
-        # Heuristic inference for unmapped internal nodes
+        # Pass 1: Assign OT devices (those speaking OT protocols)
         ot_names = set(OT_TSHARK_PROTOCOLS.values()) | set(OT_PROTOCOLS.values())
         for ip, node in self.nodes.items():
             if node.purdue_level != -1:
                 continue  # Already mapped
 
             has_ot = any(p in ot_names for p in node.protocols)
+            if not has_ot:
+                continue  # Defer non-OT to pass 2
 
-            # Level 0/1: Only responds, never initiates on OT protocols
             if node.responds and not node.initiates:
-                node.purdue_level = 1 if has_ot else 2
-
-            # Level 2: Both initiates and responds on OT protocols
+                node.purdue_level = 1
             elif node.initiates and node.responds:
-                if has_ot:
-                    node.purdue_level = 2
-                else:
-                    node.purdue_level = 3
-
-            # Level 2/3: Only initiates (HMI, historian, engineering workstation)
+                node.purdue_level = 2
             elif node.initiates and not node.responds:
-                node.purdue_level = 2 if has_ot else 3
+                node.purdue_level = 2
+            else:
+                node.purdue_level = -1
 
+        # Pass 2: Assign non-OT devices based on whether they communicate
+        # with OT assets.  Level 3 = IT in the OT zone (talks to L0-L2),
+        # Level 4 = enterprise IT (only talks to other IT devices).
+        ot_ips = {ip for ip, n in self.nodes.items() if n.purdue_level in (0, 1, 2)}
+        for ip, node in self.nodes.items():
+            if node.purdue_level != -1:
+                continue
+
+            # Check if this node has any conversations with OT devices
+            talks_to_ot = False
+            for conv in self._conv_by_src.get(ip, []):
+                peer = conv.dst_ip or conv.dst_mac
+                if peer in ot_ips:
+                    talks_to_ot = True
+                    break
+            if not talks_to_ot:
+                for conv in self._conv_by_dst.get(ip, []):
+                    peer = conv.src_ip or conv.src_mac
+                    if peer in ot_ips:
+                        talks_to_ot = True
+                        break
+
+            if node.responds and not node.initiates:
+                node.purdue_level = 2 if talks_to_ot else 4
+            elif node.initiates and node.responds:
+                node.purdue_level = 3 if talks_to_ot else 4
+            elif node.initiates and not node.responds:
+                node.purdue_level = 3 if talks_to_ot else 4
             else:
                 node.purdue_level = -1
 
@@ -3787,6 +3811,30 @@ class TopologyBuilder:
                     node.role = "Operations Host"
                     if node.device_type == "Unknown":
                         node.device_type = "Endpoint"
+
+            elif node.purdue_level == 4:
+                if has_db_or_file or (has_server_stack and peer_count >= 3):
+                    node.role = "Enterprise Server"
+                    if node.device_type == "Unknown":
+                        svc_names = self._node_service_names(node)
+                        if svc_names & {"dns", "dhcp server", "dhcp client"}:
+                            node.device_type = "Enterprise DNS/DHCP"
+                        elif svc_names & {"http", "https", "http-alt", "https-alt"}:
+                            node.device_type = "Enterprise Web Server"
+                        elif svc_names & {"smtp", "smtps", "imap", "imaps", "pop3", "pop3s", "smtp submission"}:
+                            node.device_type = "Mail Server"
+                        elif svc_names & {"ldap", "ldaps", "kerberos"}:
+                            node.device_type = "Directory Server"
+                        else:
+                            node.device_type = "Enterprise Server"
+                elif workstation_hint or (node.initiates and not node.responds):
+                    node.role = "Enterprise Workstation"
+                    if node.device_type == "Unknown":
+                        node.device_type = "Business Workstation"
+                else:
+                    node.role = "Enterprise Host"
+                    if node.device_type == "Unknown":
+                        node.device_type = "Enterprise Endpoint"
 
             elif node.purdue_level == 5:
                 node.role = "External Host"
