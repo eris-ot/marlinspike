@@ -2997,6 +2997,8 @@ class TopologyBuilder:
         """Check if an IP address is a public (non-RFC1918, non-link-local) address."""
         try:
             addr = ipaddress.ip_address(ip_str)
+            if addr.is_multicast:
+                return False  # Multicast (224.0.0.0/4) is not "public internet"
             return addr.is_global
         except ValueError:
             return False  # MAC address or invalid — not public
@@ -3228,7 +3230,8 @@ class TopologyBuilder:
 
         for ip, node in self.nodes.items():
             # Extract OUI from MAC (first 3 octets)
-            if node.mac:
+            # Skip external hosts — their MAC is the gateway's, not their own
+            if node.mac and node.purdue_level != 5 and node.asset_type != "external":
                 oui = ":".join(node.mac.split(":")[:3]).lower()
                 if oui in self.oui_db:
                     vendor_info = self.oui_db[oui]
@@ -3760,10 +3763,28 @@ class TopologyBuilder:
                     node.role = "Operations Workstation"
                     if node.device_type == "Unknown":
                         node.device_type = "Workstation"
-                elif node.responds and (has_db_or_file or (has_server_stack and peer_count >= 3)):
-                    node.role = "Application Server"
+                elif node.responds and has_db_or_file:
+                    node.role = "Data Server"
                     if node.device_type == "Unknown":
-                        node.device_type = "Application Server"
+                        node.device_type = "Database/File Server"
+                elif node.responds and has_server_stack and peer_count >= 3:
+                    node.role = "Infrastructure Server"
+                    if node.device_type == "Unknown":
+                        svc_names = self._node_service_names(node)
+                        if svc_names & {"dns", "mdns", "dhcp server", "dhcp client", "ntp"}:
+                            node.device_type = "Network Services Host"
+                        elif svc_names & {"http", "https", "http-alt", "https-alt"}:
+                            node.device_type = "Web Server"
+                        elif svc_names & {"smtp", "smtps", "imap", "imaps", "pop3", "pop3s", "smtp submission"}:
+                            node.device_type = "Mail Server"
+                        elif svc_names & {"syslog", "syslog tls", "snmp", "snmp trap"}:
+                            node.device_type = "Monitoring Server"
+                        else:
+                            node.device_type = "Infrastructure Server"
+                elif node.responds:
+                    node.role = "Operations Host"
+                    if node.device_type == "Unknown":
+                        node.device_type = "Server"
                 else:
                     node.role = "Operations Host"
                     if node.device_type == "Unknown":
@@ -4038,22 +4059,79 @@ class RiskSurface:
             self.findings.append(finding)
             print(f"  [MEDIUM] Multiple Modbus write sources: {len(write_sources)}")
 
-    def _check_no_auth(self):
-        """Flag devices with no observed authentication."""
-        # Simplified — would need auth protocol detection
-        unauth_nodes = [ip for ip, node in self.nodes.items()
-                       if not node.get("auth_observed", False)]
+    # Protocols that inherently lack authentication — suppress NO_AUTH_OBSERVED
+    _AUTH_EXEMPT_PROTOCOLS = frozenset({
+        "arp", "rarp",
+        "mdns", "llmnr", "ssdp", "igmp",
+        "dhcp server", "dhcp client", "dhcp",
+        "icmp", "icmpv6",
+        "ntp",
+        "lldp", "cdp", "stp",
+        "profinet dcp", "pn_dcp",
+        "goose", "sv",           # IEC 61850 L2 multicast
+        "broadcast/multicast",
+    })
 
-        if len(unauth_nodes) > len(self.nodes) * 0.5:  # More than 50%
+    # Protocols where authentication IS possible and its absence is notable
+    _AUTH_CAPABLE_PROTOCOLS = frozenset({
+        "ssh", "rdp", "vnc", "telnet",
+        "http", "https", "http-alt", "https-alt",
+        "smb", "ftp", "tftp",
+        "snmp", "snmp trap",
+        "ldap", "ldaps", "kerberos",
+        "modbus tcp", "ethernet/ip", "cip", "opc-ua", "s7comm",
+        "dnp3", "iec 60870-5-104",
+        "mqtt", "mqtt tls", "amqp",
+        "mssql", "oracle", "mysql", "postgresql",
+        "winrm http", "winrm https",
+        "sip", "sip tls",
+    })
+
+    def _check_no_auth(self):
+        """Flag devices with no observed authentication, filtered by protocol context."""
+        unauth_nodes = []
+        for ip, node in self.nodes.items():
+            if node.get("auth_observed", False):
+                continue
+            # Skip broadcast/multicast addresses
+            if node.get("asset_type") == "network" or node.get("purdue_level") == -1:
+                continue
+            # Skip external hosts — auth is between the gateway and the host
+            if node.get("asset_type") == "external" or node.get("purdue_level") == 5:
+                continue
+            # Check if this node uses ONLY auth-exempt protocols
+            protos = {p.strip().lower() for p in node.get("protocols", []) if p}
+            for sp in node.get("service_ports", []):
+                p = str(sp.get("protocol", "")).strip().lower()
+                if p:
+                    protos.add(p)
+            if not protos:
+                continue  # No protocol info at all — skip
+            has_auth_capable = bool(protos & self._AUTH_CAPABLE_PROTOCOLS)
+            if not has_auth_capable:
+                # All protocols are exempt or unrecognized — not a meaningful finding
+                continue
+            unauth_nodes.append(ip)
+
+        if len(unauth_nodes) > 0:
+            internal_count = sum(
+                1 for n in self.nodes.values()
+                if n.get("asset_type") not in ("external", "network")
+                and n.get("purdue_level", -1) not in (-1, 5)
+            )
+            pct = (len(unauth_nodes) / internal_count * 100) if internal_count else 0
             finding = RiskFinding(
                 severity="MEDIUM",
                 category="NO_AUTH_OBSERVED",
-                description=f"{len(unauth_nodes)} devices show no authentication exchanges",
-                affected_nodes=unauth_nodes[:20],  # Limit to first 20
+                description=(
+                    f"{len(unauth_nodes)} device(s) using auth-capable protocols show "
+                    f"no authentication exchanges ({pct:.0f}% of internal assets)"
+                ),
+                affected_nodes=unauth_nodes[:20],
                 remediation="Implement authentication for all OT protocols where supported",
             )
             self.findings.append(finding)
-            print(f"  [MEDIUM] No auth observed: {len(unauth_nodes)} nodes")
+            print(f"  [MEDIUM] No auth observed: {len(unauth_nodes)} nodes ({pct:.0f}% of internal)")
 
     def _check_opc_security(self):
         """Flag OPC-UA sessions without security."""
