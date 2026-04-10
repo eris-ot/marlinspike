@@ -154,10 +154,15 @@ var LIVE = (function() {
     'Operations Workstation':{color:'#60a5fa',label:'Ops WS'},
     'Operations Host':{color:'#94a3b8',label:'Host'},
     'Application Server':{color:'#8b5cf6',label:'Server'},
+    'Data Server':{color:'#a78bfa',label:'Data Srv'},
+    'Infrastructure Server':{color:'#7c3aed',label:'Infra Srv'},
     'Server':{color:'#8b5cf6',label:'Server'},
     'Security Appliance':{color:'#ec4899',label:'Security'},
     'Industrial Appliance':{color:'#06b6d4',label:'Appliance'},
     'Gateway':{color:'#06b6d4',label:'Gateway'},
+    'Enterprise Server':{color:'#e879f9',label:'Ent Srv'},
+    'Enterprise Workstation':{color:'#d946ef',label:'Ent WS'},
+    'Enterprise Host':{color:'#c084fc',label:'Ent Host'},
     'External Host':{color:'#94a3b8',label:'External'},
     'Broadcast/Multicast':{color:'#64748b',label:'Broadcast'},
     'Network Switch':{color:'#64748b',label:'Switch'},
@@ -296,8 +301,33 @@ var LIVE = (function() {
   }
 
   function renderSidebar(data){
-    var html='';var ps=data.protocol_summary||{};var protos=Object.keys(ps).sort(function(a,b){return ps[b]-ps[a];});
-    if(protos.length){html+='<h3>Protocols</h3>';protos.forEach(function(p){html+='<div class="live-legend-item"><span class="live-legend-dot" style="background:'+protoColor(p)+'"></span><span>'+esc(p)+'</span><span class="live-legend-count">'+ps[p]+'</span></div>';});}
+    var html='';
+
+    // Role legend — count how many nodes of each role are present
+    if(nodes.length){
+      var roleCounts={};
+      nodes.forEach(function(n){var r=n._role||'Unknown';roleCounts[r]=(roleCounts[r]||0)+1;});
+      var roles=Object.keys(roleCounts).sort(function(a,b){return roleCounts[b]-roleCounts[a];});
+      html+='<h3>Device Roles</h3>';
+      roles.forEach(function(r){
+        var st=resolveRoleStyle(r);
+        html+='<div class="live-legend-item"><span class="live-legend-dot" style="background:'+st.color+'"></span><span>'+esc(r)+'</span><span class="live-legend-count">'+roleCounts[r]+'</span></div>';
+      });
+    }
+
+    // Protocol legend
+    var ps=data.protocol_summary||{};var protos=Object.keys(ps).sort(function(a,b){return ps[b]-ps[a];});
+    if(protos.length){html+='<h3>Protocols (edges)</h3>';protos.forEach(function(p){html+='<div class="live-legend-item"><span class="live-legend-dot" style="background:'+protoColor(p)+'"></span><span>'+esc(p)+'</span><span class="live-legend-count">'+ps[p]+'</span></div>';});}
+
+    // Map key
+    html+='<h3>Map Key</h3>';
+    html+='<div style="font-size:0.82em;color:var(--text-dim);line-height:1.55;">';
+    html+='<div style="padding:2px 0;"><svg width="14" height="10" style="vertical-align:middle;margin-right:6px;"><circle cx="7" cy="5" r="4" fill="var(--text-dim)"/></svg>Circle size = connection count</div>';
+    html+='<div style="padding:2px 0;"><svg width="14" height="10" style="vertical-align:middle;margin-right:6px;"><line x1="0" y1="5" x2="14" y2="5" stroke="var(--text-dim)" stroke-width="2"/></svg>Solid edge = read traffic</div>';
+    html+='<div style="padding:2px 0;"><svg width="14" height="10" style="vertical-align:middle;margin-right:6px;"><line x1="0" y1="5" x2="14" y2="5" stroke="var(--color-vor-accent)" stroke-width="2" stroke-dasharray="4,2"/></svg>Dashed edge = write traffic</div>';
+    html+='<div style="padding:2px 0;">Horizontal bands = Purdue levels (0\u20135)</div>';
+    html+='</div>';
+
     var risks=data.risk_findings||[];if(risks.length){html+='<h3>Risk Findings ('+risks.length+')</h3>';risks.forEach(function(r){html+='<div class="live-risk-item sev-'+esc(r.severity)+'"><div style="font-size:0.72em;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">'+esc(r.severity)+' \u2014 '+esc(r.category)+'</div><div>'+esc(r.description)+'</div></div>';});}
     var ci=data.capture_info||{};if(ci.pcap_path||ci.total_packets){html+='<h3>Capture</h3>';if(ci.pcap_path){var pcapBase=ci.pcap_path.split('/').pop();html+='<div style="padding:2px 0;font-family:var(--font-mono);font-size:0.85em;word-break:break-all;color:var(--text-dim);">'+esc(pcapBase)+'</div>';}if(ci.unique_ips_count)html+='<div style="padding:2px 0;font-size:0.88em;">'+ci.unique_ips_count+' unique IPs</div>';if(ci.unique_macs_count)html+='<div style="padding:2px 0;font-size:0.88em;">'+ci.unique_macs_count+' unique MACs</div>';}
     if(!html)html='<h3>Waiting for data...</h3>';

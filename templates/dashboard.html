@@ -528,6 +528,50 @@
 }
 .empty-hint .hint-action:hover { text-decoration: underline; }
 
+.info-hint {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1px solid var(--text-muted);
+  color: var(--text-muted);
+  font-size: 0.7em;
+  font-weight: 700;
+  font-style: italic;
+  font-family: Georgia, serif;
+  cursor: help;
+  vertical-align: middle;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+.info-hint:hover { border-color: var(--accent); color: var(--accent); }
+.info-hint .info-tip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 260px;
+  padding: 8px 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--text);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+  z-index: 50;
+  white-space: normal;
+  pointer-events: none;
+}
+.info-hint:hover .info-tip { display: block; }
+
 @media (max-width: 1120px) {
   .workspace-kpis {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -665,7 +709,7 @@
           </div>
         </div>
         <div class="scan-field">
-          <label>Command</label>
+          <label>Command <span class="info-hint">i<span class="info-tip"><b>Full Chain</b> runs all stages (ingest, dissect, topology, risk). Individual stages can be re-run separately to refine results without re-ingesting the PCAP.</span></span></label>
           <select id="scan-command">
             <option value="chain">Full Chain</option>
             <option value="ingest">Ingest Only</option>
@@ -675,21 +719,22 @@
           </select>
         </div>
         <div class="scan-field">
-          <label>Profile</label>
+          <label>Profile <span class="info-hint">i<span class="info-tip"><b>Fast</b> skips deep packet inspection for quicker results. <b>Full</b> enables all DPI stages including protocol-level field extraction, OT command analysis, and malware IOC scanning.</span></span></label>
           <select id="scan-profile">
             <option value="fast">Fast</option>
             <option value="full">Full</option>
           </select>
         </div>
         <div class="scan-field">
-          <label for="capture-filter">Capture filter (BPF)</label>
+          <label for="capture-filter">Capture filter (BPF) <span class="info-hint">i<span class="info-tip">Berkeley Packet Filter expression applied during ingestion. Use to focus analysis on specific hosts, subnets, or protocols. Example: <code style="font-size:0.9em;color:var(--accent);">host 10.0.0.1 and port 502</code></span></span></label>
           <input type="text" id="capture-filter" placeholder="e.g. host 10.0.0.1 or port 502">
         </div>
         <div class="scan-field">
           <label>&nbsp;</label>
-          <label for="skip-ephemeral" style="display:flex;align-items:center;gap:6px;margin:0;cursor:pointer;padding:7px 0;font-size:0.9em;text-transform:none;font-weight:normal;color:var(--text);" title="Skip edges on ports >= 49152 for a cleaner relationship view. Leave unchecked for C2/exfil analysis.">
+          <label for="skip-ephemeral" style="display:flex;align-items:center;gap:6px;margin:0;cursor:pointer;padding:7px 0;font-size:0.9em;text-transform:none;font-weight:normal;color:var(--text);">
             <input type="checkbox" id="skip-ephemeral" style="width:auto;min-width:auto;margin:0;" checked>
             Skip ephemeral ports
+            <span class="info-hint">i<span class="info-tip">Excludes connections on ports 49152+ from the topology map. These are typically OS-assigned client ports that add noise. Disable for C2 beaconing or data exfiltration analysis where high ports may be significant.</span></span>
           </label>
         </div>
       </div>

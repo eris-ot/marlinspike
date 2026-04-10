@@ -50,6 +50,10 @@
             <option value="admin">admin</option>
           </select>
         </div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:0.75em;color:var(--text-dim);text-transform:uppercase;font-weight:600;">Upload Limit (MB)</label>
+          <input type="number" id="new-upload-limit" class="ms-input" min="1" max="10000" value="200" style="min-width:100px;">
+        </div>
         <button class="btn btn-success" onclick="USR.createUser()">Create</button>
       </div>
     </div>
@@ -147,11 +151,12 @@ var USR = (function() {
     var u = document.getElementById('new-username').value.trim();
     var p = document.getElementById('new-password').value;
     var r = document.getElementById('new-role').value;
+    var lim = parseInt(document.getElementById('new-upload-limit').value) || 200;
     if (!u || !p) { msToast('Fill in all fields', true); return; }
     fetch('/api/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: u, password: p, role: r }),
+      body: JSON.stringify({ username: u, password: p, role: r, upload_limit_mb: lim }),
     }).then(function(r) { return r.json(); }).then(function(d) {
       if (d.ok) {
         msToast('User created');

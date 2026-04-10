@@ -48,7 +48,7 @@ from _auth import (
 )
 from _models import Project, ScanHistory, User, db
 
-APP_VERSION = "2.0.0"
+APP_VERSION = "2.0.1"
 
 log = logging.getLogger("marlinspike")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(message)s")
@@ -3647,8 +3647,16 @@ def create_app():
             return jsonify({"ok": False, "error": "Invalid role"}), 400
         if User.query.filter_by(username=username).first():
             return jsonify({"ok": False, "error": "Username already exists"}), 409
-        create_user(username, password, role)
-        log.info("User created: %s (role=%s) by %s", username, role, session.get("user", "?"))
+        upload_limit = 200
+        if "upload_limit_mb" in body:
+            try:
+                upload_limit = int(body["upload_limit_mb"])
+                if upload_limit < 1 or upload_limit > 10000:
+                    raise ValueError
+            except (TypeError, ValueError):
+                return jsonify({"ok": False, "error": "upload_limit_mb must be 1-10000"}), 400
+        create_user(username, password, role, upload_limit_mb=upload_limit)
+        log.info("User created: %s (role=%s, limit=%dMB) by %s", username, role, upload_limit, session.get("user", "?"))
         return jsonify({"ok": True})
 
     @app.route("/api/users/<username>", methods=["DELETE"])

@@ -36,11 +36,12 @@ def admin_required(f):
 # ── User CRUD ──
 
 
-def create_user(username, password, role="user"):
+def create_user(username, password, role="user", upload_limit_mb=200):
     user = User(
         username=username,
         password_hash=generate_password_hash(password),
         role=role,
+        upload_limit_mb=upload_limit_mb,
     )
     db.session.add(user)
     db.session.commit()

@@ -6,11 +6,11 @@ VORACITY MODULE — MARLINSPIKE
 module:
     name: MarlinSpike
     id: VORACITY-MODULE-MARLINSPIKE
-    version: 2.0.0
+    version: 2.0.1
     author: River Caudle <danny@riverman.io>
     organization: River Risk Partners (Riverman Enterprises LLC)
     date_created: 2026-02-20
-    date_modified: 2026-03-27
+    date_modified: 2026-04-10
     license: Apache-2.0
 
 classification:
@@ -2997,6 +2997,8 @@ class TopologyBuilder:
         """Check if an IP address is a public (non-RFC1918, non-link-local) address."""
         try:
             addr = ipaddress.ip_address(ip_str)
+            if addr.is_multicast:
+                return False  # Multicast (224.0.0.0/4) is not "public internet"
             return addr.is_global
         except ValueError:
             return False  # MAC address or invalid — not public
@@ -3196,29 +3198,53 @@ class TopologyBuilder:
                 # Identify well-known OT vendor cloud ranges
                 node.device_type = self._identify_external_service(ip)
 
-        # Heuristic inference for unmapped internal nodes
+        # Pass 1: Assign OT devices (those speaking OT protocols)
         ot_names = set(OT_TSHARK_PROTOCOLS.values()) | set(OT_PROTOCOLS.values())
         for ip, node in self.nodes.items():
             if node.purdue_level != -1:
                 continue  # Already mapped
 
             has_ot = any(p in ot_names for p in node.protocols)
+            if not has_ot:
+                continue  # Defer non-OT to pass 2
 
-            # Level 0/1: Only responds, never initiates on OT protocols
             if node.responds and not node.initiates:
-                node.purdue_level = 1 if has_ot else 2
-
-            # Level 2: Both initiates and responds on OT protocols
+                node.purdue_level = 1
             elif node.initiates and node.responds:
-                if has_ot:
-                    node.purdue_level = 2
-                else:
-                    node.purdue_level = 3
-
-            # Level 2/3: Only initiates (HMI, historian, engineering workstation)
+                node.purdue_level = 2
             elif node.initiates and not node.responds:
-                node.purdue_level = 2 if has_ot else 3
+                node.purdue_level = 2
+            else:
+                node.purdue_level = -1
 
+        # Pass 2: Assign non-OT devices based on whether they communicate
+        # with OT assets.  Level 3 = IT in the OT zone (talks to L0-L2),
+        # Level 4 = enterprise IT (only talks to other IT devices).
+        ot_ips = {ip for ip, n in self.nodes.items() if n.purdue_level in (0, 1, 2)}
+        for ip, node in self.nodes.items():
+            if node.purdue_level != -1:
+                continue
+
+            # Check if this node has any conversations with OT devices
+            talks_to_ot = False
+            for conv in self._conv_by_src.get(ip, []):
+                peer = conv.dst_ip or conv.dst_mac
+                if peer in ot_ips:
+                    talks_to_ot = True
+                    break
+            if not talks_to_ot:
+                for conv in self._conv_by_dst.get(ip, []):
+                    peer = conv.src_ip or conv.src_mac
+                    if peer in ot_ips:
+                        talks_to_ot = True
+                        break
+
+            if node.responds and not node.initiates:
+                node.purdue_level = 2 if talks_to_ot else 4
+            elif node.initiates and node.responds:
+                node.purdue_level = 3 if talks_to_ot else 4
+            elif node.initiates and not node.responds:
+                node.purdue_level = 3 if talks_to_ot else 4
             else:
                 node.purdue_level = -1
 
@@ -3228,7 +3254,8 @@ class TopologyBuilder:
 
         for ip, node in self.nodes.items():
             # Extract OUI from MAC (first 3 octets)
-            if node.mac:
+            # Skip external hosts — their MAC is the gateway's, not their own
+            if node.mac and node.purdue_level != 5 and node.asset_type != "external":
                 oui = ":".join(node.mac.split(":")[:3]).lower()
                 if oui in self.oui_db:
                     vendor_info = self.oui_db[oui]
@@ -3760,14 +3787,56 @@ class TopologyBuilder:
                     node.role = "Operations Workstation"
                     if node.device_type == "Unknown":
                         node.device_type = "Workstation"
-                elif node.responds and (has_db_or_file or (has_server_stack and peer_count >= 3)):
-                    node.role = "Application Server"
+                elif node.responds and has_db_or_file:
+                    node.role = "Data Server"
                     if node.device_type == "Unknown":
-                        node.device_type = "Application Server"
+                        node.device_type = "Database/File Server"
+                elif node.responds and has_server_stack and peer_count >= 3:
+                    node.role = "Infrastructure Server"
+                    if node.device_type == "Unknown":
+                        svc_names = self._node_service_names(node)
+                        if svc_names & {"dns", "mdns", "dhcp server", "dhcp client", "ntp"}:
+                            node.device_type = "Network Services Host"
+                        elif svc_names & {"http", "https", "http-alt", "https-alt"}:
+                            node.device_type = "Web Server"
+                        elif svc_names & {"smtp", "smtps", "imap", "imaps", "pop3", "pop3s", "smtp submission"}:
+                            node.device_type = "Mail Server"
+                        elif svc_names & {"syslog", "syslog tls", "snmp", "snmp trap"}:
+                            node.device_type = "Monitoring Server"
+                        else:
+                            node.device_type = "Infrastructure Server"
+                elif node.responds:
+                    node.role = "Operations Host"
+                    if node.device_type == "Unknown":
+                        node.device_type = "Server"
                 else:
                     node.role = "Operations Host"
                     if node.device_type == "Unknown":
                         node.device_type = "Endpoint"
+
+            elif node.purdue_level == 4:
+                if has_db_or_file or (has_server_stack and peer_count >= 3):
+                    node.role = "Enterprise Server"
+                    if node.device_type == "Unknown":
+                        svc_names = self._node_service_names(node)
+                        if svc_names & {"dns", "dhcp server", "dhcp client"}:
+                            node.device_type = "Enterprise DNS/DHCP"
+                        elif svc_names & {"http", "https", "http-alt", "https-alt"}:
+                            node.device_type = "Enterprise Web Server"
+                        elif svc_names & {"smtp", "smtps", "imap", "imaps", "pop3", "pop3s", "smtp submission"}:
+                            node.device_type = "Mail Server"
+                        elif svc_names & {"ldap", "ldaps", "kerberos"}:
+                            node.device_type = "Directory Server"
+                        else:
+                            node.device_type = "Enterprise Server"
+                elif workstation_hint or (node.initiates and not node.responds):
+                    node.role = "Enterprise Workstation"
+                    if node.device_type == "Unknown":
+                        node.device_type = "Business Workstation"
+                else:
+                    node.role = "Enterprise Host"
+                    if node.device_type == "Unknown":
+                        node.device_type = "Enterprise Endpoint"
 
             elif node.purdue_level == 5:
                 node.role = "External Host"
@@ -4038,22 +4107,79 @@ class RiskSurface:
             self.findings.append(finding)
             print(f"  [MEDIUM] Multiple Modbus write sources: {len(write_sources)}")
 
-    def _check_no_auth(self):
-        """Flag devices with no observed authentication."""
-        # Simplified — would need auth protocol detection
-        unauth_nodes = [ip for ip, node in self.nodes.items()
-                       if not node.get("auth_observed", False)]
+    # Protocols that inherently lack authentication — suppress NO_AUTH_OBSERVED
+    _AUTH_EXEMPT_PROTOCOLS = frozenset({
+        "arp", "rarp",
+        "mdns", "llmnr", "ssdp", "igmp",
+        "dhcp server", "dhcp client", "dhcp",
+        "icmp", "icmpv6",
+        "ntp",
+        "lldp", "cdp", "stp",
+        "profinet dcp", "pn_dcp",
+        "goose", "sv",           # IEC 61850 L2 multicast
+        "broadcast/multicast",
+    })
 
-        if len(unauth_nodes) > len(self.nodes) * 0.5:  # More than 50%
+    # Protocols where authentication IS possible and its absence is notable
+    _AUTH_CAPABLE_PROTOCOLS = frozenset({
+        "ssh", "rdp", "vnc", "telnet",
+        "http", "https", "http-alt", "https-alt",
+        "smb", "ftp", "tftp",
+        "snmp", "snmp trap",
+        "ldap", "ldaps", "kerberos",
+        "modbus tcp", "ethernet/ip", "cip", "opc-ua", "s7comm",
+        "dnp3", "iec 60870-5-104",
+        "mqtt", "mqtt tls", "amqp",
+        "mssql", "oracle", "mysql", "postgresql",
+        "winrm http", "winrm https",
+        "sip", "sip tls",
+    })
+
+    def _check_no_auth(self):
+        """Flag devices with no observed authentication, filtered by protocol context."""
+        unauth_nodes = []
+        for ip, node in self.nodes.items():
+            if node.get("auth_observed", False):
+                continue
+            # Skip broadcast/multicast addresses
+            if node.get("asset_type") == "network" or node.get("purdue_level") == -1:
+                continue
+            # Skip external hosts — auth is between the gateway and the host
+            if node.get("asset_type") == "external" or node.get("purdue_level") == 5:
+                continue
+            # Check if this node uses ONLY auth-exempt protocols
+            protos = {p.strip().lower() for p in node.get("protocols", []) if p}
+            for sp in node.get("service_ports", []):
+                p = str(sp.get("protocol", "")).strip().lower()
+                if p:
+                    protos.add(p)
+            if not protos:
+                continue  # No protocol info at all — skip
+            has_auth_capable = bool(protos & self._AUTH_CAPABLE_PROTOCOLS)
+            if not has_auth_capable:
+                # All protocols are exempt or unrecognized — not a meaningful finding
+                continue
+            unauth_nodes.append(ip)
+
+        if len(unauth_nodes) > 0:
+            internal_count = sum(
+                1 for n in self.nodes.values()
+                if n.get("asset_type") not in ("external", "network")
+                and n.get("purdue_level", -1) not in (-1, 5)
+            )
+            pct = (len(unauth_nodes) / internal_count * 100) if internal_count else 0
             finding = RiskFinding(
                 severity="MEDIUM",
                 category="NO_AUTH_OBSERVED",
-                description=f"{len(unauth_nodes)} devices show no authentication exchanges",
-                affected_nodes=unauth_nodes[:20],  # Limit to first 20
+                description=(
+                    f"{len(unauth_nodes)} device(s) using auth-capable protocols show "
+                    f"no authentication exchanges ({pct:.0f}% of internal assets)"
+                ),
+                affected_nodes=unauth_nodes[:20],
                 remediation="Implement authentication for all OT protocols where supported",
             )
             self.findings.append(finding)
-            print(f"  [MEDIUM] No auth observed: {len(unauth_nodes)} nodes")
+            print(f"  [MEDIUM] No auth observed: {len(unauth_nodes)} nodes ({pct:.0f}% of internal)")
 
     def _check_opc_security(self):
         """Flag OPC-UA sessions without security."""
