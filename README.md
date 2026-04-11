@@ -548,6 +548,15 @@ The commercial Fathom platform adds distributed collectors, hierarchy, data diod
 
 Learn more at [riverriskpartners.com](https://riverriskpartners.com).
 
+## Acknowledgments
+
+MarlinSpike is better because of the people who take the time to test it, read the code, and file issues or PRs. Community contributors:
+
+- **[Michael Sargis (@MichaelMVS)](https://github.com/MichaelMVS)** — caught a silent OUI dict collision in `ICS_OUI_DB` that was causing Honeywell devices to be misidentified as GE in every report ([PR #3](https://github.com/riverrisk/marlinspike/pull/3), v2.0.3)
+- **Jerrid Brown** (OTPulse) — ran real DCS packet captures through MarlinSpike and surfaced multiple classification and UX issues that drove the v2.0.1 / v2.0.2 fixes (multicast misclassification, OUI gateway-MAC misattribution, NO_AUTH_OBSERVED noise, Level 3 "Application Server" catch-all, Purdue L3 vs L4 heuristics)
+
+If you find a bug or have a fingerprint to add, [open an issue](https://github.com/riverrisk/marlinspike/issues) or [send a PR](https://github.com/riverrisk/marlinspike/pulls) — first-time contributors very welcome.
+
 ## License
 
 This repository is licensed under the GNU Affero General Public License v3.0. See [LICENSE](LICENSE).
