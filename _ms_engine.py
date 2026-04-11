@@ -6,11 +6,11 @@ VORACITY MODULE — MARLINSPIKE
 module:
     name: MarlinSpike
     id: VORACITY-MODULE-MARLINSPIKE
-    version: 2.0.1
+    version: 2.0.2
     author: River Caudle <danny@riverman.io>
     organization: River Risk Partners (Riverman Enterprises LLC)
     date_created: 2026-02-20
-    date_modified: 2026-04-10
+    date_modified: 2026-04-11
     license: Apache-2.0
 
 classification:
@@ -156,26 +156,16 @@ import ipaddress
 _shutdown_requested = False
 _active_report = None       # MarlinSpikeReport ref — saved on shutdown
 _active_report_path = None  # Output path for emergency save
-_active_tshark = None       # Popen ref — terminated on shutdown
 
 
 def _shutdown_handler(signum, frame):
     """Handle SIGTERM/SIGINT — stop cleanly, dump what we have."""
-    global _shutdown_requested, _active_tshark
+    global _shutdown_requested
     if _shutdown_requested:
         return  # Already shutting down
     _shutdown_requested = True
     sig_name = signal.Signals(signum).name if hasattr(signal, 'Signals') else str(signum)
     print(f"\n[!] Received {sig_name} — stopping gracefully...")
-
-    # Kill live tshark capture if running
-    if _active_tshark and _active_tshark.poll() is None:
-        print("[*] Terminating live capture...")
-        _active_tshark.terminate()
-        try:
-            _active_tshark.wait(timeout=3)
-        except subprocess.TimeoutExpired:
-            _active_tshark.kill()
 
     # Emergency save of partial report
     if _active_report and _active_report_path:
@@ -1026,21 +1016,12 @@ MODULE_META = {
     ],
 
     # ── Runtime ───────────────────────────────────────────
-    "cli_commands": ["chain", "ingest", "dissect", "topology", "risk", "list-interfaces"],
+    "cli_commands": ["chain", "ingest", "dissect", "topology", "risk"],
     "default_command": "chain",
     "parameters": [
         {"name": "pcap", "flag": "--pcap", "type": "file",
-         "required": False, "default": "",
-         "description": "Input PCAP/PCAPNG file (mutually exclusive with --interface)"},
-        {"name": "interface", "flag": "--interface", "type": "string",
-         "required": False, "default": "",
-         "description": "Live capture interface (e.g. eth0, tap0) — requires tshark + root"},
-        {"name": "capture_duration", "flag": "--capture-duration", "type": "integer",
-         "required": False, "default": 900,
-         "description": "Live capture duration in seconds (default: 15 min)"},
-        {"name": "capture_filter", "flag": "--capture-filter", "type": "string",
-         "required": False, "default": "",
-         "description": "BPF capture filter (default: OT protocol ports only)"},
+         "required": True, "default": "",
+         "description": "Input PCAP/PCAPNG file"},
         {"name": "subnet_map", "flag": "--subnet-map", "type": "file",
          "required": False, "default": "",
          "description": "JSON file mapping subnets to Purdue levels (auto-inferred if absent)"},
@@ -1657,35 +1638,23 @@ class MarlinSpikeReport:
 # ---------------------------------------------------------------------------
 
 class CaptureIngestor:
-    """Stage 1 — Validate and index PCAP or start live capture."""
+    """Stage 1 — Validate and index PCAP."""
 
-    def __init__(self, pcap: str = "", interface: str = "",
-                 duration: int = 900, capture_filter: str = "",
-                 no_reassembly: bool = True):
+    def __init__(self, pcap: str = "", no_reassembly: bool = True):
         self.pcap = pcap
-        self.interface = interface
-        self.duration = duration
-        self.capture_filter = capture_filter or DEFAULT_BPF
         self.no_reassembly = no_reassembly
         self.capture_info: Optional[CaptureInfo] = None
 
     def ingest(self) -> CaptureInfo:
-        """Main entry point — validate existing PCAP or start live capture."""
+        """Main entry point — validate existing PCAP."""
         print(f"\n{'─'*60}")
         print(f"  STAGE 1 — Capture Ingestion")
         print(f"{'─'*60}")
 
-        if self.pcap:
-            print(f"  Source: File — {self.pcap}")
-            return self.validate_pcap(self.pcap)
-        elif self.interface:
-            print(f"  Source: Live capture — {self.interface}")
-            print(f"  Duration: {self.duration}s ({self.duration // 60}m)")
-            print(f"  Filter: {self.capture_filter[:60]}...")
-            pcap_path = self.start_live_capture()
-            return self.validate_pcap(pcap_path)
-        else:
-            raise ValueError("Must provide --pcap or --interface")
+        if not self.pcap:
+            raise ValueError("Must provide --pcap")
+        print(f"  Source: File — {self.pcap}")
+        return self.validate_pcap(self.pcap)
 
     def validate_pcap(self, path: str) -> CaptureInfo:
         """Validate and index a PCAP file using capinfos + tshark."""
@@ -1749,7 +1718,7 @@ class CaptureIngestor:
 
         self.capture_info = CaptureInfo(
             pcap_path=path,
-            source="live" if self.interface else "file",
+            source="file",
             packet_count=packet_count,
             duration_s=duration,
             start_ts=start_ts,
@@ -1766,69 +1735,6 @@ class CaptureIngestor:
         print(f"    Link Type:      {link_type}")
 
         return self.capture_info
-
-    def start_live_capture(self) -> str:
-        """Start a live tshark capture and return path to temp PCAP.
-
-        Uses Popen instead of subprocess.run so SIGTERM can gracefully
-        stop the capture while preserving whatever tshark has written
-        to disk (tshark writes PCAP incrementally).
-        """
-        global _active_tshark
-        output_path = f"/tmp/marlinspike-capture-{datetime.now().strftime('%Y%m%d-%H%M%S')}.pcap"
-
-        print(f"  Starting live capture...")
-        print(f"    Interface: {self.interface}")
-        print(f"    Duration:  {self.duration}s")
-        print(f"    Output:    {output_path}")
-        print(f"  [Stop from UI preserves captured data]")
-
-        cmd = ["tshark", "-i", self.interface, "-w", output_path,
-               "-f", self.capture_filter, "-a", f"duration:{self.duration}"]
-
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        _active_tshark = proc
-
-        # Poll loop — lets signal handler terminate tshark gracefully
-        deadline = time.monotonic() + self.duration + 10
-        try:
-            while proc.poll() is None:
-                if _shutdown_requested:
-                    print(f"  [*] Shutdown requested — stopping capture...")
-                    proc.terminate()
-                    try:
-                        proc.wait(timeout=3)
-                    except subprocess.TimeoutExpired:
-                        proc.kill()
-                    break
-                if time.monotonic() > deadline:
-                    print(f"  [!] Capture timeout — stopping...")
-                    proc.terminate()
-                    try:
-                        proc.wait(timeout=3)
-                    except subprocess.TimeoutExpired:
-                        proc.kill()
-                    break
-                time.sleep(0.5)
-        except KeyboardInterrupt:
-            print(f"\n  [*] Capture stopped by user")
-            proc.terminate()
-            try:
-                proc.wait(timeout=3)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-
-        _active_tshark = None
-
-        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
-            print(f"  [+] Capture saved: {output_path}")
-            return output_path
-        elif os.path.exists(output_path):
-            # File exists but empty — tshark may not have flushed
-            print(f"  [!] Capture file is empty — capture may have been too short")
-            return output_path
-        else:
-            raise RuntimeError("Live capture failed — no output file")
 
 
 # ---------------------------------------------------------------------------
@@ -5068,9 +4974,6 @@ def run_chain(args):
     # ── Stage 1: Ingest ──────────────────────────────────────────
     ingestor = CaptureIngestor(
         pcap=args.pcap,
-        interface=args.interface,
-        duration=args.capture_duration,
-        capture_filter=args.capture_filter,
         no_reassembly=not getattr(args, 'reassembly', False),
     )
     capture_info = ingestor.ingest()
@@ -5215,12 +5118,7 @@ def run_ingest(args):
     signal.signal(signal.SIGINT, _shutdown_handler)
 
     print(BANNER)
-    ingestor = CaptureIngestor(
-        pcap=args.pcap,
-        interface=args.interface,
-        duration=args.capture_duration,
-        capture_filter=args.capture_filter,
-    )
+    ingestor = CaptureIngestor(pcap=args.pcap)
     report = MarlinSpikeReport(
         timestamp_start=datetime.now(timezone.utc).isoformat(),
     )
@@ -5537,199 +5435,6 @@ def run_chain_from_conversations(args):
     return report
 
 
-def run_list_interfaces(args):
-    """Enumerate local network interfaces available for live capture."""
-    print(BANNER)
-    print(f"\n{'─'*60}")
-    print(f"  INTERFACE ENUMERATION")
-    print(f"{'─'*60}")
-
-    interfaces = []
-
-    # Primary: tshark -D (lists all capture-capable interfaces)
-    tshark_ifaces = {}
-    try:
-        result = subprocess.run(
-            ["tshark", "-D"],
-            capture_output=True, text=True, timeout=10
-        )
-        if result.returncode == 0:
-            for line in result.stdout.strip().split("\n"):
-                # Format: "1. eth0 (description)" or "1. eth0"
-                m = re.match(r"\d+\.\s+(\S+)(?:\s+\((.+)\))?", line)
-                if m:
-                    name = m.group(1)
-                    desc = m.group(2) or ""
-                    tshark_ifaces[name] = desc
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        print("  [!] tshark not found — falling back to system enumeration")
-
-    # Enrich with ip/ifconfig data
-    ip_info = {}  # name -> {mac, ip, state, mtu}
-    try:
-        # Try ip -j link show (Linux, JSON output)
-        result = subprocess.run(
-            ["ip", "-j", "link", "show"],
-            capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0:
-            for iface in json.loads(result.stdout):
-                name = iface.get("ifname", "")
-                ip_info[name] = {
-                    "mac": iface.get("address", ""),
-                    "state": iface.get("operstate", "UNKNOWN").upper(),
-                    "mtu": iface.get("mtu", 0),
-                    "flags": iface.get("flags", []),
-                    "link_type": iface.get("link_type", ""),
-                    "ips": [],
-                }
-
-        # Get IP addresses
-        result = subprocess.run(
-            ["ip", "-j", "addr", "show"],
-            capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0:
-            for iface in json.loads(result.stdout):
-                name = iface.get("ifname", "")
-                if name in ip_info:
-                    for addr_info in iface.get("addr_info", []):
-                        local = addr_info.get("local", "")
-                        prefixlen = addr_info.get("prefixlen", "")
-                        family = addr_info.get("family", "")
-                        if family == "inet" and local:
-                            ip_info[name]["ips"].append(f"{local}/{prefixlen}")
-
-    except (FileNotFoundError, subprocess.TimeoutExpired, json.JSONDecodeError):
-        # Fall back to ifconfig (macOS / older Linux)
-        try:
-            result = subprocess.run(
-                ["ifconfig"],
-                capture_output=True, text=True, timeout=5
-            )
-            if result.returncode == 0:
-                current_iface = None
-                for line in result.stdout.split("\n"):
-                    # Interface header: "eth0: flags=..." or "eth0      Link encap:..."
-                    m = re.match(r"^(\S+?)[:]\s", line)
-                    if m:
-                        current_iface = m.group(1)
-                        ip_info[current_iface] = {
-                            "mac": "", "state": "UNKNOWN", "mtu": 0,
-                            "flags": [], "link_type": "", "ips": [],
-                        }
-                        if "UP" in line:
-                            ip_info[current_iface]["state"] = "UP"
-                        elif "DOWN" in line:
-                            ip_info[current_iface]["state"] = "DOWN"
-                        mtu_m = re.search(r"mtu\s+(\d+)", line)
-                        if mtu_m:
-                            ip_info[current_iface]["mtu"] = int(mtu_m.group(1))
-                    elif current_iface:
-                        # MAC
-                        m = re.search(r"(?:ether|HWaddr)\s+([0-9a-f:]{17})", line, re.I)
-                        if m:
-                            ip_info[current_iface]["mac"] = m.group(1)
-                        # IPv4
-                        m = re.search(r"inet\s+(?:addr:)?(\d+\.\d+\.\d+\.\d+)", line)
-                        if m:
-                            ip_info[current_iface]["ips"].append(m.group(1))
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            pass
-
-    # Check for monitor-mode capable wireless interfaces (Linux)
-    wireless_ifaces = set()
-    try:
-        result = subprocess.run(
-            ["iw", "dev"],
-            capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0:
-            for m in re.finditer(r"Interface\s+(\S+)", result.stdout):
-                wireless_ifaces.add(m.group(1))
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass
-
-    # Merge and classify
-    all_names = set(list(tshark_ifaces.keys()) + list(ip_info.keys()))
-    # Filter out loopback and non-useful virtual interfaces
-    skip_prefixes = ("lo", "virbr", "docker", "veth", "br-", "dummy")
-
-    for name in sorted(all_names):
-        info = ip_info.get(name, {})
-        state = info.get("state", "UNKNOWN")
-        mac = info.get("mac", "")
-        ips = info.get("ips", [])
-        mtu = info.get("mtu", 0)
-        tshark_desc = tshark_ifaces.get(name, "")
-        is_wireless = name in wireless_ifaces
-        is_loopback = name.startswith("lo")
-        is_virtual = any(name.startswith(p) for p in skip_prefixes)
-        capturable = name in tshark_ifaces
-
-        # Classify
-        if is_loopback:
-            itype = "loopback"
-        elif is_wireless:
-            itype = "wireless"
-        elif is_virtual:
-            itype = "virtual"
-        else:
-            itype = "physical"
-
-        # Suitability for OT capture
-        suitable = capturable and state == "UP" and not is_loopback
-        marker = "[+]" if suitable else "[ ]"
-
-        iface_entry = {
-            "name": name,
-            "type": itype,
-            "state": state,
-            "mac": mac,
-            "ips": ips,
-            "mtu": mtu,
-            "wireless": is_wireless,
-            "capturable": capturable,
-            "suitable": suitable,
-            "tshark_description": tshark_desc,
-        }
-        interfaces.append(iface_entry)
-
-        # Print
-        state_color = state if state in ("UP", "DOWN") else "?"
-        ip_str = ", ".join(ips) if ips else "—"
-        mac_str = mac if mac else "—"
-        print(f"  {marker} {name:<16s} {state_color:<6s} {itype:<10s} {mac_str:<19s} {ip_str}")
-        if tshark_desc:
-            print(f"      tshark: {tshark_desc}")
-
-    # Summary
-    suitable_count = sum(1 for i in interfaces if i["suitable"])
-    print(f"\n  Total interfaces: {len(interfaces)}")
-    print(f"  Capture-suitable: {suitable_count}")
-    if suitable_count > 0:
-        print(f"\n  Usage: marlinspike --interface <name> chain")
-        print(f"         marlinspike --interface <name> --capture-duration 3600 chain")
-    else:
-        print(f"\n  [!] No suitable capture interfaces found.")
-        print(f"      Ensure: interface is UP, tshark installed, run as root/CAP_NET_RAW")
-
-    # Write as JSON to output
-    result_data = {
-        "module": MODULE_META,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "interfaces": interfaces,
-        "suitable_count": suitable_count,
-    }
-    output = args.output
-    if output:
-        with open(output, "w") as f:
-            json.dump(result_data, f, indent=2)
-        print(f"\n  [*] Interface list saved: {output}")
-
-    return interfaces
-
-
 def _load_subnet_map(path: str) -> dict:
     """Load subnet-to-Purdue-level mapping from JSON file."""
     if not path or not os.path.exists(path):
@@ -5757,12 +5462,6 @@ def main():
     # All arguments on parent parser
     parser.add_argument("--pcap", default="",
                        help="Input PCAP/PCAPNG file")
-    parser.add_argument("--interface", default="",
-                       help="Live capture interface (e.g. eth0)")
-    parser.add_argument("--capture-duration", type=int, default=900,
-                       help="Live capture duration in seconds (default: 900)")
-    parser.add_argument("--capture-filter", default="",
-                       help="BPF capture filter (default: OT ports only)")
     parser.add_argument("--subnet-map", default="",
                        help="JSON file mapping subnets to Purdue levels")
     parser.add_argument("--oui-db", default="",
@@ -5807,7 +5506,6 @@ def main():
     sub.add_parser("analyze", help="Legacy alias for dissect").set_defaults(func=run_dissect)
     sub.add_parser("classify", help="Legacy alias for topology").set_defaults(func=run_topology)
     sub.add_parser("report", help="Legacy alias for risk").set_defaults(func=run_risk)
-    sub.add_parser("list-interfaces", help="Enumerate local capture interfaces").set_defaults(func=run_list_interfaces)
 
     args = parser.parse_args()
     if not args.command:
@@ -5816,8 +5514,6 @@ def main():
 
     # Normalize empty strings
     args.pcap = args.pcap or ""
-    args.interface = args.interface or ""
-    args.capture_filter = args.capture_filter or ""
     args.subnet_map = args.subnet_map or ""
     args.oui_db = args.oui_db or ""
     args.grassmarlin = args.grassmarlin or ""

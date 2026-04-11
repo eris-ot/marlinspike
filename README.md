@@ -44,7 +44,7 @@ Interactive browser features can improve speed and convenience, but the core tri
 - Expanded Rust DPI substrate via `marlinspike-dpi`: 34 protocol dissectors, Bronze v2 event output, frame-integrity inspection, ICMP anomaly inspection, and stateful L2 anomaly analysis
 - Topology construction with Purdue-level inference and vendor fingerprinting
 - Risk surfacing for remote access exposure, C2-like beaconing, suspicious external channels, DNS entropy anomalies, policy violations, full MITRE ATT&CK mapping with tactics, sub-techniques, matrix views, response guidance, and IEC 62443 SR-oriented remediation guidance
-- Flask web UI with an upgraded multi-mode analyst workbench, project management, report viewer, baseline/drift comparison, asset inventory, scan history, optional local live capture mode, and a source-backed `/capabilities` detection coverage catalog
+- Flask web UI with an upgraded multi-mode analyst workbench, project management, report viewer, baseline/drift comparison, asset inventory, scan history, and a source-backed `/capabilities` detection coverage catalog
 - Docker Compose deployment with PostgreSQL backing the application
 - Optional Rust DPI stage via [`marlinspike-dpi`](https://github.com/riverrisk/marlinspike-dpi), built into the image from a pinned GitHub ref while Python analysis and report shaping remain above it
 - MITRE ATT&CK runtime surfaces sourced from the standalone [`marlinspike-mitre`](https://github.com/riverrisk/marlinspike-mitre) repo at a pinned GitHub ref during image build
@@ -161,7 +161,6 @@ MarlinSpike is meant to replace the core passive-mapping workflow people histori
 | Asset inventory | Yes | Per-asset roles, services, protocols, and responder-facing context |
 | Protocol-aware OT analysis | Yes | Modbus, EtherNet/IP, S7, DNP3, PROFINET, OPC UA, BACnet, IEC 104, LLDP/CDP/STP/LACP, and more |
 | Risk surfacing from passive traffic | Yes | Cleartext engineering, write-capable paths, suspicious external communications, beaconing, DNS exfiltration, and Purdue violations |
-| Local live capture | Yes, optional | Exposed as an optional deployment feature rather than the main product contract |
 | Exportable outputs | Yes | Portable JSON report artifacts, plus PDF/PNG/CSV export paths from the UI |
 | Team analyst workflow | Exceeds | Project-scoped collaboration, shared URL access, history, baseline/drift review, and admin controls are first-class instead of bolted on |
 | Headless analysis contract | Exceeds | The engine can run independently, emit portable report artifacts, and be reviewed later in the workbench or elsewhere |
@@ -176,6 +175,7 @@ MarlinSpike is meant to replace the core passive-mapping workflow people histori
 
 ### Honest Boundaries
 
+- MarlinSpike is a **PCAP analysis tool**, not a continuous monitoring platform. Capture with your own tooling (Wireshark, tshark, a tap, a span port) and bring the PCAP into MarlinSpike for analysis. For continuous live capture, multi-sensor collection, and centralized OT network monitoring, see [FATHOM](https://riverman.io/fathom).
 - MarlinSpike is not an active scanner.
 - MarlinSpike is not a permanent desktop thick client.
 - The standalone Rust DPI engine is a dissection substrate, not the whole product.
@@ -283,7 +283,7 @@ MarlinSpike turns raw packet captures into a workflow an OT operator, asset owne
 - Multi-user access with admin controls
 - Scan history and audit trail
 - System health and monitoring views
-- Sample library management and optional local live-capture mode
+- Sample library management
 
 ## Export Support
 
@@ -514,7 +514,6 @@ The main environment variables are:
 - `DB_PASSWORD`: PostgreSQL password
 - `SECRET_KEY`: Flask session secret
 - `ADMIN_PASSWORD`: initial admin password
-- `ENABLE_LIVE_CAPTURE`: set to `true` to expose local interface capture in the UI
 - `PCAP_MAX_SIZE`: maximum accepted upload size in bytes
 - `PCAP_PROCESS_SIZE`: processing cap for auto-sliced uploads in bytes
 

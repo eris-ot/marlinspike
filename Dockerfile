@@ -89,13 +89,12 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# System deps: tshark for local live capture, libpq for psycopg2
+# System deps: tshark for PCAP dissection, libpq for psycopg2
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
-    tshark \
-    iproute2 && \
+    tshark && \
     rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
