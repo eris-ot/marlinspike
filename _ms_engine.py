@@ -1279,8 +1279,6 @@ ICS_OUI_DB = {
     # Omron
     "00:00:0e": {"vendor": "Omron", "product_lines": ["CJ", "CS", "NJ"]},
 
-    # GE
-    "00:50:c2": {"vendor": "GE", "product_lines": ["PACSystems RX3i"]},
 
     # Phoenix Contact
     "00:a0:45": {"vendor": "Phoenix Contact", "product_lines": ["ILC", "RFC"]},
