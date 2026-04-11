@@ -686,9 +686,6 @@
         <div class="scan-source-tab active" onclick="MS.setSource('file')">PCAP File</div>
         <div class="scan-source-tab" onclick="MS.setSource('library')">Sample Library</div>
         <div class="scan-source-tab" onclick="MS.setSource('upload')">Upload</div>
-        {% if enable_live_capture %}
-        <div class="scan-source-tab" onclick="MS.setSource('live')">Live Capture</div>
-        {% endif %}
       </div>
 
       <!-- Command selector (shared across file + upload sources) -->
@@ -771,21 +768,6 @@
         </div>
       </div>
 
-      {% if enable_live_capture %}
-      <!-- Live capture -->
-      <div class="scan-source-panel" id="src-live">
-        <div class="scan-controls">
-          <div class="scan-field">
-            <label>Interface</label>
-            <select id="live-interface"><option value="">Loading...</option></select>
-          </div>
-          <div class="scan-field">
-            <label>Duration (seconds)</label>
-            <input type="number" id="live-duration" value="60" min="5" max="3600">
-          </div>
-        </div>
-      </div>
-      {% endif %}
     </div>
   </div>
 
@@ -893,7 +875,6 @@ var MS = (function() {
       checkActiveRuns();
       loadFiles();
     });
-    if (document.getElementById('src-live')) loadInterfaces();
     setupUpload();
     renderRunSummary();
   }
@@ -1047,9 +1028,6 @@ var MS = (function() {
     document.querySelectorAll('.scan-source-panel').forEach(function(p) { p.classList.remove('active'); });
     var panel = document.getElementById('src-' + s);
     if (panel) panel.classList.add('active');
-    // Hide command selector for live capture (not applicable)
-    var cmdRow = document.getElementById('scan-command-row');
-    if (cmdRow) cmdRow.style.display = (s === 'live') ? 'none' : '';
     setWorkspaceState({ sourceLabel: formatSourceLabel(s) });
     // Lazy-load presets on first open
     if (s === 'library' && !presetsLoaded) loadPresets();
@@ -1100,25 +1078,6 @@ var MS = (function() {
         }
       })
       .catch(function(e) { status.textContent = 'Upload error: ' + e.message; });
-  }
-
-  // ── Interfaces ──
-  function loadInterfaces() {
-    fetch('/api/interfaces').then(function(r) { return r.json(); }).then(function(d) {
-      var sel = document.getElementById('live-interface');
-      sel.innerHTML = '<option value="">-- Select --</option>';
-      (d.interfaces || []).forEach(function(iface) {
-        if (!iface.suitable) return;
-        var label = iface.name;
-        if (iface.ips && iface.ips.length) label += ' (' + iface.ips.join(', ') + ')';
-        var opt = document.createElement('option');
-        opt.value = iface.name;
-        opt.textContent = label;
-        sel.appendChild(opt);
-      });
-    }).catch(function() {
-      document.getElementById('live-interface').innerHTML = '<option value="">No interfaces found</option>';
-    });
   }
 
   // ── Sample Library ──
@@ -1261,12 +1220,6 @@ var MS = (function() {
     } else if (source === 'upload') {
       if (!uploadedFile) { msToast('Upload a PCAP file first', true); return; }
       body.pcap_file = uploadedFile;
-    } else if (source === 'live') {
-      var ifaceEl = document.getElementById('live-interface');
-      if (!ifaceEl) { msToast('Live capture is disabled on this instance', true); return; }
-      body.interface = ifaceEl.value;
-      body.duration = document.getElementById('live-duration').value;
-      if (!body.interface) { msToast('Select a capture interface', true); return; }
     }
 
     fetch('/api/scans/start', {

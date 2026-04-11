@@ -59,6 +59,3 @@ SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", default=False)
 
 # Run cleanup
 RUN_CLEANUP_SECONDS = 3600
-
-# Feature flags
-ENABLE_LIVE_CAPTURE = _env_bool("ENABLE_LIVE_CAPTURE", default=False)

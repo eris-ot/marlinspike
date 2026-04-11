@@ -48,7 +48,7 @@ from _auth import (
 )
 from _models import Project, ScanHistory, User, db
 
-APP_VERSION = "2.0.1"
+APP_VERSION = "2.0.2"
 
 log = logging.getLogger("marlinspike")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(message)s")
@@ -1909,7 +1909,6 @@ def create_app():
     @app.context_processor
     def inject_features():
         return {
-            "enable_live_capture": config.ENABLE_LIVE_CAPTURE,
             "app_version": APP_VERSION,
         }
 
@@ -2386,8 +2385,6 @@ def create_app():
         command = _normalize_scan_command(body.get("command", "chain"))
         # Accept pcap_file (bare filename) with pcap_path backward compat
         pcap_file = body.get("pcap_file", "") or body.get("pcap_path", "")
-        interface = body.get("interface", "")
-        duration = body.get("duration", "")
         skip_ephemeral = body.get("skip_ephemeral", False)
         capture_filter = body.get("capture_filter", "")
         chunk_size = body.get("chunk_size", 300000)
@@ -2448,14 +2445,13 @@ def create_app():
                 }), 409
             _cleanup_runs()
 
+        if not pcap_path:
+            return jsonify({"ok": False, "error": "PCAP file required"}), 400
+
         run_id = str(uuid.uuid4())
         # Prefix report with original PCAP filename (sanitised)
-        pcap_stem = ""
-        if pcap_path:
-            pcap_stem = os.path.splitext(os.path.basename(pcap_path))[0]
-            pcap_stem = re.sub(r'[^a-zA-Z0-9._-]', '_', pcap_stem)[:60]
-        elif interface:
-            pcap_stem = interface
+        pcap_stem = os.path.splitext(os.path.basename(pcap_path))[0]
+        pcap_stem = re.sub(r'[^a-zA-Z0-9._-]', '_', pcap_stem)[:60]
         prefix = f"{pcap_stem}-" if pcap_stem else ""
         report_filename = f"{prefix}marlinspike-{run_id[:8]}.json"
         report_path = os.path.join(user_reports_dir(project_id), report_filename)
@@ -2472,23 +2468,16 @@ def create_app():
         except (ValueError, TypeError):
             collapse_val = 50
 
-        pcap_size = os.path.getsize(pcap_path) if pcap_path and os.path.isfile(pcap_path) else 0
+        pcap_size = os.path.getsize(pcap_path) if os.path.isfile(pcap_path) else 0
         use_chunked_chain = bool(
             command == "chain"
-            and pcap_path
-            and not interface
             and chunk_val > 0
             and pcap_size > config.PCAP_PROCESS_SIZE
         )
 
         # Build CLI args
         args = [config.PYTHON_EXE, "-u", config.MARLINSPIKE_PY]
-        if pcap_path:
-            args.extend(["--pcap", pcap_path])
-        elif interface:
-            args.extend(["--interface", interface])
-            if duration:
-                args.extend(["--capture-duration", str(duration)])
+        args.extend(["--pcap", pcap_path])
         if skip_ephemeral:
             args.append("--skip-ephemeral")
         if capture_filter:
@@ -2532,10 +2521,10 @@ def create_app():
                 log.error("Failed to start scan: %s", e)
                 return jsonify({"ok": False, "error": "Failed to start scan"}), 500
 
-        # Compute PCAP hash if file-based
+        # Compute PCAP hash
         pcap_hash = None
-        pcap_source = (os.path.basename(pcap_path) if pcap_path else None) or (f"live:{interface}" if interface else None)
-        if pcap_path and os.path.isfile(pcap_path):
+        pcap_source = os.path.basename(pcap_path)
+        if os.path.isfile(pcap_path):
             try:
                 h = hashlib.sha256()
                 with open(pcap_path, "rb") as pf:
@@ -3199,88 +3188,6 @@ def create_app():
     def api_upload():
         return _handle_upload()
 
-    # ── Interface enumeration ────────────────────────────────
-
-    @app.route("/api/interfaces")
-    @login_required
-    def api_interfaces():
-        interfaces = []
-
-        # tshark -D
-        tshark_ifaces = {}
-        try:
-            result = subprocess.run(
-                ["tshark", "-D"],
-                capture_output=True, text=True, timeout=10,
-            )
-            if result.returncode == 0:
-                for line in result.stdout.strip().split("\n"):
-                    m = re.match(r"\d+\.\s+(\S+)(?:\s+\((.+)\))?", line)
-                    if m:
-                        tshark_ifaces[m.group(1)] = m.group(2) or ""
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            pass
-
-        # ip -j addr (Linux) or ifconfig fallback
-        ip_info = {}
-        try:
-            result = subprocess.run(
-                ["ip", "-j", "addr", "show"],
-                capture_output=True, text=True, timeout=5,
-            )
-            if result.returncode == 0:
-                for iface in json.loads(result.stdout):
-                    name = iface.get("ifname", "")
-                    ips = []
-                    for a in iface.get("addr_info", []):
-                        if a.get("family") == "inet":
-                            ips.append(a.get("local", ""))
-                    ip_info[name] = {
-                        "mac": iface.get("address", ""),
-                        "state": iface.get("operstate", "UNKNOWN").upper(),
-                        "ips": ips,
-                    }
-        except (FileNotFoundError, subprocess.TimeoutExpired, json.JSONDecodeError, ValueError):
-            try:
-                result = subprocess.run(
-                    ["ifconfig"], capture_output=True, text=True, timeout=5,
-                )
-                if result.returncode == 0:
-                    current = None
-                    for line in result.stdout.split("\n"):
-                        m = re.match(r"^(\S+?)[:]\s", line)
-                        if m:
-                            current = m.group(1)
-                            ip_info[current] = {"mac": "", "state": "UP" if "UP" in line else "DOWN", "ips": []}
-                        elif current:
-                            m = re.search(r"(?:ether|HWaddr)\s+([0-9a-f:]{17})", line, re.I)
-                            if m:
-                                ip_info[current]["mac"] = m.group(1)
-                            m = re.search(r"inet\s+(?:addr:)?(\d+\.\d+\.\d+\.\d+)", line)
-                            if m:
-                                ip_info[current]["ips"].append(m.group(1))
-            except (FileNotFoundError, subprocess.TimeoutExpired):
-                pass
-
-        all_names = sorted(set(list(tshark_ifaces.keys()) + list(ip_info.keys())))
-        for name in all_names:
-            info = ip_info.get(name, {})
-            state = info.get("state", "UNKNOWN")
-            capturable = name in tshark_ifaces
-            is_loopback = name.startswith("lo")
-            suitable = capturable and state == "UP" and not is_loopback
-            interfaces.append({
-                "name": name,
-                "state": state,
-                "mac": info.get("mac", ""),
-                "ips": info.get("ips", []),
-                "capturable": capturable,
-                "suitable": suitable,
-                "description": tshark_ifaces.get(name, ""),
-            })
-
-        return jsonify({"interfaces": interfaces})
-
     # ── Scan history ─────────────────────────────────────────
 
     @app.route("/api/history")
@@ -3301,7 +3208,7 @@ def create_app():
                 "user": s.user.username if s.user else "?",
                 "command": s.command,
                 "scan_profile": s.scan_profile or "full",
-                "pcap_source": (os.path.basename(s.pcap_source) if s.pcap_source and not s.pcap_source.startswith("live:") else s.pcap_source),
+                "pcap_source": os.path.basename(s.pcap_source) if s.pcap_source else None,
                 "status": s.status,
                 "started_at": s.started_at.isoformat() if s.started_at else None,
                 "completed_at": s.completed_at.isoformat() if s.completed_at else None,
