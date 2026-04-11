@@ -111,6 +111,12 @@ For a staging target:
 REMOTE=deploy@staging-host ./deploy-dev.sh
 ```
 
-## Live Capture
+## Scope
 
-Live capture depends on `tshark` inside the application container and should only be enabled on an authorized physical interface. It is meant for controlled local use, not broad public exposure.
+MarlinSpike is a PCAP analysis tool. Capture with your own tooling (Wireshark, tshark, a tap, a span port) and upload the PCAP through the web UI, or pass it on the CLI:
+
+```bash
+marlinspike --pcap /path/to/capture.pcap chain
+```
+
+For continuous live capture, multi-sensor collection, and centralized OT network monitoring, see [FATHOM](https://riverman.io/fathom).

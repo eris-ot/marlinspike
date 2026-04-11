@@ -48,7 +48,7 @@ from _auth import (
 )
 from _models import Project, ScanHistory, User, db
 
-APP_VERSION = "2.0.2"
+APP_VERSION = "2.0.3"
 
 log = logging.getLogger("marlinspike")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(message)s")

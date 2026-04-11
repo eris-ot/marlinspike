@@ -25,5 +25,6 @@ presets/**/*.pcapng
 presets/**/*.cap
 docs/kusanagi-competitive-gap.md
 docs/repo-family-migration-spec.md
+releases-live.md
 windows/build/
 windows/wine-lab/

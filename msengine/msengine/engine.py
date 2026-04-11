@@ -6,7 +6,7 @@ VORACITY MODULE — MARLINSPIKE
 module:
     name: MarlinSpike
     id: VORACITY-MODULE-MARLINSPIKE
-    version: 2.0.2
+    version: 2.0.3
     author: River Caudle <danny@riverman.io>
     organization: River Risk Partners (Riverman Enterprises LLC)
     date_created: 2026-02-20
@@ -1278,8 +1278,6 @@ ICS_OUI_DB = {
     # Omron
     "00:00:0e": {"vendor": "Omron", "product_lines": ["CJ", "CS", "NJ"]},
 
-    # GE
-    "00:50:c2": {"vendor": "GE", "product_lines": ["PACSystems RX3i"]},
 
     # Phoenix Contact
     "00:a0:45": {"vendor": "Phoenix Contact", "product_lines": ["ILC", "RFC"]},
