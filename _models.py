@@ -15,6 +15,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(256), nullable=False)
     role = db.Column(db.String(20), default="user")  # 'admin' or 'user'
     email = db.Column(db.String(256), unique=True, nullable=True)
+    session_version = db.Column(db.Integer, nullable=False, default=1)
     created_at = db.Column(
         db.DateTime, default=lambda: datetime.now(timezone.utc)
     )
@@ -74,3 +75,38 @@ class ScanHistory(db.Model):
     error_tail = db.Column(db.Text)  # last ~10 output lines on failure
 
     project = db.relationship("Project", backref="scans")
+
+
+class PasswordResetToken(db.Model):
+    __tablename__ = "password_reset_tokens"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(
+        db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    token_hash = db.Column(db.String(64), unique=True, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used_at = db.Column(db.DateTime, nullable=True)
+    ip_address = db.Column(db.String(45), nullable=True)
+    created_at = db.Column(
+        db.DateTime, default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class AuditLog(db.Model):
+    __tablename__ = "audit_log"
+
+    id = db.Column(db.Integer, primary_key=True)
+    event_type = db.Column(db.String(100), nullable=False)
+    category = db.Column(db.String(50), nullable=False)
+    actor_user_id = db.Column(db.Integer, nullable=True)
+    actor_username = db.Column(db.String(80), nullable=True)
+    actor_role = db.Column(db.String(20), nullable=True)
+    target_type = db.Column(db.String(50), nullable=True)
+    target_id = db.Column(db.String(200), nullable=True)
+    status = db.Column(db.String(20), nullable=False, default="success")
+    ip_address = db.Column(db.String(45), nullable=True)
+    detail = db.Column(db.Text, nullable=True)
+    created_at = db.Column(
+        db.DateTime, default=lambda: datetime.now(timezone.utc)
+    )
