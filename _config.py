@@ -43,8 +43,8 @@ PRESETS_DIR = os.path.join(DATA_DIR, "presets")
 PRESETS_BAKED_DIR = os.path.join(BASE_DIR, "presets")
 
 # Upload limits
-PCAP_MAX_SIZE = int(os.environ.get("PCAP_MAX_SIZE", 200 * 1024 * 1024))  # 200 MB
-PCAP_PROCESS_SIZE = int(os.environ.get("PCAP_PROCESS_SIZE", 100 * 1024 * 1024))  # 100 MB
+PCAP_MAX_SIZE = int(os.environ.get("PCAP_MAX_SIZE", 5 * 1024 * 1024 * 1024))  # 5 GB
+PCAP_PROCESS_SIZE = int(os.environ.get("PCAP_PROCESS_SIZE", 5 * 1024 * 1024 * 1024))  # 5 GB (chunked pipeline handles large files)
 
 # Database
 DATABASE_URL = os.environ.get(

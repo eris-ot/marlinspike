@@ -2288,92 +2288,27 @@ def create_app():
             os.unlink(tmp_path)
             return jsonify({"ok": False, "error": "Empty file"}), 400
 
-        # Archive full file in background (TOS compliance)
-        archive_src = tmp_path  # Will be moved, so archive first if needed
+        # Save the full PCAP — no auto-slice (chunked pipeline handles large files)
         user_id = session["user_id"]
         username = session.get("user", "unknown")
-
-        # Auto-slice if > PCAP_PROCESS_SIZE
-        trimmed = False
-        original_size = written
         final_path = os.path.join(dest_dir, safe_name)
+        os.rename(tmp_path, final_path)
 
-        if written > config.PCAP_PROCESS_SIZE:
-            # Truncate to PCAP_PROCESS_SIZE for processing
-            trimmed = True
-            # Simple byte-level truncation then repair with editcap if available
-            sliced_path = final_path + ".slicing"
-            try:
-                with open(tmp_path, "rb") as fin, open(sliced_path, "wb") as fout:
-                    remaining = config.PCAP_PROCESS_SIZE
-                    while remaining > 0:
-                        chunk = fin.read(min(65536, remaining))
-                        if not chunk:
-                            break
-                        fout.write(chunk)
-                        remaining -= len(chunk)
-
-                # Try editcap to repair trailing truncated packet
-                try:
-                    repaired_path = final_path + ".repaired"
-                    result = subprocess.run(
-                        ["editcap", sliced_path, repaired_path],
-                        capture_output=True, timeout=30,
-                    )
-                    if result.returncode == 0 and os.path.isfile(repaired_path):
-                        os.rename(repaired_path, final_path)
-                        os.unlink(sliced_path)
-                    else:
-                        # editcap failed, use raw truncated version
-                        os.rename(sliced_path, final_path)
-                        if os.path.exists(repaired_path):
-                            os.unlink(repaired_path)
-                except (FileNotFoundError, subprocess.TimeoutExpired):
-                    # editcap not available, use raw truncated version
-                    os.rename(sliced_path, final_path)
-            except Exception:
-                # Fallback: just use the full file
-                trimmed = False
-                os.rename(tmp_path, final_path)
-                if os.path.exists(sliced_path):
-                    os.unlink(sliced_path)
-        else:
-            os.rename(tmp_path, final_path)
-
-        trimmed_size = os.path.getsize(final_path) if os.path.isfile(final_path) else written
-
-        # Background archive of full original
-        archive_path = tmp_path if trimmed and os.path.isfile(tmp_path) else final_path
+        # Background archive (TOS compliance)
         threading.Thread(
             target=_archive_submission,
-            args=(archive_path, user_id, username, safe_name),
+            args=(final_path, user_id, username, safe_name),
             daemon=True,
             name="archive-submission",
         ).start()
 
-        # Clean up temp file if we sliced (archive thread reads it, give it a moment)
-        if trimmed and os.path.isfile(tmp_path) and tmp_path != final_path:
-            def _delayed_cleanup():
-                time.sleep(30)
-                try:
-                    if os.path.isfile(tmp_path):
-                        os.unlink(tmp_path)
-                except Exception:
-                    pass
-            threading.Thread(target=_delayed_cleanup, daemon=True).start()
-
-        log.info("Upload: %s by %s (%d bytes)", safe_name, session.get("user", "?"), trimmed_size)
-        resp = {
+        log.info("Upload: %s by %s (%d bytes)", safe_name, session.get("user", "?"), written)
+        return jsonify({
             "ok": True,
             "filename": safe_name,
-            "size": trimmed_size,
+            "size": written,
             "project_id": project_id,
-        }
-        if trimmed:
-            resp["trimmed"] = True
-            resp["original_size"] = original_size
-            resp["trimmed_size"] = trimmed_size
-        return jsonify(resp)
+        })
 
     # ── Scan start ───────────────────────────────────────────
 
