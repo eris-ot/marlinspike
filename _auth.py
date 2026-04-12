@@ -134,7 +134,8 @@ def validate_reset_token(raw_token):
                       target_type="user", target_id=str(token.user_id),
                       detail={"reason": "already_used"})
         return None
-    if datetime.now(timezone.utc) > token.expires_at:
+    expires = token.expires_at.replace(tzinfo=timezone.utc) if token.expires_at.tzinfo is None else token.expires_at
+    if datetime.now(timezone.utc) > expires:
         _get_audit()("auth.reset_token_rejected", status="failure",
                       target_type="user", target_id=str(token.user_id),
                       detail={"reason": "expired"})

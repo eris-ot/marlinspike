@@ -21,11 +21,20 @@ def audit(event_type, *, target_type=None, target_id=None, status="success",
     """
     try:
         if actor_user_id is None:
-            actor_user_id = session.get("user_id")
+            try:
+                actor_user_id = session.get("user_id")
+            except RuntimeError:
+                pass
         if actor_username is None:
-            actor_username = session.get("user")
+            try:
+                actor_username = session.get("user")
+            except RuntimeError:
+                pass
         if actor_role is None:
-            actor_role = session.get("role")
+            try:
+                actor_role = session.get("role")
+            except RuntimeError:
+                pass
         if ip_address is None:
             try:
                 ip_address = request.remote_addr
