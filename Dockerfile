@@ -103,7 +103,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY --from=dpi-builder /build/marlinspike-dpi/target/release/marlinspike-dpi /usr/local/bin/marlinspike-dpi
 
 # Application source
-COPY _ms_engine.py _auth.py _models.py _config.py ./
+COPY _ms_engine.py _auth.py _audit.py _models.py _config.py ./
 COPY auth.py config.py models.py app.py marlinspike.py ./
 
 COPY templates/ ./templates/
