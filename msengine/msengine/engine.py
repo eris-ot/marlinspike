@@ -6,7 +6,7 @@ VORACITY MODULE — MARLINSPIKE
 module:
     name: MarlinSpike
     id: VORACITY-MODULE-MARLINSPIKE
-    version: 2.0.3
+    version: 2.0.6
     author: River Caudle <danny@riverman.io>
     organization: River Risk Partners (Riverman Enterprises LLC)
     date_created: 2026-02-20

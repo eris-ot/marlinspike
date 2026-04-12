@@ -38,17 +38,22 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 import _config as config
+from _audit import audit
 from _auth import (
     admin_required,
     bootstrap_admin,
     change_password,
+    cleanup_expired_tokens,
+    create_reset_token,
     create_user,
     login_required,
+    use_reset_token,
+    validate_reset_token,
     verify_user,
 )
-from _models import Project, ScanHistory, User, db
+from _models import AuditLog, PasswordResetToken, Project, ScanHistory, User, db
 
-APP_VERSION = "2.0.3"
+APP_VERSION = "2.0.6"
 
 log = logging.getLogger("marlinspike")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(message)s")
@@ -1800,7 +1805,30 @@ def create_app():
         ]:
             _add_column_if_missing("users", column_name, ddl_fragment)
 
+        _add_column_if_missing("users", "session_version", "session_version INTEGER NOT NULL DEFAULT 1")
+
         _drop_column_if_present("users", "subscription_tier")
+
+        # Create password_reset_tokens table if missing
+        try:
+            inspect(db.engine).get_columns("password_reset_tokens")
+        except Exception:
+            PasswordResetToken.__table__.create(db.engine, checkfirst=True)
+            log.info("Created password_reset_tokens table")
+
+        # Create audit_log table if missing
+        try:
+            inspect(db.engine).get_columns("audit_log")
+        except Exception:
+            AuditLog.__table__.create(db.engine, checkfirst=True)
+            log.info("Created audit_log table")
+
+    # Cleanup expired reset tokens
+    with app.app_context():
+        try:
+            cleanup_expired_tokens()
+        except Exception:
+            pass
 
     # Bootstrap admin
     bootstrap_admin(app)
@@ -1941,17 +1969,56 @@ def create_app():
         user = verify_user(username, password)
         if not user:
             log.warning("Failed login for '%s' from %s", username, request.remote_addr)
+            audit("auth.login_failed", status="failure",
+                  target_type="user", target_id=username,
+                  ip_address=request.remote_addr)
             return render_template("login.html", error="Invalid credentials")
         log.info("Login: %s from %s", username, request.remote_addr)
         session["user"] = user.username
         session["user_id"] = user.id
         session["role"] = user.role
+        session["session_version"] = user.session_version or 1
+        audit("auth.login", target_type="user", target_id=username)
         return redirect(url_for("dashboard"))
 
     @app.route("/logout")
     def logout():
+        audit("auth.logout")
         session.clear()
         return redirect(url_for("login_page"))
+
+    # ── Password reset ──────────────────────────────────────
+
+    @app.route("/api/auth/reset-request", methods=["POST"])
+    @limiter.limit("5 per minute")
+    def api_reset_request():
+        body = request.get_json(silent=True) or {}
+        username = body.get("username", "").strip()
+        if not username:
+            return jsonify({"ok": False, "error": "Username required"}), 400
+        user = User.query.filter_by(username=username).first()
+        if not user:
+            # Don't reveal whether user exists
+            return jsonify({"ok": True, "message": "If the account exists, a reset token has been generated"})
+        token = create_reset_token(user, ip_address=request.remote_addr)
+        # In a real deployment this would be emailed; for self-hosted, return it directly
+        return jsonify({"ok": True, "token": token, "expires_minutes": 30})
+
+    @app.route("/api/auth/reset-confirm", methods=["POST"])
+    @limiter.limit("5 per minute")
+    def api_reset_confirm():
+        body = request.get_json(silent=True) or {}
+        raw_token = body.get("token", "").strip()
+        new_password = body.get("new_password", "")
+        if not raw_token or not new_password:
+            return jsonify({"ok": False, "error": "Token and new_password required"}), 400
+        if len(new_password) < 8:
+            return jsonify({"ok": False, "error": "Password must be at least 8 characters"}), 400
+        token = validate_reset_token(raw_token)
+        if not token:
+            return jsonify({"ok": False, "error": "Invalid or expired token"}), 400
+        user = use_reset_token(token, new_password)
+        return jsonify({"ok": True, "message": f"Password reset for {user.username}"})
 
     # ── Root redirects ────────────────────────────────────────
 
