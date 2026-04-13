@@ -2480,6 +2480,10 @@ def create_app():
         # Build CLI args
         args = [config.PYTHON_EXE, "-u", config.MARLINSPIKE_PY]
         args.extend(["--pcap", pcap_path])
+        if config.MARLINSPIKE_DPI_ENGINE:
+            args.extend(["--dpi-engine", config.MARLINSPIKE_DPI_ENGINE])
+        if config.MARLINSPIKE_DPI_BIN:
+            args.extend(["--dpi-binary", config.MARLINSPIKE_DPI_BIN])
         if skip_ephemeral:
             args.append("--skip-ephemeral")
         if capture_filter:
@@ -2687,6 +2691,10 @@ def create_app():
                         "-o",
                         chunk_report,
                     ]
+                    if config.MARLINSPIKE_DPI_ENGINE:
+                        dissect_args.extend(["--dpi-engine", config.MARLINSPIKE_DPI_ENGINE])
+                    if config.MARLINSPIKE_DPI_BIN:
+                        dissect_args.extend(["--dpi-binary", config.MARLINSPIKE_DPI_BIN])
                     if scan_profile == "fast":
                         dissect_args.append("--fast")
                     if collapse_val > 0:

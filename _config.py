@@ -29,6 +29,8 @@ SUBMISSIONS_DIR = os.path.join(DATA_DIR, "submissions")
 # MarlinSpike module path
 MARLINSPIKE_PY = os.path.join(BASE_DIR, "marlinspike.py")
 PYTHON_EXE = os.environ.get("MARLINSPIKE_PYTHON", sys.executable or "python")
+MARLINSPIKE_DPI_BIN = os.environ.get("MARLINSPIKE_DPI_BIN", "")
+MARLINSPIKE_DPI_ENGINE = os.environ.get("MARLINSPIKE_DPI_ENGINE", "auto")
 MARLINSPIKE_MITRE_ENABLED = os.environ.get("MARLINSPIKE_MITRE_ENABLED", "true").lower() in ("true", "1", "yes")
 MARLINSPIKE_MITRE_MODULE = os.environ.get("MARLINSPIKE_MITRE_MODULE", "plugins.marlinspike_mitre")
 MARLINSPIKE_MITRE_RULES = os.environ.get(
