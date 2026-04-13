@@ -1,6 +1,6 @@
 # MarlinSpike
 
-Current release: `2.0.6`
+Current release: `2.0.7`
 
 MarlinSpike is a ground-up passive OT/ICS network analysis platform built in the tradition of GrassMarlin-style topology mapping, but wrapped in a multi-user web workbench designed for real engagements. It analyzes PCAP and PCAPNG captures, builds a topology graph, infers Purdue levels, fingerprints vendors, and surfaces responder-grade risk indicators such as cross-zone communication, cleartext services, beaconing, suspicious external communications, and DNS exfiltration, then exports everything as portable JSON report artifacts that travel with the team.
 
@@ -8,7 +8,7 @@ MarlinSpike is a ground-up passive OT/ICS network analysis platform built in the
 
 **Designed for on-site team engagements** — multi-user, zero-JS core workflows, `1 core / 1 GB RAM`, and portable JSON report artifacts.
 
-**1.1M packets -> 46 nodes, 1,344 edges, 432 findings in 29 seconds.**
+**2.45M packets (1.7 GB) -> 2,449 nodes, 2,662 edges, 75 findings in 58 seconds.**
 
 Repository: [github.com/riverrisk/marlinspike](https://github.com/riverrisk/marlinspike)
 
@@ -46,7 +46,7 @@ Interactive browser features can improve speed and convenience, but the core tri
 - Risk surfacing for remote access exposure, C2-like beaconing, suspicious external channels, DNS entropy anomalies, policy violations, full MITRE ATT&CK mapping with tactics, sub-techniques, matrix views, response guidance, and IEC 62443 SR-oriented remediation guidance
 - Flask web UI with an upgraded multi-mode analyst workbench, project management, report viewer, baseline/drift comparison, asset inventory, scan history, and a source-backed `/capabilities` detection coverage catalog
 - Docker Compose deployment with PostgreSQL backing the application
-- Optional Rust DPI stage via [`marlinspike-dpi`](https://github.com/riverrisk/marlinspike-dpi), built into the image from a pinned GitHub ref while Python analysis and report shaping remain above it
+- Rust DPI engine via [`marlinspike-dpi`](https://github.com/riverrisk/marlinspike-dpi) enabled by default (`--dpi-engine auto`), built into the image from a pinned GitHub ref — 14x faster than the Python tshark fallback on large captures
 - MITRE ATT&CK runtime surfaces sourced from the standalone [`marlinspike-mitre`](https://github.com/riverrisk/marlinspike-mitre) repo at a pinned GitHub ref during image build
 - Optional Stage 4b malware IOC runtime sourced from standalone `marlinspike-malware` and `marlinspike-malware-rules` repos when their build args are provided
 
@@ -514,8 +514,9 @@ The main environment variables are:
 - `DB_PASSWORD`: PostgreSQL password
 - `SECRET_KEY`: Flask session secret
 - `ADMIN_PASSWORD`: initial admin password
-- `PCAP_MAX_SIZE`: maximum accepted upload size in bytes
-- `PCAP_PROCESS_SIZE`: processing cap for auto-sliced uploads in bytes
+- `PCAP_MAX_SIZE`: maximum accepted upload size in bytes (default: 5 GB)
+- `MARLINSPIKE_DPI_ENGINE`: DPI engine selection — `auto` (default, uses Rust when available), `marlinspike-dpi`, or `python`
+- `MARLINSPIKE_DPI_BIN`: path to `marlinspike-dpi` binary (default: auto-detected from PATH)
 
 ## Source Layout
 
