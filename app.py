@@ -462,44 +462,68 @@ def _build_findings_catalog():
     mitre_rule_count = 0
     mitre_technique_ids = set()
     mitre_attack_version = ""
-    mitre_rule_path = Path("rules/mitre/base.yaml")
+    mitre_rules_dir = Path("rules/mitre")
     mitre_catalog_path = Path("plugins/marlinspike_mitre/catalog/attack_catalog.json")
-    mitre_payload = {}
     mitre_catalog = {}
-    try:
-        mitre_payload = yaml.safe_load(mitre_rule_path.read_text()) or {}
-    except Exception:
-        mitre_payload = {}
     try:
         mitre_catalog = json.loads(mitre_catalog_path.read_text())
     except Exception:
         mitre_catalog = {}
     enterprise_domain = ((mitre_catalog.get("domains") or {}).get("enterprise-attack") or {})
+    ics_domain = ((mitre_catalog.get("domains") or {}).get("ics-attack") or {})
     mitre_attack_version = str(enterprise_domain.get("attack_version") or "").strip()
-    technique_map = enterprise_domain.get("techniques") or {}
-    for rule in mitre_payload.get("rules") or []:
-        technique_id = str(rule.get("technique_id") or "").strip().upper()
-        technique = technique_map.get(technique_id) or {}
-        mitre_rule_count += 1
-        if technique_id:
-            mitre_technique_ids.add(technique_id)
-        tactics = ", ".join(technique.get("tactic_shortnames") or [])
-        _append_catalog_entry(
-            entries,
-            source="mitre",
-            type=str(rule.get("kind") or "mapping"),
-            family=rule.get("family") or "ATT&CK mapping",
-            severity="",
-            title=f"{technique_id} {rule.get('title') or technique.get('name') or 'ATT&CK mapping'}".strip(),
-            subtitle=rule.get("id") or technique_id,
-            detail=rule.get("rationale") or "Rule-backed ATT&CK mapping for the report workflow.",
-            meta="Publication: " + str(rule.get("publication") or "") + (f" | Tactics: {tactics}" if tactics else ""),
+    ics_attack_version = str(ics_domain.get("attack_version") or "").strip()
+    mitre_packs: list[dict] = []
+    if mitre_rules_dir.is_dir():
+        for pack_path in sorted(mitre_rules_dir.glob("*.yaml")):
+            try:
+                mitre_packs.append(yaml.safe_load(pack_path.read_text()) or {})
+            except Exception:
+                pass
+    for pack in mitre_packs:
+        pack_domain = str(pack.get("default_domain") or "enterprise-attack")
+        technique_map = (
+            ics_domain.get("techniques") or {}
+            if pack_domain == "ics-attack"
+            else enterprise_domain.get("techniques") or {}
         )
+        for rule in pack.get("rules") or []:
+            technique_id = str(rule.get("technique_id") or "").strip().upper()
+            rule_domain = str(rule.get("domain") or pack_domain)
+            if rule_domain == "ics-attack":
+                technique = (ics_domain.get("techniques") or {}).get(technique_id) or {}
+            else:
+                technique = technique_map.get(technique_id) or {}
+            mitre_rule_count += 1
+            if technique_id:
+                mitre_technique_ids.add(technique_id)
+            tactic_shortnames = technique.get("tactic_shortnames") or []
+            if not tactic_shortnames:
+                tactic_shortnames = [
+                    str(t.get("shortname") or "")
+                    for t in (technique.get("tactics") or [])
+                    if str(t.get("shortname") or "").strip()
+                ]
+            tactics = ", ".join(tactic_shortnames)
+            domain_label = "ICS ATT&CK" if rule_domain == "ics-attack" else "Enterprise ATT&CK"
+            _append_catalog_entry(
+                entries,
+                source="mitre",
+                type=str(rule.get("kind") or "mapping"),
+                family=rule.get("family") or "ATT&CK mapping",
+                severity="",
+                title=f"{technique_id} {rule.get('title') or technique.get('name') or 'ATT&CK mapping'}".strip(),
+                subtitle=rule.get("id") or technique_id,
+                detail=rule.get("rationale") or "Rule-backed ATT&CK mapping for the report workflow.",
+                meta=f"Domain: {domain_label} | Publication: {rule.get('publication') or ''}"
+                + (f" | Tactics: {tactics}" if tactics else ""),
+            )
+    version_label = f"Enterprise {mitre_attack_version}" + (f" / ICS {ics_attack_version}" if ics_attack_version else "")
     source_meta["mitre"] = {
         "label": "ATT&CK Coverage",
         "summary": (
             f"{mitre_rule_count} mapping rules, {len(mitre_technique_ids)} techniques"
-            + (f", ATT&CK {mitre_attack_version}" if mitre_attack_version else "")
+            + (f", ATT&CK {version_label}" if version_label.strip(' /') else "")
         ),
     }
 
@@ -871,8 +895,18 @@ def _run_mitre_plugin(report_path: str) -> tuple[str, list[str]]:
         "--output",
         output_path,
     ]
+    # Collect rule packs: explicit config path + all *.yaml in rules/mitre/
+    rule_pack_paths: list[str] = []
+    rules_dir = os.path.join(config.BASE_DIR, "rules", "mitre")
+    if os.path.isdir(rules_dir):
+        for fname in sorted(os.listdir(rules_dir)):
+            if fname.endswith(".yaml") or fname.endswith(".yml"):
+                rule_pack_paths.append(os.path.join(rules_dir, fname))
     if config.MARLINSPIKE_MITRE_RULES and os.path.isfile(config.MARLINSPIKE_MITRE_RULES):
-        cmd.extend(["--rules", config.MARLINSPIKE_MITRE_RULES])
+        if config.MARLINSPIKE_MITRE_RULES not in rule_pack_paths:
+            rule_pack_paths.insert(0, config.MARLINSPIKE_MITRE_RULES)
+    for pack_path in rule_pack_paths:
+        cmd.extend(["--rules", pack_path])
 
     env = os.environ.copy()
     existing_pythonpath = env.get("PYTHONPATH", "")

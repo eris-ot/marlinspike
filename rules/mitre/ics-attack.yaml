@@ -1,0 +1,859 @@
+schema_version: 1
+pack_id: marlinspike-mitre-ics
+pack_version: "2026.04"
+plugin_id: marlinspike-mitre
+default_domain: ics-attack
+description: >
+  ICS ATT&CK (v18.1) mappings for the MarlinSpike passive report surface.
+  Covers passive recon coverage and finding-driven classifications across
+  all twelve ICS ATT&CK tactics. Pairs with the enterprise-attack base pack.
+
+rules:
+
+  # ──────────────────────────────────────────────────────────────
+  # PLATFORM COVERAGE — passive recon capabilities mapped to ICS
+  # ──────────────────────────────────────────────────────────────
+
+  - id: ics-platform-network-sniffing
+    kind: coverage
+    enabled: true
+    technique_id: T0842
+    title: Network Sniffing
+    family: Passive Recon
+    publication: Platform mapping
+    basis: platform
+    confidence: 1.0
+    when:
+      has_capture: true
+      min_nodes: 1
+    rationale: >
+      Passive PCAP ingestion is the ICS analogue of network sniffing — the analyst
+      observes all traffic traversing the capture point without transmitting a single
+      packet. Provides coverage context for collector placement and east-west visibility
+      within OT network segments.
+    response_guidance:
+      - Use this as a coverage lens to identify blind spots in the passive sensor deployment.
+      - Validate that the capture point sees both OT-to-IT and intra-OT east-west paths for the segments under investigation.
+      - Check whether any devices are communicating exclusively on isolated fieldbus segments not covered by the current capture.
+
+  - id: ics-platform-network-connection-enumeration
+    kind: coverage
+    enabled: true
+    technique_id: T0840
+    title: Network Connection Enumeration
+    family: Passive Recon
+    publication: Platform mapping
+    basis: platform
+    confidence: 1.0
+    when:
+      has_edges: true
+      min_nodes: 2
+    rationale: >
+      Parsed conversations constitute a passive enumeration of all active network
+      connections within the capture window — equivalent to what an adversary using
+      T0840 would observe after gaining a foothold on the network.
+    response_guidance:
+      - Use the edge inventory to identify unexpected peer relationships, particularly between OT and IT zones.
+      - Cross-reference high-connection-count nodes against the approved communication matrix for the segment.
+      - Treat any node with many previously-unknown peers as a candidate for deeper investigation.
+
+  - id: ics-platform-remote-system-info-discovery
+    kind: coverage
+    enabled: true
+    technique_id: T0888
+    title: Remote System Information Discovery
+    family: Passive Recon
+    publication: Platform mapping
+    basis: platform
+    confidence: 1.0
+    when:
+      has_nodes: true
+      min_nodes: 1
+    rationale: >
+      MarlinSpike infers vendor, product line, device type, firmware hints, and Purdue
+      level from passive protocol analysis — the same information an adversary collects
+      via T0888 after gaining network access. Report provides coverage context for
+      asset-inventory completeness.
+    response_guidance:
+      - Compare the inferred asset inventory against the approved asset register for the segment.
+      - Flag any devices with no vendor attribution or ambiguous device type for physical verification.
+      - Use Purdue level inferences to identify assets whose role does not match their observed communication patterns.
+
+  - id: ics-platform-monitor-process-state
+    kind: coverage
+    enabled: true
+    technique_id: T0801
+    title: Monitor Process State
+    family: Passive Recon
+    publication: Platform mapping
+    basis: platform
+    confidence: 1.0
+    when:
+      has_edges: true
+      has_protocols: true
+    rationale: >
+      Observing OT protocol exchanges (Modbus read/write, OPC-UA subscriptions, DNP3
+      unsolicited responses, IEC 60870-5-104 data transfer) provides passive coverage
+      context equivalent to an adversary monitoring process state values over the
+      network. Helps identify which assets are being polled and at what frequency.
+    response_guidance:
+      - Review which Modbus, DNP3, and OPC-UA conversations carry process data values — these represent the adversary's likely collection targets.
+      - Check polling rates and source devices against expected HMI and historian access patterns.
+      - Flag any non-HMI, non-historian hosts reading process values as high-priority for investigation.
+
+  - id: ics-platform-detect-operating-mode
+    kind: coverage
+    enabled: true
+    technique_id: T0868
+    title: Detect Operating Mode
+    family: Passive Recon
+    publication: Platform mapping
+    basis: platform
+    confidence: 1.0
+    when:
+      has_nodes: true
+      has_protocols: true
+    rationale: >
+      Protocol-specific fields extracted during dissection (S7 ROSCTR, Modbus function
+      codes, DNP3 unsolicited vs. polled mode, OPC-UA security mode, CIP identity
+      attributes) expose device operating modes, run states, and controller
+      configurations to passive observation — the same surface T0868 targets.
+    response_guidance:
+      - Review CIP Identity and PROFINET DCP fields for device type, product name, and revision — confirm they match engineering documentation.
+      - Treat any device broadcasting run/idle/program mode over the wire as a potential intelligence collection target.
+      - Confirm that controller operating mode fields are only readable from approved engineering workstations.
+
+  - id: ics-platform-point-tag-identification
+    kind: coverage
+    enabled: true
+    technique_id: T0861
+    title: Point & Tag Identification
+    family: Passive Recon
+    publication: Platform mapping
+    basis: platform
+    confidence: 1.0
+    when:
+      has_protocols: true
+      has_nodes: true
+    rationale: >
+      OPC-UA tag browsing, Modbus register ranges, BACnet object enumeration, and
+      CIP tag reads observed passively expose the process variable namespace to any
+      network observer — equivalent to active T0861 point discovery. The dissected
+      conversations reveal which tags and data objects are in active use.
+    response_guidance:
+      - Use the OPC-UA session and Modbus conversation inventory to scope which process variables are exposed on the network.
+      - Flag any hosts performing broad register reads or OPC-UA browse operations that are not approved SCADA/historian nodes.
+      - Validate that tag access is restricted to authorized subscribers at the application layer, not just the network layer.
+
+  # ──────────────────────────────────────────────────────────────
+  # CLASSIFICATION — S7comm program access (CRITICAL)
+  # ──────────────────────────────────────────────────────────────
+
+  - id: finding-s7-program-upload
+    kind: classification
+    enabled: true
+    technique_id: T0845
+    title: Program Upload
+    family: Controller Manipulation
+    publication: Published on report findings
+    basis: observed
+    confidence: 0.95
+    when:
+      finding_categories:
+        - S7_PROGRAM_ACCESS
+    rationale: >
+      Observed S7comm block-upload operations (FC 0x1a/0x1b — Start Upload, Upload,
+      End Upload) indicate a host reading the control program or data blocks from a
+      Siemens controller. This is the primary technique used to exfiltrate PLC logic
+      for reverse engineering or tampering.
+    response_guidance:
+      - Verify that the source host is an approved engineering workstation performing scheduled maintenance or backup.
+      - Check the destination IP against the engineering workstation register — any non-EWS host initiating uploads is anomalous.
+      - If unauthorized, preserve the packet capture and isolate the source host; uploaded logic may already be off-device.
+      - Correlate with physical plant access logs to determine whether the upload coincided with authorized work orders.
+
+  - id: finding-s7-program-download
+    kind: classification
+    enabled: true
+    technique_id: T0843
+    title: Program Download
+    family: Controller Manipulation
+    publication: Published on report findings
+    basis: observed
+    confidence: 0.90
+    when:
+      finding_categories:
+        - S7_PROGRAM_ACCESS
+    rationale: >
+      S7comm block-download operations (FC 0x1c/0x1d/0x1e — Request Download,
+      Download Block, Download Ended) indicate logic or data being written to a
+      Siemens controller. An adversary uses this to deploy modified logic as part of
+      an attack on process integrity (e.g., Industroyer2 / CRASHOVERRIDE).
+    response_guidance:
+      - Immediately determine the source host and confirm it is an authorized engineering workstation with an active work order.
+      - Pull the controller's current project backup and diff it against the last known-good version to detect inserted logic.
+      - If unauthorized, treat the controller as compromised — do not resume process operations until logic is verified and re-flashed from a trusted backup.
+      - Engage the process safety engineer: determine whether the downloaded logic could cause unsafe plant conditions before restoring normal operation.
+
+  - id: finding-s7-modify-controller-tasking
+    kind: classification
+    enabled: true
+    technique_id: T0821
+    title: Modify Controller Tasking
+    family: Controller Manipulation
+    publication: Published on report findings
+    basis: observed
+    confidence: 0.85
+    when:
+      finding_categories:
+        - S7_PROGRAM_ACCESS
+    rationale: >
+      S7comm program access operations — particularly block transfers containing
+      Organization Blocks (OBs), Program Blocks (PBs), or Function Blocks (FBs) —
+      can modify the execution schedule and tasking of a Siemens controller.
+      Changes to OB1 (main cyclic task) or interrupt OBs directly alter controller
+      behavior without triggering alarms.
+    response_guidance:
+      - Pull the controller's Organization Block inventory and compare against the last known-good project export.
+      - Review OB1, OB35 (cyclic interrupt), and OB40 (hardware interrupt) specifically — these control timing and response logic.
+      - Any unauthorized modification to OBs should trigger an emergency review of process safety interlocks before restarting the controller.
+
+  # ──────────────────────────────────────────────────────────────
+  # CLASSIFICATION — Modbus unauthorized writes
+  # ──────────────────────────────────────────────────────────────
+
+  - id: finding-unauthorized-command-message
+    kind: classification
+    enabled: true
+    technique_id: T0855
+    title: Unauthorized Command Message
+    family: Controller Manipulation
+    publication: Published on report findings
+    basis: observed
+    confidence: 0.92
+    when:
+      finding_categories:
+        - MODBUS_WRITE_ANON
+    rationale: >
+      Modbus write commands (FC 5, 6, 15, 16) from hosts not in the approved SCADA
+      or HMI address space constitute unauthorized command messages — exactly the
+      technique employed by CRASHOVERRIDE and FrostyGoop to send illegitimate control
+      commands to field devices. Modbus provides no source authentication.
+    response_guidance:
+      - Identify all source IPs sending Modbus write commands and validate each against the approved polling schedule.
+      - Block unauthorized write sources at the OT network boundary using ACLs or an OT firewall rule; Modbus has no application-layer auth.
+      - Verify that the targeted device registers and coils are in an expected state — unauthorized writes may have already altered setpoints.
+      - Consider deploying a Modbus application-layer proxy that enforces a command whitelist for write function codes.
+
+  - id: finding-modify-parameter
+    kind: classification
+    enabled: true
+    technique_id: T0836
+    title: Modify Parameter
+    family: Process Manipulation
+    publication: Published on report findings
+    basis: observed
+    confidence: 0.88
+    when:
+      finding_categories:
+        - MODBUS_WRITE_ANON
+    rationale: >
+      Unauthenticated Modbus writes to holding registers (FC 6, 16) or coils (FC 5,
+      15) can modify control setpoints, alarm thresholds, and process parameters
+      directly on the field device — the T0836 technique used to cause process
+      upsets or mask safety conditions while maintaining nominal-appearing HMI readings.
+    response_guidance:
+      - Pull a current register dump from the affected device and compare against the last documented setpoint baseline.
+      - Focus on holding registers (40001–49999) that map to PID setpoints, alarm limits, and actuator positions.
+      - Alert the process engineer: even small unauthorized setpoint changes can cause equipment damage or unsafe conditions over time.
+      - Implement register-level ACLs on the device or at the network boundary if the Modbus device firmware supports function code filtering.
+
+  # ──────────────────────────────────────────────────────────────
+  # CLASSIFICATION — Cross-Purdue zone violations
+  # ──────────────────────────────────────────────────────────────
+
+  - id: finding-cross-zone-remote-services
+    kind: classification
+    enabled: true
+    technique_id: T0886
+    title: Remote Services
+    family: Zone Traversal
+    publication: Published on report findings
+    basis: observed
+    confidence: 0.85
+    when:
+      finding_categories:
+        - CROSS_PURDUE
+    rationale: >
+      Traffic observed traversing Purdue model zone boundaries (e.g., Level 4 IT host
+      communicating directly with Level 1-2 OT devices) indicates remote service
+      access across the DMZ — a primary lateral movement path used by adversaries
+      after gaining an IT foothold to reach OT assets.
+    response_guidance:
+      - Map each cross-Purdue edge to an authorized data flow in the network architecture documentation; flag any without a documented exemption.
+      - Verify that data diodes or firewall rules are in place at the zone boundary and confirm they are not misconfigured.
+      - Treat the communicating IT host as a potential pivot point — review its process list, connections, and authentication logs.
+      - If the cross-zone traffic is legitimate (e.g., historian polling), ensure it is confined to a dedicated data highway with no return path to the OT segment.
+
+  - id: finding-cross-zone-exploitation
+    kind: classification
+    enabled: true
+    technique_id: T0866
+    title: Exploitation of Remote Services
+    family: Zone Traversal
+    publication: Published on report findings
+    basis: inferred
+    confidence: 0.72
+    when:
+      finding_categories:
+        - CROSS_PURDUE
+    rationale: >
+      Unauthorized cross-Purdue communication paths can indicate active exploitation
+      of remote services across zone boundaries — particularly where IT hosts are
+      communicating with OT devices over non-approved protocols. An adversary who
+      exploits a service on an OT device from the IT zone achieves T0866 lateral
+      movement without needing OT credentials.
+    response_guidance:
+      - Investigate whether the cross-zone flows involve known vulnerable services (VxWorks RPC, Telnet, unpatched web interfaces) on OT devices.
+      - Review the OT device for signs of compromise: unexpected processes, modified configuration, or anomalous protocol responses.
+      - Prioritize patching or compensating controls for any OT service reachable from the IT zone without authentication.
+
+  # ──────────────────────────────────────────────────────────────
+  # CLASSIFICATION — OPC-UA without security
+  # ──────────────────────────────────────────────────────────────
+
+  - id: finding-opc-theft-operational-info
+    kind: classification
+    enabled: true
+    technique_id: T0882
+    title: Theft of Operational Information
+    family: Data Exposure
+    publication: Published on report findings
+    basis: inferred
+    confidence: 0.80
+    when:
+      finding_categories:
+        - OPC_NO_SECURITY
+    rationale: >
+      OPC-UA sessions operating without message security (SecurityMode=None) transmit
+      process data, tag values, alarm states, and device configuration in cleartext.
+      Any network observer gains access to operational information equivalent to full
+      SCADA visibility — a primary intelligence collection target for adversaries
+      mapping process behavior prior to an attack.
+    response_guidance:
+      - Enable OPC-UA SecurityMode at minimum SignAndEncrypt for all production OPC-UA endpoints.
+      - Rotate OPC-UA application certificates and audit the server's trust list for unexpected client certificates.
+      - Review what data types and tag namespaces are exposed via the unsecured endpoint — scope the operational information at risk.
+      - Check whether the OPC-UA server is reachable from the IT zone or internet without a firewall rule restricting port 4840.
+
+  - id: finding-opc-point-tag-id
+    kind: classification
+    enabled: true
+    technique_id: T0861
+    title: Point & Tag Identification
+    family: Data Exposure
+    publication: Published on report findings
+    basis: observed
+    confidence: 0.87
+    when:
+      finding_categories:
+        - OPC_NO_SECURITY
+    rationale: >
+      Unsecured OPC-UA connections allow passive observation of tag browsing sessions
+      and subscription requests, revealing the complete process variable namespace to
+      any network observer. This is T0861 in passive form — the adversary does not
+      need to actively browse; the tag structure traverses the wire in plaintext.
+    response_guidance:
+      - Audit the OPC-UA server's namespace — confirm that sensitive control tags (setpoints, interlocks, safety limits) are accessible only from approved subscriber hosts.
+      - Review whether any external or IT-zone hosts are subscribed to process variable updates.
+      - Restrict OPC-UA port 4840 to the approved HMI and historian subnet at the network boundary.
+
+  - id: finding-opc-monitor-process-state
+    kind: classification
+    enabled: true
+    technique_id: T0801
+    title: Monitor Process State
+    family: Data Exposure
+    publication: Published on report findings
+    basis: observed
+    confidence: 0.90
+    when:
+      finding_categories:
+        - OPC_NO_SECURITY
+    rationale: >
+      Active OPC-UA subscription traffic without security mode enabled exposes real-time
+      process state — sensor readings, valve positions, pump speeds, alarm states —
+      to passive collection. An adversary monitoring this traffic builds a process
+      behavioral baseline useful for timing an attack to avoid detection.
+    response_guidance:
+      - Identify all OPC-UA subscription sources and validate each against the approved SCADA and historian roster.
+      - Treat any subscription source not in the approved list as suspicious — pull connection history and investigate the host.
+      - Enable OPC-UA auditing on the server to log all session initiations and subscription creations.
+
+  # ──────────────────────────────────────────────────────────────
+  # CLASSIFICATION — Cleartext engineering access
+  # ──────────────────────────────────────────────────────────────
+
+  - id: finding-cleartext-eng-theft-operational-info
+    kind: classification
+    enabled: true
+    technique_id: T0882
+    title: Theft of Operational Information
+    family: Data Exposure
+    publication: Published on report findings
+    basis: observed
+    confidence: 0.85
+    when:
+      finding_categories:
+        - CLEARTEXT_ENG
+    rationale: >
+      Cleartext engineering sessions (Telnet, HTTP to PLCs, unencrypted Step7/TIA
+      Portal connections, unencrypted SCADA web interfaces) expose configuration,
+      ladder logic, process data, and credentials to passive capture. All operational
+      information transiting the session is collectible without any active exploitation.
+    response_guidance:
+      - Enumerate all cleartext engineering protocol sessions in the report and identify the involved devices.
+      - Migrate engineering access to encrypted alternatives (SSH, HTTPS, TLS-wrapped protocols) where device firmware supports it.
+      - For devices without encrypted engineering access, implement network-layer compensating controls: restrict engineering ports to a dedicated EWS subnet and log all sessions.
+      - Consider whether the captured engineering traffic includes credentials, program downloads, or alarm configuration — treat that data as potentially compromised.
+
+  - id: finding-cleartext-eng-remote-services
+    kind: classification
+    enabled: true
+    technique_id: T0886
+    title: Remote Services
+    family: Data Exposure
+    publication: Published on report findings
+    basis: observed
+    confidence: 0.82
+    when:
+      finding_categories:
+        - CLEARTEXT_ENG
+    rationale: >
+      Cleartext remote engineering services reachable over the network constitute an
+      unauthenticated or weakly-authenticated remote service surface. An adversary
+      on the same network segment can connect to these services and interact with
+      the controller directly, without needing to exploit a vulnerability.
+    response_guidance:
+      - Restrict all cleartext engineering services (Telnet/23, HTTP/80, proprietary plaintext ports) to the engineering VLAN using firewall rules.
+      - Verify that each cleartext session observed originates from an approved engineering workstation — any other source is anomalous.
+      - Rotate credentials for any engineering interface that has been accessed over a cleartext channel.
+
+  # ──────────────────────────────────────────────────────────────
+  # CLASSIFICATION — No auth observed on auth-capable protocols
+  # ──────────────────────────────────────────────────────────────
+
+  - id: finding-default-credentials
+    kind: classification
+    enabled: true
+    technique_id: T0812
+    title: Default Credentials
+    family: Access and Authentication
+    publication: Published on report findings
+    basis: inferred
+    confidence: 0.72
+    when:
+      finding_categories:
+        - NO_AUTH_OBSERVED
+    rationale: >
+      Auth-capable protocols (SSH, HTTPS, OPC-UA, Modbus with authentication
+      extensions, S7comm) observed without any authentication exchange suggest
+      devices are accepting connections without credential verification — consistent
+      with factory-default configurations or disabled authentication. Default
+      credentials are the most common lateral movement path in OT environments.
+    response_guidance:
+      - Audit the authentication configuration of all flagged devices — verify that authentication is enabled and enforced at the application layer.
+      - Test whether factory-default credentials (documented in vendor manuals) are still active using an authorized credential audit.
+      - Prioritize devices at Purdue Levels 1 and 2 — default credentials on a PLC or RTU provide direct process control access.
+      - Review the device's user account list for any accounts not in the approved access register.
+
+  - id: finding-hardcoded-credentials
+    kind: classification
+    enabled: true
+    technique_id: T0891
+    title: Hardcoded Credentials
+    family: Access and Authentication
+    publication: Published on report findings
+    basis: inferred
+    confidence: 0.68
+    when:
+      finding_categories:
+        - NO_AUTH_OBSERVED
+    rationale: >
+      Absence of observed authentication on protocols that nominally support it may
+      indicate hardcoded credentials in firmware — devices that technically require
+      a credential but accept a fixed, unchangeable password embedded at the factory.
+      Hardcoded credentials persist across power cycles and cannot be rotated without
+      firmware updates.
+    response_guidance:
+      - Check vendor advisories and ICS-CERT alerts for known hardcoded credential issues in the identified device models.
+      - Where hardcoded credentials are confirmed, implement compensating network controls (ACLs, OT firewall rules) to restrict access to the affected device.
+      - Engage the vendor to determine whether a firmware update removing the hardcoded credential is available; apply it during the next maintenance window.
+      - Monitor the affected device for access patterns inconsistent with normal operations while compensating controls are in place.
+
+  # ──────────────────────────────────────────────────────────────
+  # CLASSIFICATION — OT assets communicating with public internet
+  # ──────────────────────────────────────────────────────────────
+
+  - id: finding-internet-accessible-device
+    kind: classification
+    enabled: true
+    technique_id: T0883
+    title: Internet Accessible Device
+    family: External Exposure
+    publication: Published on report findings
+    basis: observed
+    confidence: 0.93
+    when:
+      finding_categories:
+        - ICS_EXTERNAL_COMMS
+    rationale: >
+      OT assets observed communicating directly with public IP addresses are reachable
+      from — or actively reaching — the internet. T0883 describes exactly this
+      condition: an internet-accessible OT device that an adversary can discover via
+      Shodan/Censys and target without needing to breach the IT network first.
+    response_guidance:
+      - Identify the specific OT assets and public destinations involved; determine whether the traffic is vendor remote access, update checks, or unauthorized outbound connections.
+      - Block all direct internet egress from OT zones at the perimeter firewall — OT devices should never initiate or receive connections from public IP space without a documented exception and proxy arrangement.
+      - If vendor remote access is required, implement it via a jump server or secure access gateway with MFA; never allow direct OT-to-internet connectivity.
+      - Scan the involved device on Shodan/Censys to understand external visibility and whether it is already indexed as an accessible target.
+
+  - id: finding-external-remote-services
+    kind: classification
+    enabled: true
+    technique_id: T0822
+    title: External Remote Services
+    family: External Exposure
+    publication: Published on report findings
+    basis: observed
+    confidence: 0.88
+    when:
+      finding_categories:
+        - ICS_EXTERNAL_COMMS
+    rationale: >
+      Externally-initiated connections to OT assets (or OT assets connecting outbound
+      to external infrastructure over remote service protocols) constitute T0822 —
+      external remote service access to the OT environment. This is the initial access
+      vector used in most documented OT intrusions, including the Ukraine power grid
+      attacks (Sandworm/BlackEnergy).
+    response_guidance:
+      - Determine the direction of each external-facing flow: is the OT device initiating outbound, or receiving inbound connections from public IPs?
+      - For inbound flows: identify the service port and whether it corresponds to a vendor remote access protocol; quarantine the device pending investigation.
+      - For outbound flows: determine whether the OT device is beaconing, exfiltrating, or performing legitimate update checks; treat unexplained outbound as a higher-severity indicator.
+      - Review network perimeter rules — all external remote service access to OT should be explicitly permitted and logged, never open by default.
+
+  - id: finding-external-comms-data-theft
+    kind: classification
+    enabled: true
+    technique_id: T0882
+    title: Theft of Operational Information
+    family: External Exposure
+    publication: Published on report findings
+    basis: inferred
+    confidence: 0.78
+    when:
+      finding_categories:
+        - ICS_EXTERNAL_COMMS
+    rationale: >
+      Any unsanctioned network path from OT assets to the public internet is a
+      potential exfiltration channel for operational information. Process data,
+      engineering files, historian exports, and plant topology observed in traffic
+      to external destinations constitute T0882 — a pre-attack intelligence collection
+      technique documented in campaigns targeting energy and water sector OT networks.
+    response_guidance:
+      - Review the byte counts and timing of external OT flows — large or periodic outbound volumes from OT devices are high-priority indicators of exfiltration.
+      - Capture and inspect the external traffic payload if legally permissible to determine whether process data or engineering artifacts are in transit.
+      - Alert the asset owner: even metadata visible in cleartext OT-to-internet traffic (device identity, protocol, topology) is operationally sensitive.
+
+  # ──────────────────────────────────────────────────────────────
+  # CLASSIFICATION — C2 indicators (beaconing, suspect channels)
+  # ──────────────────────────────────────────────────────────────
+
+  - id: finding-c2-standard-app-layer-protocol
+    kind: classification
+    enabled: true
+    technique_id: T0869
+    title: Standard Application Layer Protocol
+    family: Command and Control
+    publication: Published on report findings
+    basis: observed
+    confidence: 0.90
+    when:
+      any_of:
+        - finding_categories:
+            - C2_BEACONING
+            - C2_SUSPECT_CHANNEL
+            - C2_PERSISTENCE
+        - indicator_types:
+            - C2_BEACONING
+            - C2_SUSPECT_CHANNEL
+            - C2_PERSISTENCE
+    rationale: >
+      Periodic beaconing, suspect external channels, and persistent outbound sessions
+      from OT assets indicate command traffic blended into standard application
+      protocols — T0869 in the ICS context. ICS-targeting malware (HAVEX, BlackEnergy,
+      FrostyGoop) uses standard protocols (HTTP, OPC, Modbus tunneling) to blend C2
+      traffic with legitimate OT communications and avoid detection.
+    response_guidance:
+      - Validate the beacon interval and jitter against all approved vendor polling, update, and telemetry schedules for the source device.
+      - Inspect the destination IP and port — cross-reference with known threat intelligence for ICS-targeting infrastructure.
+      - If the source is an OT device (Purdue Level 1-2), treat as high priority: most field devices have no legitimate reason to initiate external connections.
+      - Collect a targeted packet capture of the beacon traffic and submit for deeper protocol analysis — ICS malware often uses standard port numbers but non-standard payload structures.
+
+  - id: finding-c2-commonly-used-port
+    kind: classification
+    enabled: true
+    technique_id: T0885
+    title: Commonly Used Port
+    family: Command and Control
+    publication: Published on report findings
+    basis: observed
+    confidence: 0.82
+    when:
+      any_of:
+        - finding_categories:
+            - C2_BEACONING
+            - C2_PERSISTENCE
+        - indicator_types:
+            - C2_BEACONING
+            - C2_PERSISTENCE
+    rationale: >
+      OT-environment C2 beaconing observed over common ports (80/HTTP, 443/HTTPS,
+      53/DNS) is consistent with T0885 — using standard, firewall-permitted ports
+      to blend malicious traffic with legitimate OT management and update channels.
+      Adversaries targeting ICS networks leverage commonly-used ports specifically
+      because OT firewalls often permit them by default.
+    response_guidance:
+      - Validate whether the flagged port is expected for the source device role — most Purdue Level 1-2 devices have no legitimate reason to use HTTP/S or DNS to external destinations.
+      - Check firewall egress rules for OT zones: tighten default-permit rules on ports 80, 443, and 53 for devices that do not require internet access.
+      - Use the beacon interval and timing to correlate with any known vendor update schedules; unexplained regularity on common ports warrants escalation.
+
+  - id: finding-c2-connection-proxy
+    kind: classification
+    enabled: true
+    technique_id: T0884
+    title: Connection Proxy
+    family: Command and Control
+    publication: Published on report findings
+    basis: inferred
+    confidence: 0.70
+    when:
+      any_of:
+        - finding_categories:
+            - C2_SUSPECT_CHANNEL
+        - indicator_types:
+            - C2_SUSPECT_CHANNEL
+    rationale: >
+      Unknown-port external channels from OT devices may indicate traffic being
+      routed through a proxy or relay layer to obscure the ultimate C2 destination.
+      OT-targeting adversaries use proxied C2 infrastructure to prevent attribution
+      and bypass geo-based blocking of known threat infrastructure.
+    response_guidance:
+      - Inspect the protocol fingerprint of the suspect channel — proxied traffic often shows non-standard TLS certificates or unusual handshake patterns.
+      - Attempt passive JA3/JA3S fingerprinting of the channel and compare against known-malicious fingerprint databases.
+      - Treat the OT source device as potentially compromised pending investigation; do not rely solely on host-based indicators for field devices.
+
+  # ──────────────────────────────────────────────────────────────
+  # CLASSIFICATION — DNS-based exfiltration and data theft
+  # ──────────────────────────────────────────────────────────────
+
+  - id: finding-dns-theft-operational-info
+    kind: classification
+    enabled: true
+    technique_id: T0882
+    title: Theft of Operational Information
+    family: Data Exfiltration
+    publication: Published on report findings
+    basis: observed
+    confidence: 0.88
+    when:
+      any_of:
+        - finding_categories:
+            - C2_DNS_EXFIL
+            - C2_DATA_EXFIL
+            - C2_DNS_HIGH_ENTROPY
+            - C2_DNS_TUNNEL_SUSPECT
+        - indicator_types:
+            - C2_DNS_EXFIL
+            - C2_DATA_EXFIL
+            - C2_DNS_HIGH_ENTROPY
+            - C2_DNS_TUNNEL_SUSPECT
+    rationale: >
+      High-entropy DNS queries, asymmetric outbound data flows from OT devices, and
+      DNS tunnel indicators are consistent with T0882 — theft of operational
+      information via covert exfiltration channels. Pre-attack reconnaissance campaigns
+      against OT networks (documented in Dragonfly/Energetic Bear and TEMP.Veles
+      operations) specifically target historian exports, engineering files, and
+      process historian data.
+    response_guidance:
+      - Review the DNS query names and entropy: encoded operational data typically appears as long, high-entropy subdomain labels targeting an adversary-controlled domain.
+      - Check whether the querying host has access to historian databases, engineering file shares, or configuration backups — these are the most likely exfiltration targets.
+      - Implement DNS sinkholing or RPZ rules for high-entropy query patterns in OT-zone DNS resolvers.
+      - Preserve the full DNS query log from the capture period as forensic evidence before any remediation actions.
+
+  # ──────────────────────────────────────────────────────────────
+  # CLASSIFICATION — Port scan / network enumeration
+  # ──────────────────────────────────────────────────────────────
+
+  - id: finding-network-connection-enumeration
+    kind: classification
+    enabled: true
+    technique_id: T0840
+    title: Network Connection Enumeration
+    family: Discovery
+    publication: Published on report findings
+    basis: observed
+    confidence: 0.92
+    when:
+      finding_categories:
+        - PORT_SCAN_TARGET
+    rationale: >
+      A device observed as the target of a port scan has been actively enumerated
+      by another host on the network — T0840 in the ICS context. Active network
+      enumeration of OT devices is a pre-exploitation reconnaissance step and is
+      anomalous in well-managed OT environments where communication paths are fixed
+      and deterministic.
+    response_guidance:
+      - Identify the scanning source and determine whether it is an approved network management or vulnerability assessment tool; any other source is anomalous.
+      - Review what ports were probed on the OT target — focus on OT protocol ports (502, 102, 44818, 2404, 20000) as indicators that the scan is OT-aware.
+      - If the scan source is unauthorized, isolate it immediately and investigate for signs of broader network compromise.
+      - Verify that the scanned OT device did not respond to unexpected ports in a way that reveals its service fingerprint — some OT devices crash or enter error states under port scan load.
+
+  - id: finding-remote-system-discovery
+    kind: classification
+    enabled: true
+    technique_id: T0846
+    title: Remote System Discovery
+    family: Discovery
+    publication: Published on report findings
+    basis: observed
+    confidence: 0.88
+    when:
+      finding_categories:
+        - PORT_SCAN_TARGET
+    rationale: >
+      Port scan traffic targeting an OT device indicates systematic remote system
+      discovery — an adversary mapping the OT network to identify reachable assets,
+      their roles, and their service fingerprints prior to selecting exploitation
+      targets. OT-aware scanners (PLCScan, ModbusPal in scan mode) actively probe
+      ICS-specific ports to enumerate controllers and field devices.
+    response_guidance:
+      - Determine whether the scan traffic matches the signature of a known ICS scanner (Shodan Malware Hunter, PLCScan, Redpoint NSE scripts).
+      - Check whether other OT devices were simultaneously targeted — coordinated multi-host scans indicate a systematic discovery campaign.
+      - Deploy network-level alerting (e.g., OT IDS signature for port scan patterns) to catch future enumeration attempts in real time.
+
+  # ──────────────────────────────────────────────────────────────
+  # CLASSIFICATION — IT services on OT devices
+  # ──────────────────────────────────────────────────────────────
+
+  - id: finding-it-services-exploitation-risk
+    kind: classification
+    enabled: true
+    technique_id: T0866
+    title: Exploitation of Remote Services
+    family: Attack Surface
+    publication: Published on report findings
+    basis: inferred
+    confidence: 0.74
+    when:
+      finding_categories:
+        - IT_SERVICE_ON_OT_DEVICE
+    rationale: >
+      IT services (SMB, RDP, HTTP, NetBIOS, WinRM) observed on OT devices expand
+      the exploitable attack surface on those controllers and workstations. Adversaries
+      who reach the OT network segment can exploit unpatched IT services on OT devices
+      to gain execution without needing ICS-specific exploits — as demonstrated in
+      WannaCry's lateral spread into OT environments and NotPetya's impact on
+      manufacturing plants.
+    response_guidance:
+      - Enumerate the specific IT services detected on each OT device and determine whether they are required for device operation.
+      - Disable any IT service not operationally required — SMB and NetBIOS are particularly high-risk on OT devices and rarely needed for process control.
+      - Apply available security patches for identified services during the next scheduled maintenance window; OT device IT services are frequently unpatched.
+      - Implement network-layer controls to prevent IT-zone hosts from reaching IT service ports on OT devices.
+
+  # ──────────────────────────────────────────────────────────────
+  # CLASSIFICATION — Cleartext remote access
+  # ──────────────────────────────────────────────────────────────
+
+  - id: finding-cleartext-remote-access-services
+    kind: classification
+    enabled: true
+    technique_id: T0886
+    title: Remote Services
+    family: Attack Surface
+    publication: Published on report findings
+    basis: observed
+    confidence: 0.88
+    when:
+      finding_categories:
+        - CLEARTEXT_REMOTE_ACCESS
+    rationale: >
+      Cleartext remote access protocols (Telnet/23, VNC without TLS, RDP without
+      NLA, unencrypted proprietary remote desktop) observed on OT assets present
+      an exploitable remote service surface. An adversary on the same segment can
+      credential-stuff, relay, or session-hijack these services trivially — no
+      vulnerability exploitation required.
+    response_guidance:
+      - Identify all hosts and devices using cleartext remote access and replace with encrypted equivalents (SSH for Telnet, RDP with NLA + TLS, VNC over SSH tunnel).
+      - For devices where encrypted remote access is not firmware-supported, restrict the cleartext service port to a dedicated management VLAN using firewall ACLs.
+      - Review authentication logs on the affected devices for any session sources not in the approved remote access register.
+      - Rotate credentials used over cleartext sessions immediately — treat them as compromised.
+
+  # ──────────────────────────────────────────────────────────────
+  # CLASSIFICATION — Malware IOC matches
+  # ──────────────────────────────────────────────────────────────
+
+  - id: finding-malware-ioc-c2-protocol
+    kind: classification
+    enabled: true
+    technique_id: T0869
+    title: Standard Application Layer Protocol
+    family: Malware Detection
+    publication: Published on report findings
+    basis: observed
+    confidence: 0.93
+    when:
+      any_of:
+        - finding_categories:
+            - MALWARE_IOC_MATCH
+        - indicator_types:
+            - MALWARE_IOC_MATCH
+    rationale: >
+      A confirmed malware IOC match in the capture indicates a known threat actor
+      tool or implant is present on the network. ICS-targeting malware families
+      (HAVEX, BlackEnergy, Industroyer, TRITON/TRISIS, FrostyGoop) all communicate
+      over standard application layer protocols to blend into legitimate OT traffic
+      and avoid detection by protocol-unaware network monitoring.
+    response_guidance:
+      - Treat a confirmed malware IOC match as an active incident — initiate your OT incident response plan immediately.
+      - Identify the source and destination of the matched traffic, isolate involved devices from the OT network, and preserve forensic images before any remediation.
+      - Cross-reference the matched rule family and MITRE references against known ICS threat actor TTPs to contextualize the threat scope.
+      - Engage ICS-specialized incident response capabilities — standard IT IR procedures may not safely handle OT device isolation without causing process disruption.
+
+  - id: finding-malware-ioc-data-theft
+    kind: classification
+    enabled: true
+    technique_id: T0882
+    title: Theft of Operational Information
+    family: Malware Detection
+    publication: Published on report findings
+    basis: inferred
+    confidence: 0.78
+    when:
+      any_of:
+        - finding_categories:
+            - MALWARE_IOC_MATCH
+        - indicator_types:
+            - MALWARE_IOC_MATCH
+    rationale: >
+      Known ICS-targeting malware that matches observable IOCs in this capture may
+      include a data collection component. HAVEX collected OPC-UA tag data;
+      Dragonfly/Energetic Bear staged historian data for exfiltration. Operational
+      information (process data, network topology, engineering files) captured by
+      malware constitutes T0882 and provides adversaries the intelligence needed
+      to plan a destructive or disruptive attack.
+    response_guidance:
+      - Investigate what data the matched malware family is known to collect — review published analysis for the specific IOC rule family.
+      - Audit historian access logs, engineering file share access, and OPC-UA server session logs for abnormal data access from the affected host.
+      - Assume operational data (process baselines, network topology, engineering project files) is compromised and notify the appropriate personnel.
+      - Brief the process safety engineer on the potential intelligence exposure before resuming normal operations.
