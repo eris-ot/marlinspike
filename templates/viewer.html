@@ -1766,6 +1766,8 @@ body {
         <a class="ms-nav-action" href="/api/reports/{{ filename }}/assets" target="_blank">Assets</a>
         <button class="ms-nav-action" onclick="MS.printReport()">Print</button>
         <button class="ms-nav-action" onclick="MS.exportPng()">PNG</button>
+        <button class="ms-nav-action" onclick="MS.exportCsvAssets()">CSV Assets</button>
+        <button class="ms-nav-action" onclick="MS.exportCsvFindings()">CSV Findings</button>
       </div>
     </div>
   </div>
@@ -4152,6 +4154,55 @@ var MS = (function() {
     img.src = url;
   }
 
+  function _csvEsc(v) {
+    var s = String(v == null ? '' : v);
+    if (s.indexOf(',') >= 0 || s.indexOf('"') >= 0 || s.indexOf('\n') >= 0) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+  function _csvDownload(lines, suffix) {
+    var blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = (FILENAME || 'report').replace(/\.json$/, '') + '-' + suffix + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportCsvAssets() {
+    var nodes = toArray(REPORT.nodes);
+    var headers = ['IP','MAC','Role','Purdue Level','Vendor','Device Type','Asset Type','Protocols','Service Ports','Connections','Attack Priority','Auth Observed'];
+    var lines = [headers.join(',')];
+    nodes.forEach(function(n) {
+      lines.push([
+        n.ip, n.mac || '', n.role || '', n.purdue_level || '', n.vendor || '', n.device_type || '', n.asset_type || '',
+        toArray(n.protocols).join('; '),
+        toArray(n.service_ports).map(function(sp) { return (sp.port || '') + '/' + (sp.transport || '') + '(' + (sp.protocol || '') + ')'; }).join('; '),
+        (toArray(n.connections || n.edges)).length,
+        n.attack_priority || 0,
+        n.auth_observed != null ? String(n.auth_observed) : ''
+      ].map(_csvEsc).join(','));
+    });
+    _csvDownload(lines, 'assets');
+    msToast('Exported ' + nodes.length + ' assets to CSV', 'success');
+  }
+
+  function exportCsvFindings() {
+    var findings = toArray(REPORT.risk_findings);
+    var headers = ['Category','Severity','Title','Description','Source IP','Dest IP','Protocol','Port','Detection ID'];
+    var lines = [headers.join(',')];
+    findings.forEach(function(f) {
+      lines.push([
+        f.category || '', f.severity || '', f.title || '', f.description || '',
+        f.src_ip || f.source_ip || '', f.dst_ip || f.dest_ip || '',
+        f.protocol || '', f.port || f.dst_port || '',
+        f.detection_id || ''
+      ].map(_csvEsc).join(','));
+    });
+    _csvDownload(lines, 'findings');
+    msToast('Exported ' + findings.length + ' findings to CSV', 'success');
+  }
+
   function showTooltip(ev, text) {
     var tip = document.getElementById('ms-tooltip');
     tip.textContent = text;
@@ -4302,7 +4353,10 @@ var MS = (function() {
       html += '<strong style="font-size:0.95em;color:var(--text)">' + esc(item.attack_name || item.title || 'Unknown Technique') + '</strong>';
     }
     if (item.family) html += '<span class="ms-finding-chip">' + esc(item.family) + '</span>';
-    if (item.domain) html += '<span class="ms-finding-chip">' + esc(item.domain) + '</span>';
+    if (item.domain) {
+      var isDomainIcs = String(item.domain).indexOf('ics') >= 0;
+      html += '<span class="ms-finding-chip" style="' + (isDomainIcs ? 'background:rgba(239,68,68,0.12);color:var(--color-danger);border:1px solid rgba(239,68,68,0.22)' : '') + '">' + esc(item.domain) + '</span>';
+    }
     if (item.attack_version) html += '<span class="ms-finding-chip">ATT&CK ' + esc(item.attack_version) + '</span>';
     html += '<span class="ms-finding-chip">' + esc(basis) + '</span>';
     html += '<span class="ms-finding-chip">' + esc(Math.round(Number(item.confidence || 0) * 100)) + '% confidence</span>';
@@ -4711,6 +4765,8 @@ var MS = (function() {
     switchReportTab: switchReportTab,
     printReport: printReport,
     exportPng: exportPng,
+    exportCsvAssets: exportCsvAssets,
+    exportCsvFindings: exportCsvFindings,
     selectNodeByIp: selectNodeByIp,
     centerOnSelected: centerOnSelected,
     deselectNode: deselectNode,

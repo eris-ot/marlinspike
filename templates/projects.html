@@ -277,13 +277,7 @@
 }
 .proj-compare-bar.active { display: flex; }
 
-/* Empty state */
-.proj-empty {
-  text-align: center;
-  padding: 32px 16px;
-  color: var(--text-dim);
-}
-.proj-empty p { margin-bottom: 8px; }
+/* empty states handled by base.html .ms-empty */
 
 /* Rename input inline */
 .proj-rename-input {
@@ -513,7 +507,7 @@
                 </tr>
               </thead>
               <tbody id="proj-files-body">
-                <tr><td colspan="5"><div class="proj-empty"><p>Select a project to view files.</p></div></td></tr>
+                <tr><td colspan="5"><div class="ms-empty" style="padding:20px;"><div class="ms-empty-sub">Select a project to view files.</div></div></td></tr>
               </tbody>
             </table>
           </div>
@@ -536,7 +530,7 @@
                 </tr>
               </thead>
               <tbody id="proj-reports-body">
-                <tr><td colspan="5"><div class="proj-empty"><p>Select a project to view reports.</p></div></td></tr>
+                <tr><td colspan="5"><div class="ms-empty" style="padding:20px;"><div class="ms-empty-sub">Select a project to view reports.</div></div></td></tr>
               </tbody>
             </table>
           </div>
@@ -556,15 +550,18 @@
                 </tr>
               </thead>
               <tbody id="proj-history-body">
-                <tr><td colspan="7"><div class="proj-empty"><p>Select a project to view history.</p></div></td></tr>
+                <tr><td colspan="7"><div class="ms-empty" style="padding:20px;"><div class="ms-empty-sub">Select a project to view history.</div></div></td></tr>
               </tbody>
             </table>
           </div>
 
           <!-- No project selected state -->
-          <div id="proj-no-selection" class="proj-empty" style="padding:60px 20px;">
-            <p style="font-size:1.1em;margin-bottom:12px;">Select a project from the sidebar</p>
-            <p style="font-size:0.88em;">or create a new one to get started.</p>
+          <div id="proj-no-selection" style="padding:40px 20px;">
+            <div class="ms-empty">
+              <svg class="ms-empty-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 14h36v24a3 3 0 01-3 3H9a3 3 0 01-3-3V14z"/><path d="M6 14l4-7h14l4 7"/></svg>
+              <div class="ms-empty-title">Select a project from the sidebar</div>
+              <div class="ms-empty-sub">or create a new one to get started.</div>
+            </div>
           </div>
 
         </div>
@@ -703,7 +700,7 @@ var PROJ = (function() {
       if (d.ok) {
         hideNewForm();
         loadProjects(d.id);
-        msToast('Project created');
+        msToast('Project created', 'success');
       } else {
         msToast(d.error || 'Failed to create project', true);
       }
@@ -733,7 +730,7 @@ var PROJ = (function() {
         currentProject.name = name;
         document.getElementById('proj-title').textContent = name;
         loadProjects(currentProject.id);
-        msToast('Project renamed');
+        msToast('Project renamed', 'success');
       } else {
         msToast(d.error || 'Rename failed', true);
         cancelRename();
@@ -759,7 +756,7 @@ var PROJ = (function() {
           document.getElementById('proj-tabs').style.display = 'none';
           document.getElementById('proj-no-selection').style.display = '';
           loadProjects();
-          msToast('Project deleted');
+          msToast('Project deleted', 'success');
         } else {
           msToast(d.error || 'Delete failed', true);
         }
@@ -868,7 +865,7 @@ var PROJ = (function() {
       var sel = document.getElementById('proj-pcap-select');
       setProjectState({ fileCount: (d.files || []).length || 0 });
       if (!d.files || d.files.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5"><div class="proj-empty"><p>No PCAP files yet. Upload one above.</p></div></td></tr>';
+        tbody.innerHTML = msEmptyHTML({ icon: 'file', title: 'No PCAP files yet', sub: 'Upload a capture file above to get started.' }, 5);
         scanRow.style.display = 'none';
         return;
       }
@@ -915,7 +912,7 @@ var PROJ = (function() {
         if (selectedPcap === filename) selectedPcap = null;
         loadFiles();
         loadProjects(currentProject.id);
-        msToast('File deleted');
+        msToast('File deleted', 'success');
       });
   }
 
@@ -931,7 +928,7 @@ var PROJ = (function() {
       body: JSON.stringify({ command: cmd, scan_profile: scanProfile, pcap_file: pcap, project_id: currentProject.id }),
     }).then(function(r) { return r.json(); }).then(function(d) {
       if (d.ok) {
-        msToast('Scan started (run ' + d.run_id.substring(0, 8) + ')');
+        msToast('Scan started (run ' + d.run_id.substring(0, 8) + ')', 'success');
         setTab('history');
       } else {
         msToast(d.error || 'Failed to start scan', true);
@@ -1009,7 +1006,7 @@ var PROJ = (function() {
     fetch('/api/projects/' + currentProject.id + '/reports').then(function(r) { return r.json(); }).then(function(d) {
       var tbody = document.getElementById('proj-reports-body');
       if (!d.reports || d.reports.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5"><div class="proj-empty"><p>No reports yet. Run a scan to generate one.</p></div></td></tr>';
+        tbody.innerHTML = msEmptyHTML({ icon: 'report', title: 'No reports yet', sub: 'Run a scan to generate one.' }, 5);
         return;
       }
       tbody.innerHTML = '';
@@ -1044,7 +1041,7 @@ var PROJ = (function() {
       .then(function() {
         loadReports();
         loadProjects(currentProject.id);
-        msToast('Report deleted');
+        msToast('Report deleted', 'success');
       });
   }
 
@@ -1091,7 +1088,7 @@ var PROJ = (function() {
         latestScanTime: d.scans[0] ? d.scans[0].started_at : ''
       });
       if (!d.scans || d.scans.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7"><div class="proj-empty"><p>No scan history for this project.</p></div></td></tr>';
+        tbody.innerHTML = msEmptyHTML({ icon: 'scan', title: 'No scan history', sub: 'Start a scan from the Files tab.' }, 7);
         return;
       }
       tbody.innerHTML = '';

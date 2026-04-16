@@ -53,7 +53,7 @@ from _auth import (
 )
 from _models import AuditLog, PasswordResetToken, Project, ScanHistory, User, db
 
-APP_VERSION = "2.0.8"
+APP_VERSION = "2.1.0"
 
 log = logging.getLogger("marlinspike")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(message)s")
@@ -3728,6 +3728,55 @@ def create_app():
             user.upload_limit_mb,
         )
         return jsonify({"ok": True})
+
+    # ── Audit log (admin) ────────────────────────────────────
+
+    @app.route("/audit")
+    @admin_required
+    def audit_page():
+        return render_template("audit.html")
+
+    @app.route("/api/audit")
+    @admin_required
+    def api_audit_list():
+        limit = min(int(request.args.get("limit", 100)), 500)
+        offset = int(request.args.get("offset", 0))
+        event_type = request.args.get("event_type", "").strip()
+        username = request.args.get("username", "").strip()
+        status_filter = request.args.get("status", "").strip()
+
+        q = AuditLog.query.order_by(AuditLog.created_at.desc())
+        if event_type:
+            q = q.filter(AuditLog.event_type.ilike(f"%{event_type}%"))
+        if username:
+            q = q.filter(AuditLog.actor_username.ilike(f"%{username}%"))
+        if status_filter:
+            q = q.filter(AuditLog.status == status_filter)
+
+        total = q.count()
+        entries = q.offset(offset).limit(limit).all()
+
+        return jsonify({
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+            "entries": [
+                {
+                    "id": e.id,
+                    "event_type": e.event_type,
+                    "category": e.category,
+                    "actor_username": e.actor_username,
+                    "actor_role": e.actor_role,
+                    "target_type": e.target_type,
+                    "target_id": e.target_id,
+                    "status": e.status,
+                    "ip_address": e.ip_address,
+                    "detail": e.detail,
+                    "created_at": e.created_at.isoformat() if e.created_at else None,
+                }
+                for e in entries
+            ],
+        })
 
     return app
 

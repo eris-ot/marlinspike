@@ -21,73 +21,86 @@
           </tr>
         </thead>
         <tbody id="users-body">
-          <tr><td colspan="5" class="dim" style="text-align:center;padding:20px;">Loading...</td></tr>
+          <tr><td colspan="5"><div class="ms-loading"><div class="ms-spinner"></div> Loading users&hellip;</div></td></tr>
         </tbody>
       </table>
     </div>
   </div>
 
-  <!-- Add user form (hidden) -->
-  <div class="panel" id="add-user-panel" style="display:none;">
-    <div class="panel-header">
-      <h2>Add User</h2>
-      <button class="btn btn-sm" onclick="USR.hideAdd()">Cancel</button>
-    </div>
-    <div class="panel-body">
-      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
-        <div style="display:flex;flex-direction:column;gap:4px;">
-          <label style="font-size:0.75em;color:var(--text-dim);text-transform:uppercase;font-weight:600;">Username</label>
-          <input type="text" id="new-username" class="ms-input" placeholder="username" style="min-width:160px;">
+  <!-- Add user modal -->
+  <div class="ms-modal-backdrop" id="modal-add-user">
+    <div class="ms-modal">
+      <div class="ms-modal-header">
+        <h3>Add User</h3>
+        <button class="ms-modal-close" onclick="msModal.close('modal-add-user')">&times;</button>
+      </div>
+      <div class="ms-modal-body">
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:0.75em;color:var(--text-dim);text-transform:uppercase;font-weight:600;">Username</label>
+            <input type="text" id="new-username" class="ms-input" placeholder="username">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:0.75em;color:var(--text-dim);text-transform:uppercase;font-weight:600;">Password</label>
+            <input type="password" id="new-password" class="ms-input" placeholder="password">
+          </div>
+          <div style="display:flex;gap:12px;">
+            <div style="display:flex;flex-direction:column;gap:4px;flex:1;">
+              <label style="font-size:0.75em;color:var(--text-dim);text-transform:uppercase;font-weight:600;">Role</label>
+              <select id="new-role" class="ms-input">
+                <option value="user">user</option>
+                <option value="admin">admin</option>
+              </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;flex:1;">
+              <label style="font-size:0.75em;color:var(--text-dim);text-transform:uppercase;font-weight:600;">Upload Limit (MB)</label>
+              <input type="number" id="new-upload-limit" class="ms-input" min="1" max="10000" value="200">
+            </div>
+          </div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:4px;">
-          <label style="font-size:0.75em;color:var(--text-dim);text-transform:uppercase;font-weight:600;">Password</label>
-          <input type="password" id="new-password" class="ms-input" placeholder="password" style="min-width:160px;">
-        </div>
-        <div style="display:flex;flex-direction:column;gap:4px;">
-          <label style="font-size:0.75em;color:var(--text-dim);text-transform:uppercase;font-weight:600;">Role</label>
-          <select id="new-role" class="ms-input">
-            <option value="user">user</option>
-            <option value="admin">admin</option>
-          </select>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:4px;">
-          <label style="font-size:0.75em;color:var(--text-dim);text-transform:uppercase;font-weight:600;">Upload Limit (MB)</label>
-          <input type="number" id="new-upload-limit" class="ms-input" min="1" max="10000" value="200" style="min-width:100px;">
-        </div>
-        <button class="btn btn-success" onclick="USR.createUser()">Create</button>
+      </div>
+      <div class="ms-modal-footer">
+        <button class="btn" onclick="msModal.close('modal-add-user')">Cancel</button>
+        <button class="btn btn-success" onclick="USR.createUser()">Create User</button>
       </div>
     </div>
   </div>
 
-  <!-- Edit limits form (hidden) -->
-  <div class="panel" id="limits-panel" style="display:none;">
-    <div class="panel-header">
-      <h2>Upload Limit — <span id="limits-user"></span></h2>
-      <button class="btn btn-sm" onclick="USR.hideLimits()">Cancel</button>
-    </div>
-    <div class="panel-body">
-      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+  <!-- Upload limit modal -->
+  <div class="ms-modal-backdrop" id="modal-limits">
+    <div class="ms-modal">
+      <div class="ms-modal-header">
+        <h3>Upload Limit — <span id="limits-user"></span></h3>
+        <button class="ms-modal-close" onclick="msModal.close('modal-limits')">&times;</button>
+      </div>
+      <div class="ms-modal-body">
         <div style="display:flex;flex-direction:column;gap:4px;">
           <label style="font-size:0.75em;color:var(--text-dim);text-transform:uppercase;font-weight:600;">Upload Limit (MB)</label>
-          <input type="number" id="limits-upload" class="ms-input" min="1" max="10000" style="min-width:100px;">
+          <input type="number" id="limits-upload" class="ms-input" min="1" max="10000">
         </div>
+      </div>
+      <div class="ms-modal-footer">
+        <button class="btn" onclick="msModal.close('modal-limits')">Cancel</button>
         <button class="btn btn-primary" onclick="USR.doLimits()">Save</button>
       </div>
     </div>
   </div>
 
-  <!-- Change password form (hidden) -->
-  <div class="panel" id="chpass-panel" style="display:none;">
-    <div class="panel-header">
-      <h2>Change Password — <span id="chpass-user"></span></h2>
-      <button class="btn btn-sm" onclick="USR.hideChpass()">Cancel</button>
-    </div>
-    <div class="panel-body">
-      <div style="display:flex;gap:12px;align-items:flex-end;">
+  <!-- Change password modal -->
+  <div class="ms-modal-backdrop" id="modal-chpass">
+    <div class="ms-modal">
+      <div class="ms-modal-header">
+        <h3>Change Password — <span id="chpass-user"></span></h3>
+        <button class="ms-modal-close" onclick="msModal.close('modal-chpass')">&times;</button>
+      </div>
+      <div class="ms-modal-body">
         <div style="display:flex;flex-direction:column;gap:4px;">
           <label style="font-size:0.75em;color:var(--text-dim);text-transform:uppercase;font-weight:600;">New Password</label>
-          <input type="password" id="chpass-password" class="ms-input" placeholder="new password" style="min-width:200px;">
+          <input type="password" id="chpass-password" class="ms-input" placeholder="new password">
         </div>
+      </div>
+      <div class="ms-modal-footer">
+        <button class="btn" onclick="msModal.close('modal-chpass')">Cancel</button>
         <button class="btn btn-primary" onclick="USR.doChpass()">Update</button>
       </div>
     </div>
@@ -144,8 +157,8 @@ var USR = (function() {
     });
   }
 
-  function showAdd() { document.getElementById('add-user-panel').style.display = ''; }
-  function hideAdd() { document.getElementById('add-user-panel').style.display = 'none'; }
+  function showAdd() { msModal.open('modal-add-user'); }
+  function hideAdd() { msModal.close('modal-add-user'); }
 
   function createUser() {
     var u = document.getElementById('new-username').value.trim();
@@ -159,7 +172,7 @@ var USR = (function() {
       body: JSON.stringify({ username: u, password: p, role: r, upload_limit_mb: lim }),
     }).then(function(r) { return r.json(); }).then(function(d) {
       if (d.ok) {
-        msToast('User created');
+        msToast('User created', 'success');
         hideAdd();
         loadUsers();
         document.getElementById('new-username').value = '';
@@ -175,7 +188,7 @@ var USR = (function() {
     fetch('/api/users/' + encodeURIComponent(username), { method: 'DELETE' })
       .then(function(r) { return r.json(); })
       .then(function(d) {
-        if (d.ok) { msToast('User deleted'); loadUsers(); }
+        if (d.ok) { msToast('User deleted', 'success'); loadUsers(); }
         else msToast(d.error || 'Failed', true);
       });
   }
@@ -186,9 +199,9 @@ var USR = (function() {
     limitsTarget = username;
     document.getElementById('limits-user').textContent = username;
     document.getElementById('limits-upload').value = limitMb || 200;
-    document.getElementById('limits-panel').style.display = '';
+    msModal.open('modal-limits');
   }
-  function hideLimits() { document.getElementById('limits-panel').style.display = 'none'; }
+  function hideLimits() { msModal.close('modal-limits'); }
 
   function doLimits() {
     if (!limitsTarget) return;
@@ -199,7 +212,7 @@ var USR = (function() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ upload_limit_mb: mb }),
     }).then(function(r) { return r.json(); }).then(function(d) {
-      if (d.ok) { msToast('Upload limit updated'); hideLimits(); loadUsers(); }
+      if (d.ok) { msToast('Upload limit updated', 'success'); hideLimits(); loadUsers(); }
       else msToast(d.error || 'Failed', true);
     });
   }
@@ -207,10 +220,10 @@ var USR = (function() {
   function showChpass(username) {
     chpassTarget = username;
     document.getElementById('chpass-user').textContent = username;
-    document.getElementById('chpass-panel').style.display = '';
     document.getElementById('chpass-password').value = '';
+    msModal.open('modal-chpass');
   }
-  function hideChpass() { document.getElementById('chpass-panel').style.display = 'none'; }
+  function hideChpass() { msModal.close('modal-chpass'); }
 
   function doChpass() {
     var p = document.getElementById('chpass-password').value;
@@ -220,7 +233,7 @@ var USR = (function() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: p }),
     }).then(function(r) { return r.json(); }).then(function(d) {
-      if (d.ok) { msToast('Password updated'); hideChpass(); }
+      if (d.ok) { msToast('Password updated', 'success'); hideChpass(); }
       else msToast(d.error || 'Failed', true);
     });
   }
@@ -235,7 +248,7 @@ var USR = (function() {
       body: JSON.stringify({ current_password: c, new_password: n }),
     }).then(function(r) { return r.json(); }).then(function(d) {
       if (d.ok) {
-        msToast('Password changed');
+        msToast('Password changed', 'success');
         document.getElementById('my-current').value = '';
         document.getElementById('my-new').value = '';
       } else msToast(d.error || 'Failed', true);

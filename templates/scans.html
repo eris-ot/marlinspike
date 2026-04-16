@@ -45,12 +45,11 @@
   font-size: 0.9em;
 }
 .page-toolbar select:focus { border-color: var(--accent); outline: none; }
-.empty-hint {
-  text-align: center;
-  padding: 24px 16px;
-  color: var(--text-dim);
+/* empty states handled by base.html .ms-empty */
+@media (max-width: 768px) {
+  .page-toolbar { flex-wrap: wrap; gap: 8px; }
+  .panel-body { overflow-x: auto; }
 }
-.empty-hint p { margin-bottom: 8px; }
 </style>
 {% endblock %}
 
@@ -82,7 +81,7 @@
           </tr>
         </thead>
         <tbody id="history-body">
-          <tr><td colspan="8" class="dim" style="text-align:center;padding:20px;">Loading...</td></tr>
+          <tr><td colspan="8"><div class="ms-loading"><div class="ms-spinner"></div> Loading scan history&hellip;</div></td></tr>
         </tbody>
       </table>
     </div>
@@ -132,7 +131,7 @@ var SH = (function() {
     fetch(url).then(function(r) { return r.json(); }).then(function(d) {
       var tbody = document.getElementById('history-body');
       if (!d.scans || d.scans.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8"><div class="empty-hint"><p>No scan history found.</p></div></td></tr>';
+        tbody.innerHTML = msEmptyHTML({ icon: 'scan', title: 'No scan history found', sub: 'Start your first scan from the Dashboard.', action: 'Go to Dashboard', href: '/dashboard' }, 8);
         return;
       }
       tbody.innerHTML = '';
@@ -197,7 +196,7 @@ var SH = (function() {
       body: JSON.stringify(body),
     }).then(function(r) { return r.json(); }).then(function(d) {
       if (d.ok) {
-        msToast('Scan retried — check Dashboard for progress');
+        msToast('Scan retried — check Dashboard for progress', 'success');
         loadHistory();
       } else {
         msToast(d.error || 'Failed to retry scan', true);

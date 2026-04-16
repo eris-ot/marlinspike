@@ -224,7 +224,7 @@ var PRF = (function() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     }).then(function(r) { return r.json(); }).then(function(d) {
-      if (d.ok) msToast('Profile saved');
+      if (d.ok) msToast('Profile saved', 'success');
       else msToast(d.error || 'Failed', true);
     });
   }
@@ -239,7 +239,7 @@ var PRF = (function() {
       body: JSON.stringify({ current_password: c, new_password: n }),
     }).then(function(r) { return r.json(); }).then(function(d) {
       if (d.ok) {
-        msToast('Password changed');
+        msToast('Password changed', 'success');
         document.getElementById('prf-cur-pass').value = '';
         document.getElementById('prf-new-pass').value = '';
       } else msToast(d.error || 'Failed', true);

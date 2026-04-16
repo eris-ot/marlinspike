@@ -324,7 +324,7 @@
           <input class="ms-input" id="q" name="q" value="{{ selected.q }}" placeholder="Search titles, ids, fields, families, rationale">
         </div>
         <div>
-          <label class="filter-label" for="source">Source</label>
+          <label class="filter-label" for="source">Source <span class="info-hint">i<span class="info-tip"><b>Source</b> filters by where the capability originates: <b>engine</b> (core analysis chain), <b>mitre</b> (ATT&CK rule packs), <b>malware</b> (IOC matching), or <b>dpi</b> (deep packet inspection).</span></span></label>
           <select class="ms-input" id="source" name="source">
             <option value="">All sources</option>
             {% for source in options.sources %}
@@ -333,7 +333,7 @@
           </select>
         </div>
         <div>
-          <label class="filter-label" for="type">Type</label>
+          <label class="filter-label" for="type">Type <span class="info-hint">i<span class="info-tip"><b>Type</b> distinguishes capability kinds: <b>classification</b> (finding-driven technique inferences), <b>coverage</b> (platform-level passive recon), <b>detection</b> (malware and IOC rules), <b>field</b> (protocol field extraction).</span></span></label>
           <select class="ms-input" id="type" name="type">
             <option value="">All types</option>
             {% for item_type in options.types %}
@@ -342,7 +342,7 @@
           </select>
         </div>
         <div>
-          <label class="filter-label" for="family">Family</label>
+          <label class="filter-label" for="family">Family <span class="info-hint">i<span class="info-tip"><b>Family</b> groups related capabilities by functional area: e.g. Passive Recon, Controller Manipulation, Zone Traversal, Data Exposure, Command and Control.</span></span></label>
           <select class="ms-input" id="family" name="family">
             <option value="">All families</option>
             {% for family in options.families %}

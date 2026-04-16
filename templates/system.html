@@ -280,7 +280,7 @@
           </tr>
         </thead>
         <tbody id="user-storage-body">
-          <tr><td colspan="4" class="dim" style="text-align:center;padding:20px;">Loading...</td></tr>
+          <tr><td colspan="4"><div class="ms-loading"><div class="ms-spinner"></div> Loading storage data&hellip;</div></td></tr>
         </tbody>
       </table>
     </div>
@@ -311,7 +311,7 @@
         </div>
       </div>
       <div class="lib-grid" id="lib-grid">
-        <div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--text-dim);">Loading...</div>
+        <div style="grid-column:1/-1;"><div class="ms-loading"><div class="ms-spinner"></div> Loading sample library&hellip;</div></div>
       </div>
     </div>
   </div>
@@ -564,7 +564,7 @@ var LIB = (function() {
       if (d.ok) {
         hideAddCategory();
         refresh();
-        msToast('Category "' + name + '" created');
+        msToast('Category "' + name + '" created', 'success');
       } else {
         msToast(d.error || 'Failed', true);
       }
@@ -578,7 +578,7 @@ var LIB = (function() {
     }).then(function(r) { return r.json(); }).then(function(d) {
       if (d.ok) {
         refresh();
-        msToast('Deleted ' + fn);
+        msToast('Deleted ' + fn, 'success');
       } else {
         msToast(d.error || 'Failed', true);
       }
@@ -592,7 +592,7 @@ var LIB = (function() {
     }).then(function(r) { return r.json(); }).then(function(d) {
       if (d.ok) {
         refresh();
-        msToast('Category "' + name + '" deleted');
+        msToast('Category "' + name + '" deleted', 'success');
       } else {
         msToast(d.error || 'Failed', true);
       }
@@ -616,7 +616,7 @@ var LIB = (function() {
     }).then(function(r) { return r.json(); }).then(function(d) {
       if (d.ok) {
         refresh();
-        msToast('Uploaded ' + d.filename + ' to ' + d.category);
+        msToast('Uploaded ' + d.filename + ' to ' + d.category, 'success');
       } else {
         msToast(d.error || 'Upload failed', true);
       }

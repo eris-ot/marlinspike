@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% block title %}MarlinSpike — Audit Log{% endblock %}
+{% block head %}
+<style>
+.audit-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.audit-toolbar input,
+.audit-toolbar select {
+  padding: 7px 10px;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 0.85em;
+  transition: border-color 0.15s;
+}
+.audit-toolbar input:focus,
+.audit-toolbar select:focus { border-color: var(--accent); outline: none; }
+.audit-toolbar input { min-width: 160px; }
+.audit-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 3px;
+  font-size: 0.72em;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+}
+.audit-badge-success { background: rgba(34,197,94,0.12); color: var(--color-success); }
+.audit-badge-failure { background: rgba(239,68,68,0.12); color: var(--color-danger); }
+.audit-badge-warning { background: rgba(245,158,11,0.12); color: var(--color-warning); }
+.audit-event { font-family: var(--font-mono); font-size: 0.88em; }
+.audit-detail {
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.audit-detail:hover { white-space: normal; word-break: break-all; }
+.audit-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  font-size: 0.82em;
+  color: var(--text-dim);
+}
+.audit-pager button {
+  padding: 5px 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel-alt);
+  color: var(--text);
+  font-size: 0.85em;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  transition: border-color 0.15s;
+}
+.audit-pager button:hover:not(:disabled) { border-color: var(--accent); }
+.audit-pager button:disabled { opacity: 0.4; cursor: default; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="ms-content">
+  <div class="panel">
+    <div class="panel-header">
+      <h2>Audit Log</h2>
+    </div>
+    <div class="panel-body">
+      <div class="audit-toolbar">
+        <input type="text" id="audit-filter-user" placeholder="Username..." oninput="AL.debounceLoad()">
+        <input type="text" id="audit-filter-event" placeholder="Event type..." oninput="AL.debounceLoad()">
+        <select id="audit-filter-status" onchange="AL.load()">
+          <option value="">All statuses</option>
+          <option value="success">Success</option>
+          <option value="failure">Failure</option>
+        </select>
+        <button class="btn btn-sm" onclick="AL.load()">Refresh</button>
+      </div>
+      <table class="ms-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Event</th>
+            <th>User</th>
+            <th>Status</th>
+            <th>IP</th>
+            <th>Target</th>
+            <th>Detail</th>
+          </tr>
+        </thead>
+        <tbody id="audit-body">
+          <tr><td colspan="7"><div class="ms-loading"><div class="ms-spinner"></div> Loading audit log&hellip;</div></td></tr>
+        </tbody>
+      </table>
+      <div class="audit-pager">
+        <span id="audit-pager-info"></span>
+        <div style="display:flex;gap:8px;">
+          <button id="audit-prev" onclick="AL.prev()" disabled>&larr; Prev</button>
+          <button id="audit-next" onclick="AL.next()">Next &rarr;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+var AL = (function() {
+  var PAGE_SIZE = 50;
+  var offset = 0;
+  var total = 0;
+  var debounceTimer = null;
+
+  function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+  function fmtTime(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    var pad = function(n) { return n < 10 ? '0' + n : n; };
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+      + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+  }
+
+  function statusBadge(s) {
+    var cls = s === 'success' ? 'audit-badge-success' : s === 'failure' ? 'audit-badge-failure' : 'audit-badge-warning';
+    return '<span class="audit-badge ' + cls + '">' + esc(s) + '</span>';
+  }
+
+  function load() {
+    var user = document.getElementById('audit-filter-user').value.trim();
+    var event = document.getElementById('audit-filter-event').value.trim();
+    var status = document.getElementById('audit-filter-status').value;
+
+    var params = 'limit=' + PAGE_SIZE + '&offset=' + offset;
+    if (user) params += '&username=' + encodeURIComponent(user);
+    if (event) params += '&event_type=' + encodeURIComponent(event);
+    if (status) params += '&status=' + encodeURIComponent(status);
+
+    fetch('/api/audit?' + params).then(function(r) { return r.json(); }).then(function(d) {
+      total = d.total;
+      var tbody = document.getElementById('audit-body');
+
+      if (!d.entries || d.entries.length === 0) {
+        tbody.innerHTML = msEmptyHTML({ icon: 'scan', title: 'No audit entries found', sub: 'Adjust your filters or check back later.' }, 7);
+        updatePager();
+        return;
+      }
+
+      var html = '';
+      d.entries.forEach(function(e) {
+        var target = '';
+        if (e.target_type) target = esc(e.target_type) + (e.target_id ? ':' + esc(e.target_id) : '');
+        var detail = e.detail || '';
+        html += '<tr>'
+          + '<td class="mono dim" style="white-space:nowrap;">' + fmtTime(e.created_at) + '</td>'
+          + '<td class="audit-event">' + esc(e.event_type) + '</td>'
+          + '<td>' + esc(e.actor_username || '') + (e.actor_role ? ' <span class="dim">(' + esc(e.actor_role) + ')</span>' : '') + '</td>'
+          + '<td>' + statusBadge(e.status) + '</td>'
+          + '<td class="mono dim">' + esc(e.ip_address || '') + '</td>'
+          + '<td class="mono dim">' + target + '</td>'
+          + '<td class="audit-detail" title="' + esc(detail) + '">' + esc(detail) + '</td>'
+          + '</tr>';
+      });
+      tbody.innerHTML = html;
+      updatePager();
+    }).catch(function(err) {
+      msToast('Failed to load audit log: ' + err, true);
+    });
+  }
+
+  function updatePager() {
+    var info = document.getElementById('audit-pager-info');
+    var prevBtn = document.getElementById('audit-prev');
+    var nextBtn = document.getElementById('audit-next');
+    var start = total > 0 ? offset + 1 : 0;
+    var end = Math.min(offset + PAGE_SIZE, total);
+    info.textContent = start + '\u2013' + end + ' of ' + total + ' entries';
+    prevBtn.disabled = (offset === 0);
+    nextBtn.disabled = (offset + PAGE_SIZE >= total);
+  }
+
+  function prev() { offset = Math.max(0, offset - PAGE_SIZE); load(); }
+  function next() { offset += PAGE_SIZE; load(); }
+  function debounceLoad() {
+    clearTimeout(debounceTimer);
+    offset = 0;
+    debounceTimer = setTimeout(load, 300);
+  }
+
+  document.addEventListener('DOMContentLoaded', load);
+
+  return { load: load, prev: prev, next: next, debounceLoad: debounceLoad };
+})();
+</script>
+{% endblock %}

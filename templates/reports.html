@@ -45,12 +45,11 @@
   font-size: 0.9em;
 }
 .page-toolbar select:focus { border-color: var(--accent); outline: none; }
-.empty-hint {
-  text-align: center;
-  padding: 24px 16px;
-  color: var(--text-dim);
+/* empty states handled by base.html .ms-empty */
+@media (max-width: 768px) {
+  .page-toolbar { flex-wrap: wrap; gap: 8px; }
+  .panel-body { overflow-x: auto; }
 }
-.empty-hint p { margin-bottom: 8px; }
 </style>
 {% endblock %}
 
@@ -59,7 +58,7 @@
 
   <div class="panel">
     <div class="panel-header">
-      <h2>All Reports</h2>
+      <h2>All Reports <span class="info-hint">i<span class="info-tip">Select two reports using the checkboxes to compare them as a <b>Baseline Drift</b> analysis — identifies new, removed, and changed assets between captures.</span></span></h2>
       <div class="page-toolbar">
         <select id="project-filter" onchange="RP.onProjectChange()">
           <option value="">Loading...</option>
@@ -84,7 +83,7 @@
           </tr>
         </thead>
         <tbody id="reports-body">
-          <tr><td colspan="5" class="dim" style="text-align:center;padding:20px;">Loading...</td></tr>
+          <tr><td colspan="5"><div class="ms-loading"><div class="ms-spinner"></div> Loading reports&hellip;</div></td></tr>
         </tbody>
       </table>
     </div>
@@ -133,7 +132,7 @@ var RP = (function() {
     fetch(url).then(function(r) { return r.json(); }).then(function(d) {
       var tbody = document.getElementById('reports-body');
       if (!d.reports || d.reports.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-hint"><p>No reports found.</p></div></td></tr>';
+        tbody.innerHTML = msEmptyHTML({ icon: 'report', title: 'No reports found', sub: 'Run a scan to generate your first report.', action: 'Go to Dashboard', href: '/dashboard' }, 5);
         return;
       }
       tbody.innerHTML = '';
@@ -160,7 +159,7 @@ var RP = (function() {
     if (currentProjectId) url += '?project_id=' + currentProjectId;
     fetch(url, { method: 'DELETE' })
       .then(function(r) { return r.json(); })
-      .then(function() { loadReports(); msToast('Report deleted'); });
+      .then(function() { loadReports(); msToast('Report deleted', 'success'); });
   }
 
   function toggleCompare(cb) {
