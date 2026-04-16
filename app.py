@@ -53,7 +53,7 @@ from _auth import (
 )
 from _models import AuditLog, PasswordResetToken, Project, ScanHistory, User, db
 
-APP_VERSION = "2.0.7"
+APP_VERSION = "2.0.8"
 
 log = logging.getLogger("marlinspike")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(message)s")
