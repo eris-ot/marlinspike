@@ -245,6 +245,54 @@ REPORT_FINDING_COVERAGE = [
         "severity": "HIGH",
         "detail": "Stage 4b IOC or signature hit produced by the marlinspike-malware engine and published rule packs.",
     },
+    {
+        "id": "ARP_DUPLICATE_IP_CLAIM",
+        "title": "ARP duplicate IP claim",
+        "type": "finding",
+        "family": "arp poisoning",
+        "severity": "HIGH",
+        "detail": "Same IP address claimed by two or more distinct source MACs in ARP traffic — a primary indicator of ARP poisoning. ATT&CK: T0830, T1557.002.",
+    },
+    {
+        "id": "ARP_GATEWAY_MAC_CHANGE",
+        "title": "ARP gateway MAC change",
+        "type": "finding",
+        "family": "arp poisoning",
+        "severity": "CRITICAL",
+        "detail": "Configured gateway IP is bound to a MAC that differs from its expected primary binding — possible gateway spoofing. ATT&CK: T0830.",
+    },
+    {
+        "id": "ARP_MAC_CLAIMS_MANY_IPS",
+        "title": "ARP MAC claiming many IPs",
+        "type": "finding",
+        "family": "arp poisoning",
+        "severity": "HIGH",
+        "detail": "Single source MAC announces more than the threshold number of distinct IPs in ARP traffic, consistent with ARP spoofing. ATT&CK: T0830.",
+    },
+    {
+        "id": "ARP_SCAN_BEHAVIOR",
+        "title": "ARP scan or reconnaissance behavior",
+        "type": "finding",
+        "family": "arp reconnaissance",
+        "severity": "MEDIUM",
+        "detail": "One source MAC sends ARP toward many distinct destination IPs with a low response rate, consistent with ARP-based host discovery. ATT&CK: T0842.",
+    },
+    {
+        "id": "ARP_BROADCAST_STORM",
+        "title": "ARP broadcast storm",
+        "type": "finding",
+        "family": "arp flooding",
+        "severity": "HIGH",
+        "detail": "ARP broadcast rate from a single source exceeds the configured threshold per minute — possible ARP flood or denial-of-service condition. ATT&CK: T0814.",
+    },
+    {
+        "id": "ARP_GRATUITOUS_REPLY",
+        "title": "Gratuitous ARP reply",
+        "type": "finding",
+        "family": "arp poisoning",
+        "severity": "MEDIUM",
+        "detail": "Unsolicited ARP reply (opcode 2 with src_ip == dst_ip), or a bilgepump-flagged gratuitous announcement — frequently used to seed downstream caches during ARP poisoning. ATT&CK: T0830, T1557.002.",
+    },
 ]
 
 MALWARE_OBSERVABLE_COVERAGE = [
@@ -810,6 +858,28 @@ def _finalize_run(app, run_id, run_state, report_path):
                 if stage["number"] == plugin_stage_num and stage["state"] == "running":
                     stage["state"] = "complete"
 
+        if config.MARLINSPIKE_ARP_ENABLED and run_state.get("command") == "chain":
+            arp_stage_num = len(run_state["stages"])
+            _set_run_stage(run_state, arp_stage_num, "ARP Analysis")
+            if os.path.isfile(report_path):
+                run_state["output"].append("[*] Running marlinspike-arp...")
+                try:
+                    artifact_path, plugin_output = _run_arp_plugin(report_path)
+                    if artifact_path:
+                        run_state["artifacts_produced"]["marlinspike-arp"] = artifact_path
+                    run_state["output"].extend(plugin_output)
+                    if artifact_path:
+                        run_state["output"].append(
+                            f"[+] ARP artifact saved: {os.path.basename(artifact_path)}"
+                        )
+                except Exception as exc:
+                    run_state["output"].append(f"[!] marlinspike-arp skipped: {exc}")
+            else:
+                run_state["output"].append("[!] marlinspike-arp skipped: report file missing")
+            for stage in run_state["stages"]:
+                if stage["number"] == arp_stage_num and stage["state"] == "running":
+                    stage["state"] = "complete"
+
         run_state["status"] = "completed"
         for stage in run_state["stages"]:
             if stage["state"] in ("running", "complete"):
@@ -870,12 +940,21 @@ def _sanitize_report(report: dict) -> dict:
 
 def _is_primary_report_filename(filename: str) -> bool:
     safe_name = os.path.basename(str(filename or ""))
-    return bool(safe_name.endswith(".json") and not safe_name.endswith("-mitre.json"))
+    return bool(
+        safe_name.endswith(".json")
+        and not safe_name.endswith("-mitre.json")
+        and not safe_name.endswith("-arp.json")
+    )
 
 
 def _mitre_sidecar_path(report_path: str) -> str:
     base, _ = os.path.splitext(report_path)
     return base + "-mitre.json"
+
+
+def _arp_sidecar_path(report_path: str) -> str:
+    base, _ = os.path.splitext(report_path)
+    return base + "-arp.json"
 
 
 def _run_mitre_plugin(report_path: str) -> tuple[str, list[str]]:
@@ -933,6 +1012,61 @@ def _run_mitre_plugin(report_path: str) -> tuple[str, list[str]]:
     return output_path, output_lines
 
 
+def _run_arp_plugin(report_path: str) -> tuple[str, list[str]]:
+    if not config.MARLINSPIKE_ARP_ENABLED:
+        return "", []
+    if not os.path.isfile(report_path):
+        raise FileNotFoundError(f"Report not found: {report_path}")
+
+    output_path = _arp_sidecar_path(report_path)
+    cmd = [
+        config.PYTHON_EXE,
+        "-u",
+        "-m",
+        config.MARLINSPIKE_ARP_MODULE,
+        "--input-report",
+        report_path,
+        "--output",
+        output_path,
+    ]
+    # Collect rule packs: all *.yaml in rules/arp/ plus explicit config path
+    rule_pack_paths: list[str] = []
+    rules_dir = os.path.join(config.BASE_DIR, "rules", "arp")
+    if os.path.isdir(rules_dir):
+        for fname in sorted(os.listdir(rules_dir)):
+            if fname.endswith(".yaml") or fname.endswith(".yml"):
+                rule_pack_paths.append(os.path.join(rules_dir, fname))
+    if config.MARLINSPIKE_ARP_RULES and os.path.isfile(config.MARLINSPIKE_ARP_RULES):
+        if config.MARLINSPIKE_ARP_RULES not in rule_pack_paths:
+            rule_pack_paths.insert(0, config.MARLINSPIKE_ARP_RULES)
+    for pack_path in rule_pack_paths:
+        cmd.extend(["--rules", pack_path])
+
+    env = os.environ.copy()
+    existing_pythonpath = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = (
+        config.BASE_DIR + (os.pathsep + existing_pythonpath if existing_pythonpath else "")
+    )
+
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        cwd=config.BASE_DIR,
+        env=env,
+        timeout=120,
+    )
+    output_lines = [
+        line.strip()
+        for line in ((result.stdout or "") + "\n" + (result.stderr or "")).splitlines()
+        if line.strip()
+    ]
+    if result.returncode != 0:
+        detail = output_lines[-1] if output_lines else f"exit code {result.returncode}"
+        raise RuntimeError(detail)
+    return output_path, output_lines
+
+
 def _load_report_with_extensions(path: str, ensure_mitre: bool = False) -> dict:
     with open(path) as handle:
         report = json.load(handle)
@@ -957,6 +1091,16 @@ def _load_report_with_extensions(path: str, ensure_mitre: bool = False) -> dict:
                 extensions["marlinspike-mitre"] = artifact
         except Exception as exc:
             log.warning("Failed to load MITRE sidecar %s: %s", mitre_path, exc)
+
+    arp_path = _arp_sidecar_path(path)
+    if os.path.isfile(arp_path):
+        try:
+            with open(arp_path) as handle:
+                artifact = json.load(handle)
+            if isinstance(artifact, dict) and artifact.get("plugin_id") == "marlinspike-arp":
+                extensions["marlinspike-arp"] = artifact
+        except Exception as exc:
+            log.warning("Failed to load ARP sidecar %s: %s", arp_path, exc)
 
     if extensions:
         merged["extensions"] = extensions
@@ -3170,6 +3314,9 @@ def create_app():
         mitre_path = _mitre_sidecar_path(path)
         if os.path.isfile(mitre_path):
             os.unlink(mitre_path)
+        arp_path = _arp_sidecar_path(path)
+        if os.path.isfile(arp_path):
+            os.unlink(arp_path)
         return jsonify({"ok": True})
 
     # ── PCAP file browser ─────────────────────────────────────

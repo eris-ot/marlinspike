@@ -57,7 +57,8 @@ if $UI_ONLY; then
     echo "[2/4] Syncing UI files..."
     rsync -avz \
         "$LOCAL_DIR/app.py" \
-        "$REMOTE:$REMOTE_DIR/app.py"
+        "$LOCAL_DIR/_config.py" \
+        "$REMOTE:$REMOTE_DIR/"
     rsync -avz --delete \
         "$LOCAL_DIR/templates/" \
         "$REMOTE:$REMOTE_DIR/templates/"
@@ -71,6 +72,7 @@ if $UI_ONLY; then
     echo "[3/4] Copying into container & restarting..."
     ssh "$REMOTE" "\
         docker cp $REMOTE_DIR/app.py $CONTAINER:/app/app.py && \
+        docker cp $REMOTE_DIR/_config.py $CONTAINER:/app/_config.py && \
         docker cp $REMOTE_DIR/templates/. $CONTAINER:/app/templates/ && \
         docker cp $REMOTE_DIR/static/. $CONTAINER:/app/static/ && \
         docker restart $CONTAINER \

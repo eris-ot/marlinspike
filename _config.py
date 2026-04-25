@@ -37,6 +37,12 @@ MARLINSPIKE_MITRE_RULES = os.environ.get(
     "MARLINSPIKE_MITRE_RULES",
     os.path.join(BASE_DIR, "rules", "mitre", "base.yaml"),
 )
+MARLINSPIKE_ARP_ENABLED = os.environ.get("MARLINSPIKE_ARP_ENABLED", "true").lower() in ("true", "1", "yes")
+MARLINSPIKE_ARP_MODULE = os.environ.get("MARLINSPIKE_ARP_MODULE", "plugins.marlinspike_arp")
+MARLINSPIKE_ARP_RULES = os.environ.get(
+    "MARLINSPIKE_ARP_RULES",
+    os.path.join(BASE_DIR, "rules", "arp", "base.yaml"),
+)
 
 # Preset PCAPs (volume-backed, admin-editable at runtime)
 PRESETS_DIR = os.path.join(DATA_DIR, "presets")

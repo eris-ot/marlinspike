@@ -900,6 +900,87 @@ def _build_conversations_from_bronze(output: dict) -> list:
     return conversations
 
 
+def _build_l2_anomalies_from_bronze(output: dict) -> list:
+    """Extract bilgepump L2 anomaly events from Bronze output into normalized records.
+
+    Accepts ``parse_anomaly`` events whose subsystem/family indicates L2 origin
+    (subsystem == "bilgepump", or family/type contains "l2").  Returns records
+    sorted by timestamp; empty list when no matching events are present.
+
+    Record shape:
+        {
+            "timestamp": str | float | None,
+            "anomaly_type": str,
+            "src_mac": str | None,
+            "dst_mac": str | None,
+            "src_ip":  str | None,
+            "dst_ip":  str | None,
+            "details": { ...original event attributes... },
+        }
+    """
+    payload = output.get("output") or {}
+    events = payload.get("events") or []
+    records = []
+
+    for event in events:
+        family_name, family_payload = _extract_bronze_family(event)
+        if family_name != "parse_anomaly":
+            continue
+
+        # Scope to L2 / bilgepump events. The Rust engine emits a ``decoder`` field
+        # shaped like "<subsystem>:<tag>" (e.g. "bilgepump:arp_spoof", "stovetop:runt").
+        # We also tolerate the older ``subsystem`` / ``anomaly_type`` naming in case
+        # the Rust side shifts schema in a minor release.
+        decoder = str(family_payload.get("decoder") or "")
+        if ":" in decoder:
+            decoder_subsystem, decoder_tag = decoder.split(":", 1)
+        else:
+            decoder_subsystem, decoder_tag = decoder, ""
+        decoder_subsystem_lc = decoder_subsystem.lower()
+
+        subsystem_legacy = (family_payload.get("subsystem") or "").lower()
+        anomaly_type = (decoder_tag or
+                        family_payload.get("anomaly_type") or
+                        family_payload.get("anomaly") or
+                        family_payload.get("kind") or "unknown")
+        anomaly_type_lc = str(anomaly_type).lower()
+
+        is_l2 = (
+            decoder_subsystem_lc == "bilgepump"
+            or subsystem_legacy == "bilgepump"
+            or "bilgepump" in anomaly_type_lc
+            or decoder_subsystem_lc in ("l2", "arp", "mac", "ethernet")
+            or subsystem_legacy in ("l2", "arp", "mac", "ethernet")
+            or "l2" in anomaly_type_lc
+        )
+        if not is_l2:
+            continue
+
+        envelope = event.get("envelope", {})
+        timestamp = envelope.get("timestamp") or family_payload.get("timestamp")
+
+        records.append({
+            "timestamp": timestamp,
+            "anomaly_type": str(anomaly_type),
+            "decoder": decoder or None,
+            "src_mac": envelope.get("src_mac") or family_payload.get("src_mac") or None,
+            "dst_mac": envelope.get("dst_mac") or family_payload.get("dst_mac") or None,
+            "src_ip":  envelope.get("src_ip")  or family_payload.get("src_ip")  or None,
+            "dst_ip":  envelope.get("dst_ip")  or family_payload.get("dst_ip")  or None,
+            "details": dict(family_payload),
+        })
+
+    # Sort deterministically by timestamp; events without one sort to the front
+    def _ts_sort_key(r):
+        t = r.get("timestamp")
+        if t is None:
+            return ""
+        return str(t)
+
+    records.sort(key=_ts_sort_key)
+    return records
+
+
 def _run_marlinspike_dpi(binary_path: str, pcap_path: str, capture_id: str) -> dict:
     """Run the external marlinspike-dpi CLI and return its Bronze JSON."""
     resolved = shutil.which(binary_path) or binary_path
@@ -953,6 +1034,7 @@ def _dissect_with_selected_engine(pcap_path: str, args, capture_id: str):
                 dpi_output = _run_marlinspike_dpi(binary_path, pcap_path, capture_id)
                 conversations = _build_conversations_from_bronze(dpi_output)
                 port_summary = _build_port_summary_from_conversations(conversations)
+                l2_anomalies = _build_l2_anomalies_from_bronze(dpi_output)
                 metadata = {
                     "engine": "marlinspike-dpi",
                     "version": dpi_output.get("version", ""),
@@ -960,7 +1042,14 @@ def _dissect_with_selected_engine(pcap_path: str, args, capture_id: str):
                     "checkpoint": (dpi_output.get("output") or {}).get("checkpoint", {}),
                     "schema_version": ((dpi_output.get("output") or {}).get("checkpoint", {}) or {}).get("schema_version", ""),
                     "malware_seed_events": _build_malware_seed_events_from_bronze(dpi_output),
+                    # Bronze path: L2 anomalies from bilgepump; per-packet ARP observations
+                    # are not emitted by the Bronze aggregation model (empty list by design).
+                    "l2_anomalies": l2_anomalies,
+                    "arp_observations": [],
+                    "arp_observations_truncated": False,
                 }
+                if l2_anomalies:
+                    print(f"[*] marlinspike-dpi: {len(l2_anomalies)} L2 anomaly event(s) from bilgepump")
                 print(f"[*] marlinspike-dpi parsed {len(conversations):,} conversations")
                 return conversations, port_summary, metadata
             except Exception as exc:
@@ -974,7 +1063,14 @@ def _dissect_with_selected_engine(pcap_path: str, args, capture_id: str):
         collapse_threshold=getattr(args, "collapse_threshold", 50),
     )
     conversations = dissector.dissect()
-    return conversations, getattr(dissector, "port_summary", {}), {"engine": "python", "version": ""}
+    python_metadata = {
+        "engine": "python",
+        "version": "",
+        "arp_observations": dissector.arp_observations,
+        "arp_observations_truncated": dissector.arp_observations_truncated,
+        "l2_anomalies": [],  # bilgepump L2 anomalies not available on the tshark path
+    }
+    return conversations, getattr(dissector, "port_summary", {}), python_metadata
 
 
 # ---------------------------------------------------------------------------
@@ -1510,6 +1606,17 @@ class MarlinSpikeReport:
     # Recon tables
     mac_table: list = field(default_factory=list)  # [{mac, ip, vendor, system_name, capabilities, source}]
 
+    # L2 / ARP enrichment surfaces (consumed by downstream plugins)
+    # arp_observations: per-packet ARP records from the tshark path.
+    # Capped at OTProtocolDissector.ARP_OBS_CAP (10 000) entries per scan.
+    # Shape: {timestamp, src_mac, src_ip, dst_mac, dst_ip, opcode, is_gratuitous}
+    arp_observations: list = field(default_factory=list)
+    arp_observations_truncated: bool = False
+    # l2_anomalies: L2 anomaly events from the Rust DPI bilgepump subsystem.
+    # Empty list when the Python/tshark path is used or no anomalies were observed.
+    # Shape: {timestamp, anomaly_type, src_mac, dst_mac, src_ip, dst_ip, details}
+    l2_anomalies: list = field(default_factory=list)
+
     # Metadata
     grassmarlin_used: bool = False
     dpi_engine: str = "python"
@@ -1803,15 +1910,24 @@ class OTProtocolDissector:
         # DNS
         "dns.qry.name", "dns.qry.type", "dns.resp.type",
         "dns.a", "dns.txt",
+        # ARP per-packet fields (opcode: 1=request, 2=reply; isgratuitous: bool)
+        "arp.opcode", "arp.isgratuitous",
     ]
 
     SKIP_LAYERS = {"eth", "ethertype", "ip", "ipv6", "tcp", "udp", "frame", "data"}
+
+    # Maximum per-packet ARP observations retained in a single scan.
+    # If the capture exceeds this, arp_observations_truncated is set True on the report.
+    ARP_OBS_CAP = 10000
 
     def __init__(self, pcap_path: str, chunk_size: int = 0, collapse_threshold: int = 50):
         self.pcap_path = pcap_path
         self.chunk_size = chunk_size
         self.collapse_threshold = collapse_threshold  # 0 = disabled
         self.conversations: list[Conversation] = []
+        # Per-packet ARP observations collected during dissect()
+        self.arp_observations: list[dict] = []
+        self.arp_observations_truncated: bool = False
 
     # Protocols that represent the "real" conversation even when encapsulating
     # other layers (e.g. ICMP error wrapping DNS is still an ICMP conversation)
@@ -1922,6 +2038,34 @@ class OTProtocolDissector:
                     conv["src_ips"].add(src_ip)
                 if dst_ip:
                     conv["dst_ips"].add(dst_ip)
+
+                # Per-packet ARP observation — capped at ARP_OBS_CAP entries
+                if "arp" in proto_stack.lower():
+                    if not self.arp_observations_truncated:
+                        epoch_raw = pkt.get("frame.time_epoch", [""])[0]
+                        try:
+                            ts_val: float | str = float(epoch_raw) if epoch_raw else pkt.get("frame.time", [""])[0]
+                        except (ValueError, TypeError):
+                            ts_val = pkt.get("frame.time", [""])[0]
+                        opcode_raw = pkt.get("arp.opcode", [""])[0]
+                        try:
+                            opcode_int: int | None = int(opcode_raw) if opcode_raw else None
+                        except (ValueError, TypeError):
+                            opcode_int = None
+                        grat_raw = (pkt.get("arp.isgratuitous", [""])[0] or "").lower()
+                        is_grat: bool | None = (True if grat_raw in ("1", "true") else
+                                                 False if grat_raw in ("0", "false") else None)
+                        self.arp_observations.append({
+                            "timestamp": ts_val,
+                            "src_mac": src_mac,
+                            "src_ip": pkt.get("arp.src.proto_ipv4", [""])[0] or src_ip,
+                            "dst_mac": dst_mac,
+                            "dst_ip": pkt.get("arp.dst.proto_ipv4", [""])[0] or dst_ip,
+                            "opcode": opcode_int,
+                            "is_gratuitous": is_grat,
+                        })
+                        if len(self.arp_observations) >= self.ARP_OBS_CAP:
+                            self.arp_observations_truncated = True
 
                 timestamp = pkt.get("frame.time", [""])[0]
                 if not conv["first_seen"] or timestamp < conv["first_seen"]:
@@ -5035,6 +5179,11 @@ def run_chain(args):
         report.port_summary = port_summary
         malware_seed_events = dpi_metadata.get("malware_seed_events", [])
 
+        # Populate L2 / ARP enrichment surfaces
+        report.arp_observations = dpi_metadata.get("arp_observations", [])
+        report.arp_observations_truncated = dpi_metadata.get("arp_observations_truncated", False)
+        report.l2_anomalies = dpi_metadata.get("l2_anomalies", [])
+
     _save_intermediate(report, args.output, "Protocol Dissection")
 
     if _shutdown_requested:
@@ -5187,6 +5336,9 @@ def run_dissect(args):
         dpi_engine=dpi_metadata.get("engine", "python"),
         dpi_engine_version=dpi_metadata.get("version", ""),
         dpi_schema_version=dpi_metadata.get("schema_version", ""),
+        arp_observations=dpi_metadata.get("arp_observations", []),
+        arp_observations_truncated=dpi_metadata.get("arp_observations_truncated", False),
+        l2_anomalies=dpi_metadata.get("l2_anomalies", []),
     )
     proto_counts = defaultdict(int)
     for conv in conversations:

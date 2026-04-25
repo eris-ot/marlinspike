@@ -1,0 +1,54 @@
+schema_version: 1
+pack_id: marlinspike-arp-base
+pack_version: "2026.04"
+plugin_id: marlinspike-arp
+description: >
+  Base ARP poisoning detection settings for MarlinSpike passive analysis.
+  Thresholds are tunable per site; enable/disable each rule class independently.
+
+settings:
+  # ARP_DUPLICATE_IP_CLAIM — same IP bound to ≥2 distinct source MACs
+  # ATT&CK: T0830, T1557.002
+  duplicate_ip:
+    enabled: true
+
+  # ARP_GATEWAY_MAC_CHANGE — configured gateway IP binds to a new MAC
+  # ATT&CK: T0830
+  # Set gateway_ip to your default gateway or router address.
+  gateway_mac_change:
+    enabled: true
+  gateway_ip: null    # e.g. "192.168.1.1"
+
+  # ARP_MAC_CLAIMS_MANY_IPS — one MAC announces more than threshold distinct IPs
+  # ATT&CK: T0830
+  mac_claims_many_ips:
+    enabled: true
+    threshold: 5      # flag when a single MAC claims more than this many IPs
+
+  # ARP_SCAN_BEHAVIOR — one MAC ARPs toward many targets with few responses
+  # ATT&CK: T0842
+  scan_targets:
+    enabled: true
+    threshold: 20             # minimum distinct destination IPs to trigger
+    response_ratio_max: 0.2   # flag when response ratio is at or below this
+
+  # ARP_BROADCAST_STORM — ARP broadcast rate exceeds threshold per minute per source
+  # ATT&CK: T0814
+  broadcast_rate:
+    enabled: true
+    per_minute: 100   # packets/minute per source MAC to trigger
+
+  # ARP_GRATUITOUS_REPLY — unsolicited ARP replies (opcode 2 with src_ip == dst_ip),
+  # or engine-flagged bilgepump:arp_gratuitous events
+  # ATT&CK: T0830, T1557.002
+  gratuitous_reply:
+    enabled: true
+
+  # OUI prefixes exempt from ARP_MAC_CLAIMS_MANY_IPS (router-class devices).
+  # Format: first three octets, colon-separated and lowercase, e.g. "00:50:56"
+  router_oui_allowlist:
+    - "00:00:0c"    # Cisco (HSRP/VRRP)
+    - "00:00:5e"    # IANA (VRRP virtual MACs)
+    - "00:1c:7f"    # Cisco Systems
+    - "00:50:56"    # VMware virtual NICs
+    - "52:54:00"    # QEMU/KVM virtual NICs
