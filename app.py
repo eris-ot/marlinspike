@@ -53,7 +53,7 @@ from _auth import (
 )
 from _models import AuditLog, PasswordResetToken, Project, ScanHistory, User, db
 
-APP_VERSION = "2.2.0"
+APP_VERSION = "2.3.0"
 
 log = logging.getLogger("marlinspike")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(message)s")
@@ -292,6 +292,54 @@ REPORT_FINDING_COVERAGE = [
         "family": "arp poisoning",
         "severity": "MEDIUM",
         "detail": "Unsolicited ARP reply (opcode 2 with src_ip == dst_ip), or a bilgepump-flagged gratuitous announcement — frequently used to seed downstream caches during ARP poisoning. ATT&CK: T0830, T1557.002.",
+    },
+    {
+        "id": "APT_LATERAL_MOVEMENT_SMB",
+        "title": "APT lateral movement via SMB",
+        "type": "finding",
+        "family": "apt lateral movement",
+        "severity": "HIGH",
+        "detail": "One source IP initiated SMB (445/139) traffic to a threshold number of distinct destination hosts in the capture — consistent with SMB-based lateral movement (PsExec, SMB tasking, share access enumeration). ATT&CK: T1021.002, T1570.",
+    },
+    {
+        "id": "APT_LATERAL_MOVEMENT_RDP",
+        "title": "APT lateral movement via RDP",
+        "type": "finding",
+        "family": "apt lateral movement",
+        "severity": "HIGH",
+        "detail": "RDP (3389) fan-out from a non-jump-host source. RDP fan-out across multiple hosts is rare in legitimate operation; this pattern is consistent with interactive lateral movement. ATT&CK: T1021.001.",
+    },
+    {
+        "id": "APT_LATERAL_MOVEMENT_WINRM",
+        "title": "APT lateral movement via WinRM",
+        "type": "finding",
+        "family": "apt lateral movement",
+        "severity": "HIGH",
+        "detail": "WSMAN/WinRM (5985/5986) fan-out from a non-jump-host source. WinRM is a common APT lateral-movement vector via PowerShell remoting and Invoke-Command. ATT&CK: T1021.006.",
+    },
+    {
+        "id": "APT_OT_RECONNAISSANCE",
+        "title": "APT reconnaissance of OT assets",
+        "type": "finding",
+        "family": "apt reconnaissance",
+        "severity": "HIGH",
+        "detail": "A non-polling source initiated OT-protocol traffic (Modbus, CIP, S7, DNP3, OPC-UA, BACnet, IEC-60870, PROFINET) to a threshold number of distinct destinations. Suppressed for HMI/Historian/Engineering Workstation roles and for hosts in the polling allowlist. ATT&CK: T0842, T0840, T0888.",
+    },
+    {
+        "id": "APT_NEW_HOST_PROTOCOL",
+        "title": "Unexpected protocol from host",
+        "type": "finding",
+        "family": "apt behavioral",
+        "severity": "MEDIUM",
+        "detail": "A host initiated a protocol family inconsistent with its inferred role (e.g. HMI doing SMB outbound, PLC initiating HTTPS). Behavioral baseline signal — may indicate compromise, unauthorized tooling, or a misclassified asset. ATT&CK: T1018, T1046.",
+    },
+    {
+        "id": "APT_C2_BEACON",
+        "title": "APT C2 beacon to external host",
+        "type": "finding",
+        "family": "apt c2",
+        "severity": "HIGH",
+        "detail": "A host produced a high-regularity periodic outbound conversation to a publicly-routable destination over a non-control protocol. Consistent with command-and-control beaconing. ATT&CK: T1071, T1102, T1573.",
     },
 ]
 
@@ -880,6 +928,28 @@ def _finalize_run(app, run_id, run_state, report_path):
                 if stage["number"] == arp_stage_num and stage["state"] == "running":
                     stage["state"] = "complete"
 
+        if config.MARLINSPIKE_APT_ENABLED and run_state.get("command") == "chain":
+            apt_stage_num = len(run_state["stages"])
+            _set_run_stage(run_state, apt_stage_num, "APT Analysis")
+            if os.path.isfile(report_path):
+                run_state["output"].append("[*] Running marlinspike-apt...")
+                try:
+                    artifact_path, plugin_output = _run_apt_plugin(report_path)
+                    if artifact_path:
+                        run_state["artifacts_produced"]["marlinspike-apt"] = artifact_path
+                    run_state["output"].extend(plugin_output)
+                    if artifact_path:
+                        run_state["output"].append(
+                            f"[+] APT artifact saved: {os.path.basename(artifact_path)}"
+                        )
+                except Exception as exc:
+                    run_state["output"].append(f"[!] marlinspike-apt skipped: {exc}")
+            else:
+                run_state["output"].append("[!] marlinspike-apt skipped: report file missing")
+            for stage in run_state["stages"]:
+                if stage["number"] == apt_stage_num and stage["state"] == "running":
+                    stage["state"] = "complete"
+
         run_state["status"] = "completed"
         for stage in run_state["stages"]:
             if stage["state"] in ("running", "complete"):
@@ -944,6 +1014,7 @@ def _is_primary_report_filename(filename: str) -> bool:
         safe_name.endswith(".json")
         and not safe_name.endswith("-mitre.json")
         and not safe_name.endswith("-arp.json")
+        and not safe_name.endswith("-apt.json")
     )
 
 
@@ -955,6 +1026,11 @@ def _mitre_sidecar_path(report_path: str) -> str:
 def _arp_sidecar_path(report_path: str) -> str:
     base, _ = os.path.splitext(report_path)
     return base + "-arp.json"
+
+
+def _apt_sidecar_path(report_path: str) -> str:
+    base, _ = os.path.splitext(report_path)
+    return base + "-apt.json"
 
 
 def _run_mitre_plugin(report_path: str) -> tuple[str, list[str]]:
@@ -1067,6 +1143,60 @@ def _run_arp_plugin(report_path: str) -> tuple[str, list[str]]:
     return output_path, output_lines
 
 
+def _run_apt_plugin(report_path: str) -> tuple[str, list[str]]:
+    if not config.MARLINSPIKE_APT_ENABLED:
+        return "", []
+    if not os.path.isfile(report_path):
+        raise FileNotFoundError(f"Report not found: {report_path}")
+
+    output_path = _apt_sidecar_path(report_path)
+    cmd = [
+        config.PYTHON_EXE,
+        "-u",
+        "-m",
+        config.MARLINSPIKE_APT_MODULE,
+        "--input-report",
+        report_path,
+        "--output",
+        output_path,
+    ]
+    rule_pack_paths: list[str] = []
+    rules_dir = os.path.join(config.BASE_DIR, "rules", "apt")
+    if os.path.isdir(rules_dir):
+        for fname in sorted(os.listdir(rules_dir)):
+            if fname.endswith(".yaml") or fname.endswith(".yml"):
+                rule_pack_paths.append(os.path.join(rules_dir, fname))
+    if config.MARLINSPIKE_APT_RULES and os.path.isfile(config.MARLINSPIKE_APT_RULES):
+        if config.MARLINSPIKE_APT_RULES not in rule_pack_paths:
+            rule_pack_paths.insert(0, config.MARLINSPIKE_APT_RULES)
+    for pack_path in rule_pack_paths:
+        cmd.extend(["--rules", pack_path])
+
+    env = os.environ.copy()
+    existing_pythonpath = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = (
+        config.BASE_DIR + (os.pathsep + existing_pythonpath if existing_pythonpath else "")
+    )
+
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        cwd=config.BASE_DIR,
+        env=env,
+        timeout=120,
+    )
+    output_lines = [
+        line.strip()
+        for line in ((result.stdout or "") + "\n" + (result.stderr or "")).splitlines()
+        if line.strip()
+    ]
+    if result.returncode != 0:
+        detail = output_lines[-1] if output_lines else f"exit code {result.returncode}"
+        raise RuntimeError(detail)
+    return output_path, output_lines
+
+
 def _load_report_with_extensions(path: str, ensure_mitre: bool = False) -> dict:
     with open(path) as handle:
         report = json.load(handle)
@@ -1102,9 +1232,89 @@ def _load_report_with_extensions(path: str, ensure_mitre: bool = False) -> dict:
         except Exception as exc:
             log.warning("Failed to load ARP sidecar %s: %s", arp_path, exc)
 
+    apt_path = _apt_sidecar_path(path)
+    if os.path.isfile(apt_path):
+        try:
+            with open(apt_path) as handle:
+                artifact = json.load(handle)
+            if isinstance(artifact, dict) and artifact.get("plugin_id") == "marlinspike-apt":
+                extensions["marlinspike-apt"] = artifact
+        except Exception as exc:
+            log.warning("Failed to load APT sidecar %s: %s", apt_path, exc)
+
     if extensions:
         merged["extensions"] = extensions
+
+    plugin_findings = _collect_plugin_risk_findings(extensions)
+    if plugin_findings:
+        existing = list(merged.get("risk_findings") or [])
+        merged["risk_findings"] = existing + plugin_findings
+
     return merged
+
+
+def _collect_plugin_risk_findings(extensions: dict) -> list[dict]:
+    """Adapt findings emitted by plugin sidecars into the engine risk_finding schema."""
+    out: list[dict] = []
+    for plugin_id, artifact in extensions.items():
+        if not isinstance(artifact, dict):
+            continue
+        data = artifact.get("data") if isinstance(artifact.get("data"), dict) else {}
+        for raw in data.get("findings") or []:
+            adapted = _plugin_finding_to_risk_finding(plugin_id, raw)
+            if adapted:
+                out.append(adapted)
+    return out
+
+
+def _plugin_finding_to_risk_finding(plugin_id: str, finding: dict) -> dict | None:
+    if not isinstance(finding, dict):
+        return None
+    category = str(finding.get("category") or "").strip()
+    if not category:
+        return None
+
+    affected: list[str] = []
+    seen: set[str] = set()
+
+    def _add(value):
+        if value is None:
+            return
+        text = str(value).strip()
+        if text and text not in seen:
+            seen.add(text)
+            affected.append(text)
+
+    for key in ("src_ip", "ip", "host", "address", "source_ip"):
+        _add(finding.get(key))
+    for key in ("distinct_target_ips", "affected_nodes", "target_ips", "involved_ips", "claimed_by_macs"):
+        for v in finding.get(key) or []:
+            _add(v)
+
+    severity = str(finding.get("severity") or "MEDIUM").upper()
+    if severity not in {"CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"}:
+        severity = "MEDIUM"
+
+    description = (
+        finding.get("detail")
+        or finding.get("description")
+        or finding.get("message")
+        or category
+    )
+
+    attack_ids = list(finding.get("attack_techniques") or finding.get("attack_ids") or [])
+
+    return {
+        "category": category,
+        "severity": severity,
+        "description": str(description),
+        "affected_nodes": affected,
+        "affected_edges": list(finding.get("affected_edges") or []),
+        "cvss_impact": float(finding.get("cvss_impact") or 0.0),
+        "remediation": str(finding.get("remediation") or ""),
+        "attack_ids": [str(a).strip().upper() for a in attack_ids if str(a).strip()],
+        "source": plugin_id,
+    }
 
 
 def _viewer_anchor(value: str) -> str:
@@ -3317,6 +3527,9 @@ def create_app():
         arp_path = _arp_sidecar_path(path)
         if os.path.isfile(arp_path):
             os.unlink(arp_path)
+        apt_path = _apt_sidecar_path(path)
+        if os.path.isfile(apt_path):
+            os.unlink(apt_path)
         return jsonify({"ok": True})
 
     # ── PCAP file browser ─────────────────────────────────────
