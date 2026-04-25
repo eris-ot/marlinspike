@@ -61,6 +61,33 @@ New Bronze observable fields emitted by `marlinspike-dpi` should be extractable 
 - Treat a missing passthrough as a consumer bug.
 - Treat parser panics or malformed Bronze output as a DPI bug.
 
+## parse_anomaly — bilgepump L2 Consumer
+
+`marlinspike-dpi` also emits `parse_anomaly` events from its `bilgepump` subsystem for stateful L2 anomaly tracking (e.g. ARP conflicts, MAC flaps, gratuitous ARP floods). These are now consumed by `_ms_engine.py` and surfaced on the report.
+
+### Consumer Rule
+
+- `parse_anomaly` events with `subsystem == "bilgepump"`, or whose subsystem/anomaly_type indicates L2 origin (`l2`, `arp`, `mac`, `ethernet`), are normalized into `l2_anomalies` on the report.
+- Events from other subsystems (`stovetop`, `icmpeeker`, etc.) are not consumed here.
+
+### Report Field
+
+`l2_anomalies: list` — sorted by timestamp, empty list when no L2 anomalies were observed or when the Python/tshark dissection path is used.
+
+Record shape:
+
+```json
+{
+  "timestamp": "...",
+  "anomaly_type": "...",
+  "src_mac": "...",
+  "dst_mac": "...",
+  "src_ip":  "...",
+  "dst_ip":  "...",
+  "details": { "...original event attributes..." }
+}
+```
+
 ## Validation
 
 Use [`scripts/validate_bronze_passthrough.py`](/Users/butterbones/riverflow/marlinspike/scripts/validate_bronze_passthrough.py) with representative captures:

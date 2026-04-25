@@ -41,7 +41,7 @@ Interactive browser features can improve speed and convenience, but the core tri
 
 - Passive analysis only: no active scanning or packet transmission
 - OT protocol parsing for Modbus, EtherNet/IP, S7, DNP3, PROFINET, OPC UA, BACnet, and more
-- Expanded Rust DPI substrate via `marlinspike-dpi`: 34 protocol dissectors, Bronze v2 event output, frame-integrity inspection, ICMP anomaly inspection, and stateful L2 anomaly analysis
+- Expanded Rust DPI substrate via `marlinspike-dpi`: 34 protocol dissectors, Bronze v2 event output, frame-integrity inspection, ICMP anomaly inspection, and stateful L2 anomaly analysis; bilgepump `parse_anomaly` events are now consumed and surfaced as `l2_anomalies` in the report artifact, and per-packet ARP observations (`arp_observations`) are collected on the tshark path for downstream ARP-analysis plugins
 - Topology construction with Purdue-level inference and vendor fingerprinting
 - Risk surfacing for remote access exposure, C2-like beaconing, suspicious external channels, DNS entropy anomalies, policy violations, full MITRE ATT&CK mapping with tactics, sub-techniques, matrix views, response guidance, and IEC 62443 SR-oriented remediation guidance
 - Flask web UI with an upgraded multi-mode analyst workbench, project management, report viewer, baseline/drift comparison, asset inventory, scan history, and a source-backed `/capabilities` detection coverage catalog
