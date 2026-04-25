@@ -1,0 +1,115 @@
+schema_version: 1
+pack_id: marlinspike-apt-base
+pack_version: "2026.04"
+plugin_id: marlinspike-apt
+description: >
+  Base APT lateral-movement and reconnaissance detection settings for
+  MarlinSpike. Tier 1 detectors only — operates on existing report fields
+  with no engine widening. Thresholds are tunable per site; enable/disable
+  each rule class independently.
+
+settings:
+  # APT_LATERAL_MOVEMENT_SMB — one src talks SMB (445/139) to N+ distinct dst
+  # ATT&CK: T1021.002, T1570
+  lateral_movement_smb:
+    enabled: true
+    threshold: 5      # distinct destination IPs for the same src to trigger
+
+  # APT_LATERAL_MOVEMENT_RDP — RDP fan-out from a non-jump-host source
+  # ATT&CK: T1021.001
+  lateral_movement_rdp:
+    enabled: true
+    threshold: 2      # most jump hosts hit one or two targets at a time
+
+  # APT_LATERAL_MOVEMENT_WINRM — WSMAN/WinRM (5985/5986) fan-out
+  # ATT&CK: T1021.006
+  lateral_movement_winrm:
+    enabled: true
+    threshold: 2
+
+  # APT_OT_RECONNAISSANCE — broad OT-protocol fan-out from a single src
+  # Suppressed when src role matches polling_source_roles or appears in the
+  # ot_polling_source_allowlist.
+  # ATT&CK: T0842, T0840, T0888
+  ot_reconnaissance:
+    enabled: true
+    threshold: 5
+
+  # APT_NEW_HOST_PROTOCOL — host initiates a protocol outside its role's
+  # expected family set. Catches engineering-station SMB lateral, PLC HTTP
+  # outbound, etc.
+  # ATT&CK: T1018, T1046
+  new_host_protocol:
+    enabled: true
+    min_packet_count: 3   # ignore single-stray-packet noise
+
+  # APT_C2_BEACON — high-regularity periodic outbound conversation to an
+  # external (publicly-routable) destination over a non-control protocol.
+  # Uses the engine's beacon_score / beacon_interval / beacon_jitter fields.
+  # ATT&CK: T1071, T1102, T1573
+  c2_beaconing:
+    enabled: true
+    min_score: 0.7              # 0.0 (random) to 1.0 (perfect periodicity)
+    min_interval_s: 30.0        # ignore sub-30s intervals (likely polling/keepalive)
+    max_interval_s: 3600.0      # ignore hourly+ intervals (likely sync jobs)
+    min_packet_count: 6         # need at least N samples to call it a beacon
+    external_dst_only: true     # set false to also flag intra-network beacons
+    excluded_protocols:         # noisy periodic protocols suppressed by default
+      - ARP
+      - DNS
+      - MDNS
+      - LLMNR
+      - NTP
+      - ICMP
+      - ICMPV6
+      - DHCP
+      - DHCPV6
+      - STP
+      - LLDP
+      - CDP
+      - IGMP
+      # OT control protocols — periodic polling is expected
+      - MODBUS
+      - MODBUS TCP
+      - MODBUS/TCP
+      - ENIP
+      - ETHERNET/IP
+      - CIP
+      - S7COMM
+      - S7COMM-PLUS
+      - DNP3
+      - DNP
+      - OPCUA
+      - OPC-UA
+      - OPCUA-BINARY
+      - BACNET
+      - BACNET/IP
+      - IEC-60870-5-104
+      - IEC60870
+      - IEC104
+      - PROFINET
+      - PN-DCP
+      - PN-RT
+      - GOOSE
+      - MMS
+
+  # Hosts known to be legitimate jump points (suppress lateral_movement_rdp
+  # and lateral_movement_winrm for these source IPs). Format: IPv4/IPv6 string.
+  jump_hosts: []
+
+  # Source IPs known to legitimately poll many OT devices (overrides role-based
+  # suppression). Format: IPv4/IPv6 string.
+  ot_polling_source_allowlist: []
+
+  # Roles whose hosts are exempt from APT_OT_RECONNAISSANCE because they
+  # legitimately poll many OT devices. Match against node.role (case-insensitive).
+  polling_source_roles:
+    - HMI
+    - HISTORIAN
+    - ENGINEERING WORKSTATION
+    # Industrial switches/gateways legitimately bridge OT protocols across
+    # zones; flagging them as "reconnaissance" creates noise on real captures.
+    - NETWORK INFRASTRUCTURE
+    - NETWORK SWITCH
+    - ROUTER
+    - INDUSTRIAL GATEWAY
