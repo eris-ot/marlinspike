@@ -363,6 +363,290 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Overview tab ── */
+.ov-context-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  align-items: center;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  background: linear-gradient(180deg, rgba(91,138,240,0.04), transparent), var(--panel);
+  border: 1px solid var(--border-dim);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  font-size: 0.84em;
+  color: var(--text-dim);
+}
+.ov-context-bar b { color: var(--text); font-weight: 600; }
+.ov-context-bar .sep {
+  width: 1px; height: 14px;
+  background: var(--border);
+}
+
+.ov-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.ov-kpi {
+  padding: 14px 16px;
+  background: var(--panel);
+  border: 1px solid var(--border-dim);
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.ov-kpi::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--border);
+  transition: background 0.15s;
+}
+.ov-kpi-label {
+  font-size: 0.72em;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.ov-kpi-value {
+  font-size: 1.85em;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.ov-kpi-detail {
+  font-size: 0.78em;
+  color: var(--text-dim);
+  margin-top: 6px;
+}
+.ov-kpi.danger::before { background: #ef4444; }
+.ov-kpi.danger .ov-kpi-value { color: #ef4444; }
+.ov-kpi.healthy::before { background: var(--accent-green); }
+.ov-kpi.healthy .ov-kpi-value { color: var(--accent-green); }
+.ov-kpi.accent::before { background: var(--accent); }
+
+.ov-sev-bar {
+  display: flex;
+  height: 22px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--bg-deep);
+  border: 1px solid var(--border-dim);
+}
+.ov-sev-bar > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 0.72em;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: rgba(0,0,0,0.85);
+  letter-spacing: 0.04em;
+  transition: flex-grow 0.2s;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.ov-sev-bar > span.compact { color: transparent; }
+.ov-sev-CRITICAL { background: #ef4444; }
+.ov-sev-HIGH     { background: #f59e0b; }
+.ov-sev-MEDIUM   { background: var(--accent); }
+.ov-sev-LOW      { background: var(--accent-cyan); }
+.ov-sev-INFO     { background: var(--text-dim); color: rgba(255,255,255,0.85); }
+.ov-sev-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 0.76em;
+  color: var(--text-dim);
+  margin-top: 10px;
+}
+.ov-sev-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.ov-sev-legend .swatch {
+  display: inline-block;
+  width: 9px; height: 9px;
+  border-radius: 2px;
+}
+.ov-sev-legend b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.ov-section-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.ov-section-grid.two-col {
+  grid-template-columns: 1.4fr 1fr;
+}
+@media (max-width: 1100px) {
+  .ov-section-grid.two-col { grid-template-columns: 1fr; }
+}
+
+.ov-panel {
+  background: var(--panel);
+  border: 1px solid var(--border-dim);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.ov-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-dim);
+}
+.ov-panel-header h3 {
+  margin: 0;
+  font-size: 0.78em;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--text);
+}
+.ov-panel-header .meta { font-size: 0.78em; color: var(--text-dim); }
+.ov-panel-body { padding: 12px 14px; }
+.ov-panel-body.flush { padding: 0; }
+.ov-panel-body.flush .ms-table th:first-child,
+.ov-panel-body.flush .ms-table td:first-child { padding-left: 14px; }
+.ov-panel-body.flush .ms-table th:last-child,
+.ov-panel-body.flush .ms-table td:last-child { padding-right: 14px; }
+
+.ov-table-scroll {
+  max-height: 480px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.ov-table-scroll::-webkit-scrollbar { width: 8px; }
+.ov-table-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.ov-table-scroll::-webkit-scrollbar-track { background: transparent; }
+.ov-table-scroll .ms-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-surface);
+  box-shadow: 0 1px 0 var(--border-dim);
+}
+.ov-table-scroll.tight { max-height: 380px; }
+
+.ov-sev-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-family: var(--font-mono, monospace);
+}
+.ov-sev-pill.CRITICAL { background: rgba(239,68,68,0.14); color: #ef4444; }
+.ov-sev-pill.HIGH     { background: rgba(245,158,11,0.14); color: #f59e0b; }
+.ov-sev-pill.MEDIUM   { background: rgba(91,138,240,0.14); color: var(--accent); }
+.ov-sev-pill.LOW      { background: rgba(50,184,198,0.14); color: var(--accent-cyan); }
+.ov-sev-pill.INFO     { background: rgba(100,116,139,0.14); color: var(--text-dim); }
+
+.ov-finding-row td { vertical-align: top; padding: 10px 12px; }
+.ov-finding-cat { font-weight: 600; font-size: 0.86em; }
+.ov-finding-src {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 0.7em;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--bg-deep);
+  color: var(--text-dim);
+  border: 1px solid var(--border-dim);
+  font-family: var(--font-mono, monospace);
+  vertical-align: middle;
+}
+.ov-finding-desc {
+  font-size: 0.78em;
+  color: var(--text-dim);
+  margin-top: 3px;
+  line-height: 1.45;
+}
+.ov-finding-occ {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.82em;
+}
+.ov-finding-occ b { color: var(--text); }
+
+.ov-asset-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border-dim);
+}
+.ov-asset-filter {
+  flex: 1;
+  padding: 6px 10px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 0.84em;
+}
+.ov-asset-filter:focus { border-color: var(--accent); outline: none; }
+.ov-asset-meta {
+  font-size: 0.76em;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ov-asset-meta b { color: var(--text); font-weight: 600; }
+
+.ov-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.ov-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border-dim);
+  border-radius: 4px;
+  font-size: 0.78em;
+  color: var(--text);
+  transition: border-color 0.12s, background 0.12s;
+}
+.ov-chip:hover { border-color: var(--accent); background: var(--panel); }
+.ov-chip .count {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+  font-size: 0.92em;
+}
+.ov-chip.attack { font-family: var(--font-mono, monospace); }
+.ov-chip.attack .count { font-family: var(--font-ui); }
+.ov-chip.attack:hover { border-color: var(--accent-cyan); }
+
+.ov-empty-tab {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+@media (max-width: 900px) {
+  .ov-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+  .ov-kpi-grid { grid-template-columns: 1fr; }
+}
 </style>
 {% endblock %}
 
@@ -453,13 +737,141 @@
 
           <!-- Tabs -->
           <div class="proj-tabs" id="proj-tabs" style="display:none;">
-            <div class="proj-tab active" data-tab="pcaps" onclick="PROJ.setTab('pcaps')">PCAPs</div>
+            <div class="proj-tab active" data-tab="overview" onclick="PROJ.setTab('overview')">Overview</div>
+            <div class="proj-tab" data-tab="pcaps" onclick="PROJ.setTab('pcaps')">PCAPs</div>
             <div class="proj-tab" data-tab="reports" onclick="PROJ.setTab('reports')">Reports</div>
             <div class="proj-tab" data-tab="history" onclick="PROJ.setTab('history')">History</div>
           </div>
 
+          <!-- Overview tab -->
+          <div class="proj-tab-panel active" id="tab-overview">
+            <div id="overview-loading" class="ms-empty ov-empty-tab" style="display:none;">
+              <div class="ms-spinner" style="margin:0 auto 12px;"></div>
+              <div class="ms-empty-sub">Aggregating reports…</div>
+            </div>
+            <div id="overview-empty" class="ms-empty ov-empty-tab" style="display:none;">
+              <svg class="ms-empty-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="18"/><path d="M16 24l6 6 12-12"/></svg>
+              <div class="ms-empty-title">No reports yet</div>
+              <div class="ms-empty-sub">Upload a PCAP and run a scan — the project overview rolls up assets, findings, protocols, and ATT&amp;CK coverage across every report in this project.</div>
+            </div>
+            <div id="overview-content" style="display:none;">
+
+              <!-- Context bar: window + scan profile mix -->
+              <div class="ov-context-bar" id="ov-context-bar"></div>
+
+              <!-- KPI strip (project-aggregated risk metrics) -->
+              <div class="ov-kpi-grid">
+                <div class="ov-kpi" id="ov-kpi-reports-card">
+                  <div class="ov-kpi-label">Reports rolled up</div>
+                  <div class="ov-kpi-value" id="ov-kpi-reports">0</div>
+                  <div class="ov-kpi-detail" id="ov-kpi-reports-detail"></div>
+                </div>
+                <div class="ov-kpi">
+                  <div class="ov-kpi-label">Unique assets</div>
+                  <div class="ov-kpi-value" id="ov-kpi-assets">0</div>
+                  <div class="ov-kpi-detail" id="ov-kpi-assets-detail">MAC- or IP-keyed</div>
+                </div>
+                <div class="ov-kpi" id="ov-kpi-findings-card">
+                  <div class="ov-kpi-label">Distinct findings</div>
+                  <div class="ov-kpi-value" id="ov-kpi-findings">0</div>
+                  <div class="ov-kpi-detail" id="ov-kpi-findings-detail"></div>
+                </div>
+                <div class="ov-kpi">
+                  <div class="ov-kpi-label">Protocols observed</div>
+                  <div class="ov-kpi-value" id="ov-kpi-protocols">0</div>
+                  <div class="ov-kpi-detail" id="ov-kpi-protocols-detail"></div>
+                </div>
+              </div>
+
+              <!-- Severity bar + legend -->
+              <div class="ov-panel" style="margin-bottom:12px;">
+                <div class="ov-panel-header">
+                  <h3>Severity Distribution</h3>
+                  <span class="meta" id="ov-sev-total"></span>
+                </div>
+                <div class="ov-panel-body">
+                  <div class="ov-sev-bar" id="ov-sev-bar"></div>
+                  <div class="ov-sev-legend" id="ov-sev-legend"></div>
+                </div>
+              </div>
+
+              <!-- Findings (deduped, severity-sorted) -->
+              <div class="ov-panel" style="margin-bottom:12px;">
+                <div class="ov-panel-header">
+                  <h3>Findings — deduped across all reports</h3>
+                  <span class="meta" id="ov-findings-meta"></span>
+                </div>
+                <div class="ov-panel-body flush ov-table-scroll tight">
+                  <table class="ms-table" id="ov-findings-table">
+                    <thead><tr>
+                      <th style="width:90px;">Severity</th>
+                      <th>Category &amp; description</th>
+                      <th style="width:240px;">Affected</th>
+                      <th style="width:100px;">Seen in</th>
+                      <th style="width:120px;">Last seen</th>
+                      <th style="width:80px;"></th>
+                    </tr></thead>
+                    <tbody id="ov-findings-body"></tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Asset inventory -->
+              <div class="ov-panel" style="margin-bottom:12px;">
+                <div class="ov-panel-header">
+                  <h3>Asset inventory</h3>
+                  <span class="meta" id="ov-asset-meta-header"></span>
+                </div>
+                <div class="ov-asset-toolbar">
+                  <input type="text" id="ov-asset-filter" class="ov-asset-filter"
+                         placeholder="Filter by MAC, IP, role, vendor…"
+                         oninput="PROJ.filterAssets(this.value)">
+                  <div class="ov-asset-meta" id="ov-asset-count"></div>
+                </div>
+                <div class="ov-panel-body flush ov-table-scroll">
+                  <table class="ms-table" id="ov-assets-table">
+                    <thead><tr>
+                      <th>Key</th>
+                      <th>Role</th>
+                      <th>Vendor</th>
+                      <th style="width:60px;">Purdue</th>
+                      <th>IPs</th>
+                      <th>Protocols</th>
+                      <th style="width:80px;">Seen in</th>
+                      <th style="width:70px;"></th>
+                    </tr></thead>
+                    <tbody id="ov-assets-body"></tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Protocols + ATT&CK side by side -->
+              <div class="ov-section-grid two-col">
+                <div class="ov-panel">
+                  <div class="ov-panel-header">
+                    <h3>Protocol distribution</h3>
+                    <span class="meta" id="ov-proto-meta"></span>
+                  </div>
+                  <div class="ov-panel-body">
+                    <div class="ov-chip-row" id="ov-protocols"></div>
+                  </div>
+                </div>
+                <div class="ov-panel" id="ov-attack-section" style="display:none;">
+                  <div class="ov-panel-header">
+                    <h3>ATT&amp;CK coverage</h3>
+                    <span class="meta" id="ov-attack-meta"></span>
+                  </div>
+                  <div class="ov-panel-body">
+                    <div class="ov-chip-row" id="ov-attack"></div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
           <!-- PCAPs tab -->
-          <div class="proj-tab-panel active" id="tab-pcaps">
+          <div class="proj-tab-panel" id="tab-pcaps">
             <div class="proj-upload-zone" id="proj-upload-zone"
                  onclick="document.getElementById('proj-upload-input').click()">
               Drop PCAP file here or click to browse
@@ -578,7 +990,7 @@ var PROJ = (function() {
   'use strict';
 
   var currentProject = null;
-  var currentTab = 'pcaps';
+  var currentTab = 'overview';
   var selectedPcap = null;
   var compareA = null, compareB = null;
   var pendingTab = null;
@@ -778,11 +1190,15 @@ var PROJ = (function() {
     document.querySelectorAll('.proj-tab-panel').forEach(function(p) {
       p.classList.toggle('active', p.id === 'tab-' + currentTab);
     });
+    // Hide the project workspace hero on the Overview tab — Overview owns the page.
+    var workspace = document.getElementById('proj-workspace');
+    if (workspace) workspace.style.display = (currentTab === 'overview') ? 'none' : '';
   }
 
   function loadTabData() {
     if (!currentProject) return;
-    if (currentTab === 'pcaps') loadFiles();
+    if (currentTab === 'overview') loadOverview();
+    else if (currentTab === 'pcaps') loadFiles();
     else if (currentTab === 'reports') loadReports();
     else if (currentTab === 'history') loadHistory();
     updateHistoryPolling();
@@ -1115,6 +1531,272 @@ var PROJ = (function() {
     });
   }
 
+  // ── Overview (project-level aggregation) ──
+
+  var overviewState = { assets: [], filter: '', reportCount: 0 };
+
+  var SEVERITY_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
+
+  function loadOverview() {
+    if (!currentProject) return;
+    var loading = document.getElementById('overview-loading');
+    var empty = document.getElementById('overview-empty');
+    var content = document.getElementById('overview-content');
+    loading.style.display = '';
+    empty.style.display = 'none';
+    content.style.display = 'none';
+
+    fetch('/api/projects/' + currentProject.id + '/aggregate')
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        loading.style.display = 'none';
+        if (d.error) { msToast(d.error, true); return; }
+        if (!d.report_count) {
+          empty.style.display = '';
+          return;
+        }
+        renderOverview(d);
+        content.style.display = '';
+      })
+      .catch(function(e) {
+        loading.style.display = 'none';
+        msToast('Failed to load overview: ' + e.message, true);
+      });
+  }
+
+  function renderOverview(d) {
+    overviewState.assets = d.assets || [];
+    overviewState.filter = '';
+    overviewState.reportCount = d.report_count || 0;
+    var filterEl = document.getElementById('ov-asset-filter');
+    if (filterEl) filterEl.value = '';
+
+    renderContextBar(d);
+
+    var critHigh = (d.severity_counts && (d.severity_counts.CRITICAL || 0) + (d.severity_counts.HIGH || 0)) || 0;
+    setText('ov-kpi-reports', String(d.report_count));
+    setText('ov-kpi-reports-detail', formatScanProfiles(d.scan_profiles));
+
+    setText('ov-kpi-assets', String(d.totals.assets));
+    var macAssets = (d.assets || []).filter(function(a) { return a.key_type === 'mac'; }).length;
+    setText('ov-kpi-assets-detail', macAssets + ' MAC-keyed · ' + (d.totals.assets - macAssets) + ' IP-only');
+
+    setText('ov-kpi-findings', String(d.totals.findings));
+    setText('ov-kpi-findings-detail', d.totals.finding_occurrences + ' occurrences · ' + critHigh + ' critical/high');
+    var fcard = document.getElementById('ov-kpi-findings-card');
+    fcard.classList.toggle('danger', critHigh > 0);
+    fcard.classList.toggle('healthy', critHigh === 0 && d.totals.findings > 0);
+
+    setText('ov-kpi-protocols', String(d.totals.protocols));
+    var attackCount = (d.attack_coverage || []).length;
+    setText('ov-kpi-protocols-detail', attackCount ? attackCount + ' ATT&CK techniques mapped' : 'no ATT&CK techniques mapped');
+
+    renderSeverityBar(d.severity_counts || {});
+    renderFindingsTable(d.findings || []);
+    renderAssetsTable(d.assets || []);
+    renderProtocols(d.protocols || []);
+    renderAttackCoverage(d.attack_coverage || []);
+
+    setText('ov-findings-meta', d.totals.findings + ' distinct · ' + d.totals.finding_occurrences + ' total occurrences');
+    setText('ov-asset-meta-header', d.totals.assets + ' total · MAC-first identity');
+    setText('ov-proto-meta', d.totals.protocols + ' protocols');
+    setText('ov-attack-meta', attackCount + ' techniques');
+  }
+
+  function renderContextBar(d) {
+    var bar = document.getElementById('ov-context-bar');
+    var parts = [];
+    var w = d.window || {};
+    if (w.earliest_report && w.latest_report) {
+      var spanDays = computeSpanDays(w.earliest_report, w.latest_report);
+      parts.push('<span><b>' + d.report_count + '</b> reports</span>');
+      parts.push('<span>across <b>' + spanDays + '</b></span>');
+      parts.push('<span class="dim">' + formatShortDate(w.earliest_report) + ' → ' + formatShortDate(w.latest_report) + '</span>');
+    } else {
+      parts.push('<span><b>' + d.report_count + '</b> reports</span>');
+    }
+    var profParts = [];
+    var prof = d.scan_profiles || {};
+    Object.keys(prof).forEach(function(k) { profParts.push('<b>' + prof[k] + '</b> ' + esc(k)); });
+    if (profParts.length) parts.push('<span>profile · ' + profParts.join(' / ') + '</span>');
+    bar.innerHTML = parts.join('<span class="sep"></span>');
+  }
+
+  function formatScanProfiles(prof) {
+    if (!prof) return 'across this project';
+    var keys = Object.keys(prof);
+    if (!keys.length) return 'across this project';
+    return keys.map(function(k) { return prof[k] + ' ' + k; }).join(' · ');
+  }
+
+  function computeSpanDays(start, end) {
+    try {
+      var ms = new Date(end).getTime() - new Date(start).getTime();
+      var days = Math.max(1, Math.round(ms / 86400000));
+      if (days === 1) return '1 day';
+      if (days < 14) return days + ' days';
+      if (days < 60) return Math.round(days / 7) + ' weeks';
+      return Math.round(days / 30) + ' months';
+    } catch (e) { return ''; }
+  }
+
+  function formatShortDate(iso) {
+    try { return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+    catch (e) { return iso; }
+  }
+
+  function renderSeverityBar(counts) {
+    var total = SEVERITY_ORDER.reduce(function(s, k) { return s + (counts[k] || 0); }, 0);
+    setText('ov-sev-total', total + ' occurrences');
+    var bar = document.getElementById('ov-sev-bar');
+    var legend = document.getElementById('ov-sev-legend');
+    bar.innerHTML = '';
+    legend.innerHTML = '';
+    if (total === 0) {
+      bar.innerHTML = '<span style="flex:1;background:var(--accent-green);opacity:0.35;color:var(--text-dim);">No findings recorded</span>';
+      legend.innerHTML = '<span class="dim">Empty severity profile — nothing to triage.</span>';
+      return;
+    }
+    SEVERITY_ORDER.forEach(function(sev) {
+      var n = counts[sev] || 0;
+      if (n) {
+        var seg = document.createElement('span');
+        seg.className = 'ov-sev-' + sev;
+        seg.style.flex = String(n);
+        seg.title = sev + ': ' + n + ' occurrence' + (n === 1 ? '' : 's');
+        var pct = Math.round((n / total) * 100);
+        // Hide label inside very thin segments (collapse threshold ~6%)
+        if (pct < 6) seg.classList.add('compact');
+        seg.textContent = n + (pct >= 12 ? ' ' + sev : '');
+        bar.appendChild(seg);
+      }
+      var item = document.createElement('span');
+      item.innerHTML = '<span class="swatch ov-sev-' + sev + '"></span>' + sev + ' <b>' + n + '</b>';
+      legend.appendChild(item);
+    });
+  }
+
+  function renderFindingsTable(findings) {
+    var tbody = document.getElementById('ov-findings-body');
+    if (!findings.length) {
+      tbody.innerHTML = '<tr><td colspan="6"><div class="ms-empty" style="padding:24px;"><div class="ms-empty-sub">No findings across these reports.</div></div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = '';
+    findings.forEach(function(f) {
+      var nodes = (f.affected_nodes || []).slice(0, 3).join(', ');
+      if ((f.affected_nodes || []).length > 3) nodes += ' <span class="dim">+' + (f.affected_nodes.length - 3) + ' more</span>';
+      var src = f.source && f.source !== 'engine'
+        ? '<span class="ov-finding-src">' + esc(f.source) + '</span>'
+        : '';
+      var viewBtn = f.last_seen_report
+        ? '<a class="btn btn-sm" href="/api/reports/' + encodeURIComponent(f.last_seen_report) + '/viewer?project_id=' + currentProject.id + '" target="_blank">Open</a>'
+        : '';
+      var desc = (f.description || '').replace(/\s+/g, ' ').trim();
+      var pct = overviewState.reportCount ? Math.round((f.occurrences / overviewState.reportCount) * 100) : 0;
+      var occClass = pct === 100 ? '' : 'dim';
+      var tr = document.createElement('tr');
+      tr.className = 'ov-finding-row';
+      tr.innerHTML =
+        '<td><span class="ov-sev-pill ' + esc(f.severity) + '">' + esc(f.severity) + '</span></td>'
+        + '<td><span class="ov-finding-cat">' + esc(f.category) + '</span>' + src
+        + '<div class="ov-finding-desc">' + esc(desc.slice(0, 180)) + (desc.length > 180 ? '…' : '') + '</div></td>'
+        + '<td class="mono" style="font-size:0.8em;">' + (nodes || '<span class="dim">—</span>') + '</td>'
+        + '<td class="ov-finding-occ ' + occClass + '"><b>' + f.occurrences + '</b> / ' + overviewState.reportCount + '</td>'
+        + '<td class="dim" style="font-size:0.78em;">' + formatDate(f.last_seen_modified) + '</td>'
+        + '<td>' + viewBtn + '</td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  function renderAssetsTable(assets) {
+    var filter = (overviewState.filter || '').toLowerCase().trim();
+    var filtered = assets;
+    if (filter) {
+      filtered = assets.filter(function(a) {
+        var hay = [a.key].concat(a.macs || []).concat(a.ips || []).concat(a.roles || []).concat(a.vendors || []).join(' ').toLowerCase();
+        return hay.indexOf(filter) !== -1;
+      });
+    }
+    var countLabel = '<b>' + filtered.length + '</b> of <b>' + assets.length + '</b> assets';
+    if (filter) countLabel += ' · <span style="color:var(--accent);">filtered</span>';
+    document.getElementById('ov-asset-count').innerHTML = countLabel;
+    var tbody = document.getElementById('ov-assets-body');
+    if (!filtered.length) {
+      tbody.innerHTML = '<tr><td colspan="8"><div class="ms-empty" style="padding:24px;"><div class="ms-empty-sub">No assets match the filter.</div></div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = '';
+    filtered.slice(0, 200).forEach(function(a) {
+      var ips = (a.ips || []).slice(0, 2).join(', ');
+      if ((a.ips || []).length > 2) ips += ' <span class="dim">+' + (a.ips.length - 2) + '</span>';
+      var protos = (a.protocols || []).slice(0, 4).join(' · ');
+      if ((a.protocols || []).length > 4) protos += ' <span class="dim">+' + (a.protocols.length - 4) + '</span>';
+      var purdue = a.purdue_level == null ? '<span class="dim">—</span>' : ('L' + a.purdue_level);
+      var viewBtn = a.last_seen_report
+        ? '<a class="btn btn-sm" href="/api/reports/' + encodeURIComponent(a.last_seen_report) + '/viewer?project_id=' + currentProject.id + '" target="_blank">Open</a>'
+        : '';
+      var keyLabel = a.key_type === 'mac'
+        ? '<span class="mono" style="font-size:0.8em;">' + esc(a.key) + '</span>'
+        : '<span class="mono" style="font-size:0.8em;">' + esc(a.key) + '</span> <span class="dim" style="font-size:0.7em;">ip</span>';
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' + keyLabel + '</td>'
+        + '<td>' + esc((a.roles || []).join(', ') || '—') + '</td>'
+        + '<td class="dim" style="font-size:0.82em;">' + esc((a.vendors || []).join(', ') || '—') + '</td>'
+        + '<td class="mono">' + purdue + '</td>'
+        + '<td class="mono" style="font-size:0.8em;">' + (ips || '<span class="dim">—</span>') + '</td>'
+        + '<td class="dim" style="font-size:0.8em;">' + (protos || '<span class="dim">—</span>') + '</td>'
+        + '<td class="mono dim" style="text-align:right;">' + a.report_count + '/' + overviewState.reportCount + '</td>'
+        + '<td>' + viewBtn + '</td>';
+      tbody.appendChild(tr);
+    });
+    if (filtered.length > 200) {
+      var note = document.createElement('tr');
+      note.innerHTML = '<td colspan="8" class="dim" style="text-align:center;font-size:0.78em;padding:10px;">Showing first 200 of ' + filtered.length + ' — refine the filter to narrow further.</td>';
+      tbody.appendChild(note);
+    }
+  }
+
+  function filterAssets(value) {
+    overviewState.filter = value || '';
+    renderAssetsTable(overviewState.assets);
+  }
+
+  function renderProtocols(protos) {
+    var el = document.getElementById('ov-protocols');
+    el.innerHTML = '';
+    if (!protos.length) {
+      el.innerHTML = '<span class="dim">No protocols recorded.</span>';
+      return;
+    }
+    protos.forEach(function(p) {
+      var chip = document.createElement('span');
+      chip.className = 'ov-chip';
+      chip.innerHTML = esc(p.name) + ' <span class="count">' + p.report_count + '/' + overviewState.reportCount + '</span>';
+      chip.title = p.name + ' — seen in ' + p.report_count + ' of ' + overviewState.reportCount + ' reports (' + p.packet_count + ' packets total)';
+      el.appendChild(chip);
+    });
+  }
+
+  function renderAttackCoverage(coverage) {
+    var section = document.getElementById('ov-attack-section');
+    var el = document.getElementById('ov-attack');
+    if (!coverage.length) {
+      section.style.display = 'none';
+      return;
+    }
+    section.style.display = '';
+    el.innerHTML = '';
+    coverage.forEach(function(t) {
+      var chip = document.createElement('span');
+      chip.className = 'ov-chip attack';
+      chip.innerHTML = esc(t.id) + ' <span class="count">' + t.report_count + '×</span>';
+      chip.title = t.id + ' — ' + t.categories.join(', ');
+      el.appendChild(chip);
+    });
+  }
+
   // ── Helpers ──
 
   function esc(s) {
@@ -1186,6 +1868,7 @@ var PROJ = (function() {
     toggleCompare: toggleCompare,
     compareDiff: compareDiff,
     clearCompare: clearCompare,
+    filterAssets: filterAssets,
   };
 })();
 </script>
