@@ -38,6 +38,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 import _config as config
+from _aggregate import aggregate_reports
 from _audit import audit
 from _auth import (
     admin_required,
@@ -53,7 +54,7 @@ from _auth import (
 )
 from _models import AuditLog, PasswordResetToken, Project, ScanHistory, User, db
 
-APP_VERSION = "2.3.0"
+APP_VERSION = "2.4.0"
 
 log = logging.getLogger("marlinspike")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(message)s")
@@ -2637,6 +2638,56 @@ def create_app():
                         pass
         reports.sort(key=lambda r: r["modified"], reverse=True)
         return jsonify({"reports": reports})
+
+    @app.route("/api/projects/<int:pid>/aggregate")
+    @login_required
+    def api_project_aggregate(pid):
+        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        if not proj:
+            return jsonify({"error": "Project not found"}), 404
+
+        rdir = os.path.join(config.REPORTS_DIR, str(session["user_id"]), str(pid))
+        report_paths: list[str] = []
+        report_meta: dict[str, dict] = {}
+        if os.path.isdir(rdir):
+            for fn in os.listdir(rdir):
+                if not _is_primary_report_filename(fn):
+                    continue
+                path = os.path.join(rdir, fn)
+                try:
+                    stat = os.stat(path)
+                except OSError:
+                    continue
+                report_paths.append(path)
+                report_meta[path] = {
+                    "filename": fn,
+                    "modified": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+                }
+
+        # Backfill scan_profile from ScanHistory (matched by report filename basename).
+        if report_paths:
+            scans = ScanHistory.query.filter_by(
+                user_id=session["user_id"], project_id=pid
+            ).all()
+            profile_by_basename: dict[str, str] = {}
+            for s in scans:
+                if s.report_path and s.scan_profile:
+                    profile_by_basename[os.path.basename(s.report_path)] = s.scan_profile
+            for path, meta in report_meta.items():
+                if meta["filename"] in profile_by_basename:
+                    meta["scan_profile"] = profile_by_basename[meta["filename"]]
+
+        aggregate = aggregate_reports(
+            report_paths,
+            loader=_load_report_with_extensions,
+            report_meta=report_meta,
+        )
+        aggregate["project"] = {
+            "id": proj.id,
+            "name": proj.name,
+            "created_at": proj.created_at.isoformat() if proj.created_at else None,
+        }
+        return jsonify(aggregate)
 
     @app.route("/api/projects/<int:pid>/upload", methods=["POST"])
     @login_required
