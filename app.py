@@ -2043,6 +2043,7 @@ def _build_viewer_context(report: dict) -> dict:
         "severity_counts": severity_counts,
         "packet_count": (report.get("capture_info") or {}).get("total_packets"),
         "duration_seconds": (report.get("capture_info") or {}).get("duration_seconds"),
+        "conversation_count": len(report.get("conversations") or []),
         "dpi_enriched_conversation_count": int(dpi_summary.get("enriched_conversation_count") or 0),
         "dpi_asset_count": int(dpi_summary.get("asset_count") or 0),
         "dpi_identity_count": int(dpi_summary.get("identity_count") or 0),

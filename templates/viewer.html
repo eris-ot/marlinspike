@@ -1732,6 +1732,10 @@ body {
         <div class="ms-nav-head"><span class="ms-nav-label">Map</span><span class="ms-nav-badge">{{ viewer_context.summary.asset_count }}</span></div>
         <span class="ms-nav-note">Topology view, path review, and live node selection.</span>
       </button>
+      <button class="ms-nav-btn" data-mode="traffic" onclick="MS.setWorkbenchMode('traffic')">
+        <div class="ms-nav-head"><span class="ms-nav-label">Traffic</span><span class="ms-nav-badge">{{ viewer_context.summary.conversation_count or 0 }}</span></div>
+        <span class="ms-nav-note">Top talkers, conversation ledger, and protocol byte distribution.</span>
+      </button>
       <button class="ms-nav-btn" data-mode="findings" onclick="MS.setWorkbenchMode('findings')">
         <div class="ms-nav-head"><span class="ms-nav-label">Findings</span><span class="ms-nav-badge">{{ viewer_context.top_findings|length + viewer_context.c2_indicators|length }}</span></div>
         <span class="ms-nav-note">Responder findings, suspicious channels, and action queues.</span>
@@ -1781,6 +1785,7 @@ body {
         <div id="ms-empty"><h2>No topology data</h2><p>Report contains no discovered nodes.</p></div>
         <div id="ms-map-module-views" class="ms-map-module-views"></div>
       </div>
+      <div id="ms-pane-traffic" class="ms-workbench-pane ms-stage-pane"></div>
       <div id="ms-pane-findings" class="ms-workbench-pane ms-stage-pane"></div>
       <div id="ms-pane-evidence" class="ms-workbench-pane ms-stage-pane"></div>
       <div id="ms-pane-assets" class="ms-workbench-pane ms-stage-pane"></div>
@@ -2933,6 +2938,7 @@ var MS = (function() {
     return {
       dashboard: 'Operator Dashboard',
       map: 'Topology Map',
+      traffic: 'Traffic Statistics',
       findings: 'Findings & Response',
       evidence: 'Protocol Evidence',
       assets: 'Asset Ledger',
@@ -3157,6 +3163,211 @@ var MS = (function() {
       + stageSection('Priority Assets', priorityBody, priorityNodes.length + ' assets')
       + '</div>'
       + renderModuleStage('findings')
+      + '</div>';
+  }
+
+  function fmtBytes(n) {
+    n = Number(n) || 0;
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    if (n < 1024 * 1024 * 1024) return (n / (1024 * 1024)).toFixed(1) + ' MB';
+    return (n / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+  }
+
+  function fmtDurationSeconds(s) {
+    s = Number(s) || 0;
+    if (s < 1) return s.toFixed(2) + 's';
+    if (s < 60) return s.toFixed(1) + 's';
+    if (s < 3600) return Math.floor(s / 60) + 'm ' + Math.round(s % 60) + 's';
+    var h = Math.floor(s / 3600);
+    var m = Math.floor((s % 3600) / 60);
+    return h + 'h ' + m + 'm';
+  }
+
+  function trafficConvDuration(conv) {
+    var first = Number(conv.first_seen);
+    var last = Number(conv.last_seen);
+    if (!isFinite(first) || !isFinite(last) || last < first) return 0;
+    return last - first;
+  }
+
+  function renderTrafficWorkbench() {
+    var conversations = toArray(REPORT.conversations);
+    var captureInfo = REPORT.capture_info || {};
+
+    if (!conversations.length) {
+      return '<div class="ms-stage-shell"><div class="ms-stage-stack">'
+        + stageSection('Traffic Statistics', '<div class="ms-stage-note">No conversation data was preserved in this report.</div>', '0 conversations')
+        + '</div></div>';
+    }
+
+    var totalBytes = 0;
+    var totalPackets = 0;
+    var pairKeys = {};
+    var byProtocolBytes = {};
+    var byProtocolPackets = {};
+    var bySrcBytes = {};
+    var byDstBytes = {};
+    var firstSeen = Infinity;
+    var lastSeen = -Infinity;
+
+    conversations.forEach(function(conv) {
+      var bytes = Number(conv.bytes_total) || 0;
+      var packets = Number(conv.packet_count) || 0;
+      var proto = String(conv.protocol || 'Unknown');
+      var src = String(conv.src_ip || conv.src_mac || 'Unknown');
+      var dst = String(conv.dst_ip || conv.dst_mac || 'Unknown');
+      totalBytes += bytes;
+      totalPackets += packets;
+      pairKeys[src + '|' + dst] = true;
+      byProtocolBytes[proto] = (byProtocolBytes[proto] || 0) + bytes;
+      byProtocolPackets[proto] = (byProtocolPackets[proto] || 0) + packets;
+      bySrcBytes[src] = (bySrcBytes[src] || 0) + bytes;
+      byDstBytes[dst] = (byDstBytes[dst] || 0) + bytes;
+      var first = Number(conv.first_seen);
+      var last = Number(conv.last_seen);
+      if (isFinite(first) && first < firstSeen) firstSeen = first;
+      if (isFinite(last) && last > lastSeen) lastSeen = last;
+    });
+
+    var span = (isFinite(firstSeen) && isFinite(lastSeen) && lastSeen >= firstSeen) ? (lastSeen - firstSeen) : 0;
+    var uniquePairs = Object.keys(pairKeys).length;
+
+    var hero = '<div class="ms-stage-hero">'
+      + '<div class="ms-stage-hero-card"><span class="val">' + esc(conversations.length.toLocaleString()) + '</span><span class="lbl">Conversations</span></div>'
+      + '<div class="ms-stage-hero-card"><span class="val">' + esc(uniquePairs.toLocaleString()) + '</span><span class="lbl">Unique src→dst pairs</span></div>'
+      + '<div class="ms-stage-hero-card"><span class="val">' + esc(fmtBytes(totalBytes)) + '</span><span class="lbl">Total bytes</span></div>'
+      + '<div class="ms-stage-hero-card"><span class="val">' + esc(totalPackets.toLocaleString()) + '</span><span class="lbl">Total packets</span></div>'
+      + '<div class="ms-stage-hero-card"><span class="val">' + esc(span > 0 ? fmtDurationSeconds(span) : '—') + '</span><span class="lbl">Capture span</span></div>'
+      + '</div>';
+
+    var topConvs = conversations.slice().sort(function(a, b) {
+      return (Number(b.bytes_total) || 0) - (Number(a.bytes_total) || 0);
+    }).slice(0, 25);
+
+    var convTable = '<div class="ms-stage-table-wrap"><table class="ms-stage-table"><thead><tr>'
+      + '<th>Source</th><th>→ Destination</th><th>Protocol</th><th>Port</th>'
+      + '<th style="text-align:right">Packets</th><th style="text-align:right">Bytes</th><th style="text-align:right">Duration</th>'
+      + '</tr></thead><tbody>';
+    topConvs.forEach(function(conv) {
+      var src = String(conv.src_ip || conv.src_mac || 'Unknown');
+      var dst = String(conv.dst_ip || conv.dst_mac || 'Unknown');
+      var dur = trafficConvDuration(conv);
+      convTable += '<tr>'
+        + '<td><button class="ms-stage-row-btn" onclick="MS.selectNodeByIp(\'' + escjs(src) + '\', true)"><span class="ms-inline-code">' + esc(src) + '</span></button></td>'
+        + '<td><button class="ms-stage-row-btn" onclick="MS.selectNodeByIp(\'' + escjs(dst) + '\', true)"><span class="ms-inline-code">' + esc(dst) + '</span></button></td>'
+        + '<td><span class="ms-chip">' + esc(conv.protocol || 'Unknown') + '</span></td>'
+        + '<td>' + esc(conv.port || '—') + '</td>'
+        + '<td style="text-align:right;font-family:var(--font-mono)">' + esc((Number(conv.packet_count) || 0).toLocaleString()) + '</td>'
+        + '<td style="text-align:right;font-family:var(--font-mono)">' + esc(fmtBytes(conv.bytes_total)) + '</td>'
+        + '<td style="text-align:right;font-family:var(--font-mono)">' + esc(dur > 0 ? fmtDurationSeconds(dur) : '—') + '</td>'
+        + '</tr>';
+    });
+    convTable += '</tbody></table></div>';
+
+    function topMap(map, limit) {
+      var entries = [];
+      Object.keys(map).forEach(function(k) { entries.push([k, map[k]]); });
+      entries.sort(function(a, b) { return b[1] - a[1]; });
+      return entries.slice(0, limit || 10);
+    }
+
+    function endpointList(entries, totalForPct) {
+      if (!entries.length) return '<div class="ms-stage-note">No endpoints recorded.</div>';
+      var html = '<div class="ms-stage-collection">';
+      entries.forEach(function(row) {
+        var endpoint = row[0];
+        var bytes = row[1];
+        var pct = totalForPct > 0 ? ((bytes / totalForPct) * 100).toFixed(1) : '0.0';
+        html += '<button class="ms-queue-item ms-stage-row-btn" onclick="MS.selectNodeByIp(\'' + escjs(endpoint) + '\', true)">'
+          + '<div class="ms-queue-copy"><div class="ms-queue-ip">' + esc(endpoint) + '</div>'
+          + '<div class="ms-queue-note">' + esc(fmtBytes(bytes)) + ' · ' + esc(pct) + '% of capture</div></div>'
+          + '<span class="ms-queue-priority">' + esc(pct + '%') + '</span></button>';
+      });
+      html += '</div>';
+      return html;
+    }
+
+    var topSrcBody = endpointList(topMap(bySrcBytes, 10), totalBytes);
+    var topDstBody = endpointList(topMap(byDstBytes, 10), totalBytes);
+
+    var protoEntries = topMap(byProtocolBytes, 24);
+    var protoBody = '';
+    if (!protoEntries.length) {
+      protoBody = '<div class="ms-stage-note">No protocol breakdown available.</div>';
+    } else {
+      protoBody = '<div class="ms-stage-table-wrap"><table class="ms-stage-table"><thead><tr>'
+        + '<th>Protocol</th>'
+        + '<th style="text-align:right">Bytes</th>'
+        + '<th style="text-align:right">Packets</th>'
+        + '<th style="text-align:right">% of capture</th>'
+        + '</tr></thead><tbody>';
+      protoEntries.forEach(function(row) {
+        var proto = row[0];
+        var bytes = row[1];
+        var packets = byProtocolPackets[proto] || 0;
+        var pct = totalBytes > 0 ? ((bytes / totalBytes) * 100).toFixed(1) : '0.0';
+        protoBody += '<tr><td><span class="ms-chip">' + esc(proto) + '</span></td>'
+          + '<td style="text-align:right;font-family:var(--font-mono)">' + esc(fmtBytes(bytes)) + '</td>'
+          + '<td style="text-align:right;font-family:var(--font-mono)">' + esc(packets.toLocaleString()) + '</td>'
+          + '<td style="text-align:right;font-family:var(--font-mono)">' + esc(pct) + '%</td></tr>';
+      });
+      protoBody += '</tbody></table></div>';
+    }
+
+    var anomalous = conversations.filter(function(c) {
+      return Number(c.beacon_score) > 0 || Number(c.dns_entropy) > 3.5 || c.opc_no_security;
+    }).slice().sort(function(a, b) {
+      return (Number(b.beacon_score) || 0) - (Number(a.beacon_score) || 0);
+    }).slice(0, 12);
+
+    var anomBody;
+    if (!anomalous.length) {
+      anomBody = '<div class="ms-stage-note">No beaconing, high-entropy DNS, or unsecured OPC sessions flagged in conversations.</div>';
+    } else {
+      anomBody = '<div class="ms-stage-table-wrap"><table class="ms-stage-table"><thead><tr>'
+        + '<th>Source</th><th>→ Destination</th><th>Protocol</th>'
+        + '<th style="text-align:right">Beacon score</th><th style="text-align:right">Beacon interval</th>'
+        + '<th style="text-align:right">DNS entropy</th><th>Flags</th>'
+        + '</tr></thead><tbody>';
+      anomalous.forEach(function(conv) {
+        var src = String(conv.src_ip || conv.src_mac || 'Unknown');
+        var dst = String(conv.dst_ip || conv.dst_mac || 'Unknown');
+        var beaconScore = Number(conv.beacon_score) || 0;
+        var beaconInterval = Number(conv.beacon_interval) || 0;
+        var dnsEntropy = Number(conv.dns_entropy) || 0;
+        var flags = [];
+        if (beaconScore > 0) flags.push('beacon');
+        if (dnsEntropy > 3.5) flags.push('dns-entropy');
+        if (conv.opc_no_security) flags.push('opc-cleartext');
+        anomBody += '<tr>'
+          + '<td><button class="ms-stage-row-btn" onclick="MS.selectNodeByIp(\'' + escjs(src) + '\', true)"><span class="ms-inline-code">' + esc(src) + '</span></button></td>'
+          + '<td><button class="ms-stage-row-btn" onclick="MS.selectNodeByIp(\'' + escjs(dst) + '\', true)"><span class="ms-inline-code">' + esc(dst) + '</span></button></td>'
+          + '<td><span class="ms-chip">' + esc(conv.protocol || 'Unknown') + '</span></td>'
+          + '<td style="text-align:right;font-family:var(--font-mono)">' + esc(beaconScore ? beaconScore.toFixed(2) : '—') + '</td>'
+          + '<td style="text-align:right;font-family:var(--font-mono)">' + esc(beaconInterval ? fmtDurationSeconds(beaconInterval) : '—') + '</td>'
+          + '<td style="text-align:right;font-family:var(--font-mono)">' + esc(dnsEntropy ? dnsEntropy.toFixed(2) : '—') + '</td>'
+          + '<td>' + flags.map(function(f) { return '<span class="ms-chip" style="border-color:rgba(212,148,58,0.32);background:rgba(212,148,58,0.12);color:var(--accent-amber)">' + esc(f) + '</span>'; }).join(' ') + '</td>'
+          + '</tr>';
+      });
+      anomBody += '</tbody></table></div>';
+    }
+
+    var heroSection = stageSection('Capture Volume', hero, (captureInfo.total_packets ? captureInfo.total_packets.toLocaleString() + ' total packets in capture' : conversations.length + ' conversations'));
+    var convSection = stageSection('Top Conversations by Bytes', convTable, 'top ' + topConvs.length + ' of ' + conversations.length);
+    var protoSection = stageSection('Protocol Byte Distribution', protoBody, Object.keys(byProtocolBytes).length + ' protocols');
+    var topSrcSection = stageSection('Top Source Endpoints', topSrcBody, 'by bytes sent');
+    var topDstSection = stageSection('Top Destination Endpoints', topDstBody, 'by bytes received');
+    var anomSection = stageSection('Conversation Anomalies', anomBody, anomalous.length + ' flagged');
+
+    return '<div class="ms-stage-shell">'
+      + '<div class="ms-stage-stack">' + heroSection + '</div>'
+      + '<div class="ms-stage-stack">' + convSection + '</div>'
+      + '<div class="ms-stage-stack">' + protoSection + '</div>'
+      + '<div class="ms-stage-stack">' + topSrcSection + '</div>'
+      + '<div class="ms-stage-stack">' + topDstSection + '</div>'
+      + '<div class="ms-stage-stack">' + anomSection + '</div>'
+      + renderModuleStage('traffic')
       + '</div>';
   }
 
@@ -3390,7 +3601,7 @@ var MS = (function() {
   function renderWorkbenchStage() {
     renderWorkbenchNav();
     var mapModuleViews = document.getElementById('ms-map-module-views');
-    ['dashboard', 'map', 'findings', 'evidence', 'assets', 'intel', 'risk', 'reports'].forEach(function(mode) {
+    ['dashboard', 'map', 'traffic', 'findings', 'evidence', 'assets', 'intel', 'risk', 'reports'].forEach(function(mode) {
       var pane = document.getElementById('ms-pane-' + mode);
       if (pane) pane.classList.toggle('active', workbenchMode === mode);
     });
@@ -3401,6 +3612,8 @@ var MS = (function() {
     }
     if (workbenchMode === 'dashboard') {
       document.getElementById('ms-pane-dashboard').innerHTML = renderDashboardWorkbench();
+    } else if (workbenchMode === 'traffic') {
+      document.getElementById('ms-pane-traffic').innerHTML = renderTrafficWorkbench();
     } else if (workbenchMode === 'findings') {
       document.getElementById('ms-pane-findings').innerHTML = renderFindingsWorkbench();
     } else if (workbenchMode === 'evidence') {
