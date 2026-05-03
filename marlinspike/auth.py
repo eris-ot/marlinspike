@@ -10,7 +10,7 @@ from functools import wraps
 from flask import redirect, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from _models import PasswordResetToken, User, db
+from marlinspike.models import PasswordResetToken, User, db
 
 log = logging.getLogger("marlinspike.auth")
 
@@ -21,7 +21,7 @@ _audit_fn = None
 def _get_audit():
     global _audit_fn
     if _audit_fn is None:
-        from _audit import audit as _a
+        from marlinspike.audit import audit as _a
         _audit_fn = _a
     return _audit_fn
 
@@ -175,7 +175,7 @@ def cleanup_expired_tokens():
 
 def bootstrap_admin(app):
     """Create admin user on first run if users table is empty."""
-    from _config import ADMIN_PASSWORD
+    from marlinspike.config import ADMIN_PASSWORD
 
     with app.app_context():
         if User.query.count() > 0:

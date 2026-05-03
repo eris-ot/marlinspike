@@ -38,10 +38,10 @@ from flask import (
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
-import _config as config
-from _aggregate import aggregate_reports
-from _audit import audit
-from _auth import (
+from marlinspike import config
+from marlinspike.aggregate import aggregate_reports
+from marlinspike.audit import audit
+from marlinspike.auth import (
     admin_required,
     bootstrap_admin,
     change_password,
@@ -53,7 +53,7 @@ from _auth import (
     validate_reset_token,
     verify_user,
 )
-from _i18n import (
+from marlinspike.i18n import (
     DEFAULT_LOCALE,
     LOCALE_LABELS,
     SUPPORTED_LOCALES,
@@ -63,9 +63,9 @@ from _i18n import (
     resolve_locale,
     t as _translate,
 )
-from _models import AuditLog, PasswordResetToken, Project, ScanHistory, User, db
+from marlinspike.models import AuditLog, PasswordResetToken, Project, ScanHistory, User, db
 
-APP_VERSION = "2.4.0"
+APP_VERSION = "3.0.0"
 
 log = logging.getLogger("marlinspike")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(message)s")
@@ -3037,7 +3037,7 @@ def create_app():
         )
 
         # Build CLI args
-        args = [config.PYTHON_EXE, "-u", config.MARLINSPIKE_PY]
+        args = list(config.MARLINSPIKE_ENGINE_CMD)
         args.extend(["--pcap", pcap_path])
         if config.MARLINSPIKE_DPI_ENGINE:
             args.extend(["--dpi-engine", config.MARLINSPIKE_DPI_ENGINE])
@@ -3240,10 +3240,7 @@ def create_app():
                     run_state["stage_name"] = f"Analyze ({idx}/{total_chunks})"
                     run_state["output"].append(f"[*] Dissecting chunk {idx}/{total_chunks}: {chunk_file}")
 
-                    dissect_args = [
-                        config.PYTHON_EXE,
-                        "-u",
-                        config.MARLINSPIKE_PY,
+                    dissect_args = list(config.MARLINSPIKE_ENGINE_CMD) + [
                         "--pcap",
                         chunk_path,
                         "--no-grassmarlin",
@@ -3320,10 +3317,7 @@ def create_app():
                     return
 
                 run_state["output"].append("[*] Running topology + risk from merged conversations")
-                chain_args = [
-                    config.PYTHON_EXE,
-                    "-u",
-                    config.MARLINSPIKE_PY,
+                chain_args = list(config.MARLINSPIKE_ENGINE_CMD) + [
                     "--conversations",
                     merged_path,
                     "--no-grassmarlin",

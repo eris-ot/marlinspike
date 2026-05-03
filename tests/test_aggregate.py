@@ -4,7 +4,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from _aggregate import aggregate_reports
+from marlinspike.aggregate import aggregate_reports
 
 
 def _meta(filename, modified):

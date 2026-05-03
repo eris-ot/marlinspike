@@ -97,17 +97,13 @@ RUN apt-get update && \
     tshark && \
     rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY requirements.txt pyproject.toml ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY --from=dpi-builder /build/marlinspike-dpi/target/release/marlinspike-dpi /usr/local/bin/marlinspike-dpi
 
-# Application source
-COPY _ms_engine.py _auth.py _audit.py _models.py _config.py ./
-COPY auth.py config.py models.py app.py marlinspike.py ./
-
-COPY templates/ ./templates/
-COPY static/ ./static/
+# Application source (v3 package layout)
+COPY marlinspike/ ./marlinspike/
 COPY presets/ ./presets/
 COPY plugins/ ./plugins/
 COPY rules/ ./rules/
@@ -116,6 +112,9 @@ COPY --from=mitre-builder /build/marlinspike-mitre/plugins/marlinspike_mitre ./p
 COPY --from=mitre-builder /build/marlinspike-mitre/rules/mitre ./rules/mitre
 COPY --from=malware-builder /opt/marlinspike-malware/bin /opt/marlinspike-malware/bin
 COPY --from=malware-rules-builder /opt/marlinspike-malware-rules /usr/share/marlinspike-malware/rules
+
+# Install the package itself so `python -m marlinspike` and console scripts work.
+RUN pip install --no-cache-dir --no-deps .
 
 # OUI database (outside volume mount so it persists in image)
 COPY data/oui.json ./oui.json
@@ -136,4 +135,4 @@ USER marlinspike
 
 EXPOSE 5001/tcp
 
-CMD ["python3", "app.py"]
+CMD ["python3", "-m", "marlinspike.app"]

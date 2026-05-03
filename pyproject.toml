@@ -1,0 +1,80 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "marlinspike"
+version = "3.0.0"
+description = "Passive OT/IT network topology mapper and PCAP risk analysis."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "riverman-io", email = "danny@riverman.io" }]
+keywords = ["pcap", "ot", "ics", "network-security", "topology", "mitre-attack"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: Flask",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: System :: Networking :: Monitoring",
+]
+dependencies = [
+    "flask>=2.3",
+    "flask-sqlalchemy>=3.0",
+    "flask-limiter>=3.0",
+    "psycopg2-binary>=2.9",
+    "PyYAML>=6.0",
+    "zstandard>=0.21",
+]
+
+[project.optional-dependencies]
+cython = ["Cython>=3.0", "setuptools>=68"]
+test = ["pytest>=7.0"]
+
+[project.scripts]
+# `marlinspike` runs the analysis engine on a pcap; same as `python -m marlinspike`.
+marlinspike = "marlinspike.engine:main"
+
+[project.urls]
+Homepage = "https://github.com/riverrisk/marlinspike"
+Issues = "https://github.com/riverrisk/marlinspike/issues"
+
+# The wheel ships the application package plus the top-level ``plugins``
+# namespace so that ``pip install marlinspike`` exposes ``plugins.marlinspike_*``
+# under the import paths used by config defaults. Project assets that are
+# normally edited at runtime (``rules/``, ``presets/``, ``data/``) are NOT
+# packaged — supply them via ``MARLINSPIKE_PROJECT_ROOT`` (or the per-asset env
+# vars) when running from an installed wheel.
+[tool.hatch.build.targets.wheel]
+packages = ["marlinspike", "plugins"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "marlinspike/",
+    "plugins/",
+    "rules/",
+    "presets/",
+    "tests/",
+    "scripts/",
+    "docs/",
+    "requirements.txt",
+    "Dockerfile",
+    "docker-compose.yml",
+    "deploy.sh",
+    "deploy-dev.sh",
+    "setup_cython.py",
+    "README.md",
+    "LICENSE",
+    "releases.md",
+    "UPGRADING.md",
+    "COMPATIBILITY.md",
+    "CONTRIBUTING.md",
+    "INSTALL.md",
+    "SUITE-MANIFEST.yaml",
+]

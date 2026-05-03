@@ -1,4 +1,23 @@
-"""MarlinSpike standalone — configuration constants."""
+"""MarlinSpike — configuration constants.
+
+Path resolution
+---------------
+The package may be imported from a checked-out source tree (where ``data/``,
+``rules/`` and ``presets/`` live next to the ``marlinspike/`` directory) or
+from a pip-installed location (where those project assets need to be supplied
+externally). Two anchors:
+
+* ``PACKAGE_DIR`` — directory of this file (always inside the installed package).
+* ``PROJECT_ROOT`` — repo root in dev; in production, override with the
+  ``MARLINSPIKE_PROJECT_ROOT`` environment variable to point at the directory
+  that holds ``data/``, ``rules/`` and ``presets/``.
+
+Individual asset directories may also be overridden directly via env vars
+(``MARLINSPIKE_DATA_DIR``, ``MARLINSPIKE_RULES_DIR``, ``MARLINSPIKE_PRESETS_BAKED_DIR``).
+
+``BASE_DIR`` is retained as an alias for ``PROJECT_ROOT`` for backwards
+compatibility with code that does ``config.BASE_DIR``.
+"""
 
 import os
 import sys
@@ -20,41 +39,51 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 
 # Paths
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, "data")
+PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.environ.get(
+    "MARLINSPIKE_PROJECT_ROOT", os.path.dirname(PACKAGE_DIR)
+)
+BASE_DIR = PROJECT_ROOT  # backwards-compatible alias for v2.x callers
+DATA_DIR = os.environ.get("MARLINSPIKE_DATA_DIR", os.path.join(PROJECT_ROOT, "data"))
+RULES_DIR = os.environ.get("MARLINSPIKE_RULES_DIR", os.path.join(PROJECT_ROOT, "rules"))
 REPORTS_DIR = os.path.join(DATA_DIR, "reports")
 UPLOADS_DIR = os.path.join(DATA_DIR, "uploads")
 SUBMISSIONS_DIR = os.path.join(DATA_DIR, "submissions")
 
-# MarlinSpike module path
-MARLINSPIKE_PY = os.path.join(BASE_DIR, "marlinspike.py")
+# Engine subprocess invocation. The web app shells out to the analysis engine
+# via ``python -m marlinspike <args>``; ``-u`` keeps stdout unbuffered so that
+# live tail of scan output works.
 PYTHON_EXE = os.environ.get("MARLINSPIKE_PYTHON", sys.executable or "python")
+MARLINSPIKE_ENGINE_CMD = [PYTHON_EXE, "-u", "-m", "marlinspike"]
+
 MARLINSPIKE_DPI_BIN = os.environ.get("MARLINSPIKE_DPI_BIN", "")
 MARLINSPIKE_DPI_ENGINE = os.environ.get("MARLINSPIKE_DPI_ENGINE", "auto")
 MARLINSPIKE_MITRE_ENABLED = os.environ.get("MARLINSPIKE_MITRE_ENABLED", "true").lower() in ("true", "1", "yes")
 MARLINSPIKE_MITRE_MODULE = os.environ.get("MARLINSPIKE_MITRE_MODULE", "plugins.marlinspike_mitre")
 MARLINSPIKE_MITRE_RULES = os.environ.get(
     "MARLINSPIKE_MITRE_RULES",
-    os.path.join(BASE_DIR, "rules", "mitre", "base.yaml"),
+    os.path.join(RULES_DIR, "mitre", "base.yaml"),
 )
 MARLINSPIKE_ARP_ENABLED = os.environ.get("MARLINSPIKE_ARP_ENABLED", "true").lower() in ("true", "1", "yes")
 MARLINSPIKE_ARP_MODULE = os.environ.get("MARLINSPIKE_ARP_MODULE", "plugins.marlinspike_arp")
 MARLINSPIKE_ARP_RULES = os.environ.get(
     "MARLINSPIKE_ARP_RULES",
-    os.path.join(BASE_DIR, "rules", "arp", "base.yaml"),
+    os.path.join(RULES_DIR, "arp", "base.yaml"),
 )
 MARLINSPIKE_APT_ENABLED = os.environ.get("MARLINSPIKE_APT_ENABLED", "true").lower() in ("true", "1", "yes")
 MARLINSPIKE_APT_MODULE = os.environ.get("MARLINSPIKE_APT_MODULE", "plugins.marlinspike_apt")
 MARLINSPIKE_APT_RULES = os.environ.get(
     "MARLINSPIKE_APT_RULES",
-    os.path.join(BASE_DIR, "rules", "apt", "base.yaml"),
+    os.path.join(RULES_DIR, "apt", "base.yaml"),
 )
 
 # Preset PCAPs (volume-backed, admin-editable at runtime)
 PRESETS_DIR = os.path.join(DATA_DIR, "presets")
 
 # Baked-in presets (copied to DATA_DIR on first boot)
-PRESETS_BAKED_DIR = os.path.join(BASE_DIR, "presets")
+PRESETS_BAKED_DIR = os.environ.get(
+    "MARLINSPIKE_PRESETS_BAKED_DIR", os.path.join(PROJECT_ROOT, "presets")
+)
 
 # Upload limits
 PCAP_MAX_SIZE = int(os.environ.get("PCAP_MAX_SIZE", 5 * 1024 * 1024 * 1024))  # 5 GB

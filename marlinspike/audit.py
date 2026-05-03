@@ -5,7 +5,7 @@ import logging
 
 from flask import request, session
 
-from _models import AuditLog, db
+from marlinspike.models import AuditLog, db
 
 log = logging.getLogger("marlinspike.audit")
 

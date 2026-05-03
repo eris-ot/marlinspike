@@ -28,8 +28,8 @@ for arg in "$@"; do
     esac
 done
 
-ENGINE_VERSION=$(grep -m1 'version:' "$LOCAL_DIR/_ms_engine.py" | sed 's/.*version: *//')
-APP_VERSION=$(grep -m1 'APP_VERSION' "$LOCAL_DIR/app.py" | sed 's/.*"\(.*\)".*/\1/')
+ENGINE_VERSION=$(grep -m1 'version:' "$LOCAL_DIR/marlinspike/engine.py" | sed 's/.*version: *//')
+APP_VERSION=$(grep -m1 'APP_VERSION' "$LOCAL_DIR/marlinspike/app.py" | sed 's/.*"\(.*\)".*/\1/')
 
 # ── UI-only fast deploy ──────────────────────────────────────
 if $UI_ONLY; then
@@ -47,34 +47,22 @@ if $UI_ONLY; then
     echo "[1/4] Backing up UI files on remote..."
     ssh "$REMOTE" "\
         mkdir -p $BACKUP_DIR && \
-        docker cp $CONTAINER:/app/app.py - 2>/dev/null | gzip > $BACKUP_DIR/ui-v${APP_VERSION}-pre-app.py.gz; \
-        docker cp $CONTAINER:/app/templates - 2>/dev/null | gzip > $BACKUP_DIR/ui-v${APP_VERSION}-pre-templates.tar.gz; \
-        docker cp $CONTAINER:/app/static - 2>/dev/null | gzip > $BACKUP_DIR/ui-v${APP_VERSION}-pre-static.tar.gz \
+        docker cp $CONTAINER:/app/marlinspike - 2>/dev/null | gzip > $BACKUP_DIR/ui-v${APP_VERSION}-pre-marlinspike.tar.gz \
     " && echo "  OK" || echo "  SKIP (backup failed, continuing)"
 
     # 2. Rsync only UI files to remote staging area
     echo ""
     echo "[2/4] Syncing UI files..."
-    rsync -avz \
-        "$LOCAL_DIR/app.py" \
-        "$LOCAL_DIR/_config.py" \
-        "$REMOTE:$REMOTE_DIR/"
-    rsync -avz --delete \
-        "$LOCAL_DIR/templates/" \
-        "$REMOTE:$REMOTE_DIR/templates/"
     rsync -avz --delete \
         --exclude '__pycache__' \
-        "$LOCAL_DIR/static/" \
-        "$REMOTE:$REMOTE_DIR/static/"
+        "$LOCAL_DIR/marlinspike/" \
+        "$REMOTE:$REMOTE_DIR/marlinspike/"
 
     # 3. docker cp into running container + restart
     echo ""
     echo "[3/4] Copying into container & restarting..."
     ssh "$REMOTE" "\
-        docker cp $REMOTE_DIR/app.py $CONTAINER:/app/app.py && \
-        docker cp $REMOTE_DIR/_config.py $CONTAINER:/app/_config.py && \
-        docker cp $REMOTE_DIR/templates/. $CONTAINER:/app/templates/ && \
-        docker cp $REMOTE_DIR/static/. $CONTAINER:/app/static/ && \
+        docker cp $REMOTE_DIR/marlinspike/. $CONTAINER:/app/marlinspike/ && \
         docker restart $CONTAINER \
     "
 
