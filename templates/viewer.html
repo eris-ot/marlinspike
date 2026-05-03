@@ -1655,6 +1655,15 @@ body {
           <span><b>{{ viewer_context.summary.asset_count }}</b> {{ t('viewer.stats.nodes') }}</span>
           <span><b>{{ viewer_context.summary.edge_count }}</b> {{ t('viewer.stats.edges') }}</span>
           <span><b>{{ viewer_context.summary.protocol_count }}</b> {{ t('viewer.stats.protocols') }}</span>
+          {% if viewer_context.summary.capture_source %}
+          <span title="{{ t('viewer.provenance.source_title') }}"><b>{{ viewer_context.summary.capture_source }}</b> {{ t('viewer.provenance.source') }}</span>
+          {% endif %}
+          {% if viewer_context.summary.capture_link_type and viewer_context.summary.capture_link_type != 'Unknown' %}
+          <span title="{{ t('viewer.provenance.link_type_title') }}"><b>{{ viewer_context.summary.capture_link_type }}</b> {{ t('viewer.provenance.link_type') }}</span>
+          {% endif %}
+          {% if viewer_context.summary.capture_unique_macs %}
+          <span title="{{ t('viewer.provenance.unique_macs_title') }}"><b>{{ viewer_context.summary.capture_unique_macs }}</b> {{ t('viewer.provenance.macs') }}</span>
+          {% endif %}
         </div>
       </div>
       <div class="ms-overview-strip" id="ms-overview-strip">
@@ -1892,6 +1901,42 @@ body {
         <div class="ms-empty-panel">{{ t('viewer.sidebar.write_paths_empty') }}</div>
         {% endif %}
       </div>
+
+      {% if viewer_context.summary.l2_anomaly_count or viewer_context.arp_observations %}
+      <div class="ms-sidebar-panel">
+        <h3>{{ t('viewer.sidebar.l2_anomalies') }}</h3>
+        {% if viewer_context.l2_anomaly_digest %}
+        <div class="ms-link-list">
+          {% for bucket in viewer_context.l2_anomaly_digest %}
+          <div class="ms-queue-item" style="cursor:default">
+            <div class="ms-queue-copy">
+              <div class="ms-queue-ip">{{ bucket.anomaly_type }}</div>
+              {% if bucket.sample and bucket.sample.reason %}
+              <div class="ms-queue-note">{{ bucket.sample.reason }}</div>
+              {% endif %}
+              {% if bucket.sample and (bucket.sample.src_mac or bucket.sample.dst_mac) %}
+              <div class="ms-queue-note" style="font-family:var(--font-mono);font-size:0.78em">{{ bucket.sample.src_mac or '—' }} → {{ bucket.sample.dst_mac or '—' }}</div>
+              {% endif %}
+            </div>
+            <span class="ms-queue-priority">{{ bucket.count }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="ms-empty-panel">{{ t('viewer.sidebar.l2_anomalies_empty') }}</div>
+        {% endif %}
+        {% if viewer_context.arp_observations %}
+        <div class="ms-section-label" style="margin-top:8px">{{ t('viewer.sidebar.arp_observations') }}</div>
+        {% for obs in viewer_context.arp_observations[:5] %}
+        <div class="ms-service-item" style="font-size:0.82em">
+          <span style="font-family:var(--font-mono)">{{ obs.src_mac or '—' }}</span> claims
+          <span style="font-family:var(--font-mono)">{{ obs.claimed_ip or obs.ip or '—' }}</span>
+          {% if obs.observed_count %} · {{ obs.observed_count }}x{% endif %}
+        </div>
+        {% endfor %}
+        {% endif %}
+      </div>
+      {% endif %}
 
       <div class="ms-sidebar-panel">
         <h3>{{ t('viewer.sidebar.suspicious_external') }}</h3>

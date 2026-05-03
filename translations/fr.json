@@ -839,5 +839,14 @@
   "viewer.mac.col.system_name": "Nom du système",
   "viewer.mac.col.capabilities": "Capacités",
   "viewer.mac.col.source": "Source",
-  "viewer.mac.empty": "Aucune donnée d'adresse MAC disponible."
+  "viewer.mac.empty": "Aucune donnée d'adresse MAC disponible.",
+  "viewer.provenance.source": "source",
+  "viewer.provenance.source_title": "Source de capture — fichier ou en direct",
+  "viewer.provenance.link_type": "lien",
+  "viewer.provenance.link_type_title": "Type de couche de liaison PCAP",
+  "viewer.provenance.macs": "MACs",
+  "viewer.provenance.unique_macs_title": "Adresses MAC distinctes observées dans la capture",
+  "viewer.sidebar.l2_anomalies": "Anomalies L2 / ARP",
+  "viewer.sidebar.l2_anomalies_empty": "Aucune anomalie L2 enregistrée.",
+  "viewer.sidebar.arp_observations": "Observations ARP"
 }

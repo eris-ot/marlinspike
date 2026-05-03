@@ -2065,6 +2065,15 @@ def _build_viewer_context(report: dict) -> dict:
         if sev in severity_counts:
             severity_counts[sev] += 1
 
+    capture_info = report.get("capture_info") or {}
+    # Engine reports use ``packet_count`` / ``duration_s``; some older artefacts use
+    # ``total_packets`` / ``duration_seconds``. Accept either so the header is never
+    # silently empty when a real value is on disk.
+    cap_packets = capture_info.get("packet_count") or capture_info.get("total_packets")
+    cap_duration = capture_info.get("duration_s") or capture_info.get("duration_seconds")
+    l2_anomalies = report.get("l2_anomalies") or []
+    arp_observations = report.get("arp_observations") or []
+
     summary = {
         "asset_count": len(nodes),
         "edge_count": len(edges),
@@ -2077,10 +2086,16 @@ def _build_viewer_context(report: dict) -> dict:
         "external_count": len([node for node in assets_sorted if node.get("purdue_level") == 5 or node.get("role") == "External Host"]),
         "critical_high_count": severity_counts["CRITICAL"] + severity_counts["HIGH"],
         "severity_counts": severity_counts,
-        "packet_count": (report.get("capture_info") or {}).get("total_packets"),
-        "duration_seconds": (report.get("capture_info") or {}).get("duration_seconds"),
+        "packet_count": cap_packets,
+        "duration_seconds": cap_duration,
+        "capture_source": capture_info.get("source"),
+        "capture_link_type": capture_info.get("link_type"),
+        "capture_unique_macs": capture_info.get("unique_macs"),
+        "capture_unique_ips": capture_info.get("unique_ips"),
         "conversation_count": len(report.get("conversations") or []),
         "dissector_family_count": _count_active_dissector_families(report.get("conversations") or []),
+        "l2_anomaly_count": len(l2_anomalies),
+        "arp_observation_count": len(arp_observations),
         "dpi_enriched_conversation_count": int(dpi_summary.get("enriched_conversation_count") or 0),
         "dpi_asset_count": int(dpi_summary.get("asset_count") or 0),
         "dpi_identity_count": int(dpi_summary.get("identity_count") or 0),
@@ -2093,6 +2108,31 @@ def _build_viewer_context(report: dict) -> dict:
     summary["mitre_matrix_domain_total"] = int(mitre_summary.get("matrix_domain_total") or len(mitre_matrix_domains))
     summary["module_view_total"] = len(module_views)
     summary["module_location_total"] = sum(1 for items in module_views_by_location.values() if items)
+
+    # Compact L2 anomaly digest — group by anomaly_type so the sidebar can
+    # show "{count} of {type}" without each entry leaking into context.
+    l2_anomaly_buckets: dict[str, dict] = {}
+    for entry in l2_anomalies[:5000]:
+        atype = str(entry.get("anomaly_type") or "unknown")
+        bucket = l2_anomaly_buckets.setdefault(
+            atype,
+            {"anomaly_type": atype, "count": 0, "severities": {}, "sample": None},
+        )
+        bucket["count"] += 1
+        sev = str((entry.get("details") or {}).get("severity") or "").lower() or "unknown"
+        bucket["severities"][sev] = bucket["severities"].get(sev, 0) + 1
+        if bucket["sample"] is None:
+            reason = (entry.get("details") or {}).get("reason")
+            bucket["sample"] = {
+                "src_mac": entry.get("src_mac"),
+                "dst_mac": entry.get("dst_mac"),
+                "src_ip": entry.get("src_ip"),
+                "dst_ip": entry.get("dst_ip"),
+                "reason": reason,
+                "decoder": entry.get("decoder"),
+                "timestamp": entry.get("timestamp"),
+            }
+    l2_anomaly_digest = sorted(l2_anomaly_buckets.values(), key=lambda b: -int(b["count"] or 0))[:8]
 
     return {
         "summary": summary,
@@ -2108,6 +2148,8 @@ def _build_viewer_context(report: dict) -> dict:
         "purdue_violations": purdue_violations,
         "c2_indicators": c2_indicators,
         "mac_table": mac_table,
+        "l2_anomaly_digest": l2_anomaly_digest,
+        "arp_observations": arp_observations[:10],
         "mitre_summary": mitre_summary,
         "mitre_attack_metadata": mitre_attack_metadata,
         "mitre_domains": mitre_domains,

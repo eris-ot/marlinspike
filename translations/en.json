@@ -839,5 +839,14 @@
   "viewer.mac.col.system_name": "System Name",
   "viewer.mac.col.capabilities": "Capabilities",
   "viewer.mac.col.source": "Source",
-  "viewer.mac.empty": "No MAC address data available."
+  "viewer.mac.empty": "No MAC address data available.",
+  "viewer.provenance.source": "source",
+  "viewer.provenance.source_title": "Capture source — file or live",
+  "viewer.provenance.link_type": "link",
+  "viewer.provenance.link_type_title": "PCAP link layer type",
+  "viewer.provenance.macs": "MACs",
+  "viewer.provenance.unique_macs_title": "Distinct MAC addresses observed in capture",
+  "viewer.sidebar.l2_anomalies": "L2 / ARP Anomalies",
+  "viewer.sidebar.l2_anomalies_empty": "No L2 anomalies recorded.",
+  "viewer.sidebar.arp_observations": "ARP Observations"
 }
