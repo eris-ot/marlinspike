@@ -1848,6 +1848,41 @@ def _build_dpi_context(report: dict, nodes: list[dict]) -> tuple[dict, dict]:
     return summary, {"asset_evidence": asset_evidence, "dpi_highlights": highlights}
 
 
+_DISSECTOR_FAMILY_KEYS = (
+    ("modbus", ("modbus_functions", "modbus_writes")),
+    ("s7", ("s7_functions", "s7_program_access")),
+    ("dnp3", ("dnp3_objects",)),
+    ("iec104", ("iec104_typeids", "iec104_causes")),
+    ("cip", ("cip_identity",)),
+    ("mms", ("mms_identity",)),
+    ("goose", ("goose_identity",)),
+    ("bacnet", ("bacnet_identity",)),
+    ("omron", ("omron_identity",)),
+    ("profinet", ("pn_identity",)),
+    ("opc", ("opc_no_security", "opc_sessions")),
+    ("dns", ("dns_queries", "dns_query_types")),
+)
+
+
+def _count_active_dissector_families(conversations: list) -> int:
+    """Count how many DPI dissector families produced any per-conversation evidence."""
+    active = 0
+    for _, keys in _DISSECTOR_FAMILY_KEYS:
+        for conv in conversations or ():
+            for key in keys:
+                value = conv.get(key) if isinstance(conv, dict) else None
+                if value in (None, "", False):
+                    continue
+                if isinstance(value, (list, tuple, dict)) and not value:
+                    continue
+                active += 1
+                break
+            else:
+                continue
+            break
+    return active
+
+
 def _build_viewer_context(report: dict) -> dict:
     """Prepare server-rendered triage context for the viewer."""
     nodes = list(report.get("nodes") or [])
@@ -2044,6 +2079,7 @@ def _build_viewer_context(report: dict) -> dict:
         "packet_count": (report.get("capture_info") or {}).get("total_packets"),
         "duration_seconds": (report.get("capture_info") or {}).get("duration_seconds"),
         "conversation_count": len(report.get("conversations") or []),
+        "dissector_family_count": _count_active_dissector_families(report.get("conversations") or []),
         "dpi_enriched_conversation_count": int(dpi_summary.get("enriched_conversation_count") or 0),
         "dpi_asset_count": int(dpi_summary.get("asset_count") or 0),
         "dpi_identity_count": int(dpi_summary.get("identity_count") or 0),

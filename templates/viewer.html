@@ -1740,6 +1740,10 @@ body {
         <div class="ms-nav-head"><span class="ms-nav-label">Findings</span><span class="ms-nav-badge">{{ viewer_context.top_findings|length + viewer_context.c2_indicators|length }}</span></div>
         <span class="ms-nav-note">Responder findings, suspicious channels, and action queues.</span>
       </button>
+      <button class="ms-nav-btn" data-mode="protocols" onclick="MS.setWorkbenchMode('protocols')">
+        <div class="ms-nav-head"><span class="ms-nav-label">Protocols</span><span class="ms-nav-badge">{{ viewer_context.summary.dissector_family_count or 0 }}</span></div>
+        <span class="ms-nav-note">Per-dissector drilldown — Modbus, S7, DNP3, CIP, IEC104, MMS, GOOSE, BACnet, DNS.</span>
+      </button>
       <button class="ms-nav-btn" data-mode="evidence" onclick="MS.setWorkbenchMode('evidence')">
         <div class="ms-nav-head"><span class="ms-nav-label">Evidence</span><span class="ms-nav-badge">{{ viewer_context.dpi_highlights|length }}</span></div>
         <span class="ms-nav-note">DPI-enriched sessions, identities, hunt pivots, and module views.</span>
@@ -1787,6 +1791,7 @@ body {
       </div>
       <div id="ms-pane-traffic" class="ms-workbench-pane ms-stage-pane"></div>
       <div id="ms-pane-findings" class="ms-workbench-pane ms-stage-pane"></div>
+      <div id="ms-pane-protocols" class="ms-workbench-pane ms-stage-pane"></div>
       <div id="ms-pane-evidence" class="ms-workbench-pane ms-stage-pane"></div>
       <div id="ms-pane-assets" class="ms-workbench-pane ms-stage-pane"></div>
       <div id="ms-pane-intel" class="ms-workbench-pane ms-stage-pane"></div>
@@ -2940,6 +2945,7 @@ var MS = (function() {
       map: 'Topology Map',
       traffic: 'Traffic Statistics',
       findings: 'Findings & Response',
+      protocols: 'Protocol Drilldown',
       evidence: 'Protocol Evidence',
       assets: 'Asset Ledger',
       intel: 'Protocol & ATT&CK Intel',
@@ -3371,6 +3377,264 @@ var MS = (function() {
       + '</div>';
   }
 
+  // Dissector family registry — extend this list to surface a new protocol drilldown.
+  // Each entry says: which conv keys to inspect, a label, an extractor that returns
+  // a list of breakdown items (function names / object types / typeIDs / etc).
+  var DISSECTOR_FAMILIES = [
+    {
+      id: 'modbus', label: 'Modbus / Modbus-TCP',
+      keys: ['modbus_functions', 'modbus_writes'],
+      breakdownLabel: 'Function codes seen',
+      extract: function(conv) {
+        var fns = toArray(conv.modbus_functions);
+        var items = fns.slice();
+        if (Number(conv.modbus_writes) > 0) items.push('write_register · ' + conv.modbus_writes);
+        return items;
+      }
+    },
+    {
+      id: 's7', label: 'Siemens S7',
+      keys: ['s7_functions', 's7_program_access'],
+      breakdownLabel: 'Function codes seen',
+      extract: function(conv) {
+        var items = toArray(conv.s7_functions).slice();
+        if (conv.s7_program_access) items.push('program_access');
+        return items;
+      }
+    },
+    {
+      id: 'dnp3', label: 'DNP3',
+      keys: ['dnp3_objects'],
+      breakdownLabel: 'Object groups / requests',
+      extract: function(conv) { return toArray(conv.dnp3_objects); }
+    },
+    {
+      id: 'iec104', label: 'IEC 60870-5-104',
+      keys: ['iec104_typeids', 'iec104_causes'],
+      breakdownLabel: 'TypeIDs and cause codes',
+      extract: function(conv) {
+        var ids = toArray(conv.iec104_typeids).map(function(v) { return 'typeid:' + v; });
+        var causes = toArray(conv.iec104_causes).map(function(v) { return 'cause:' + v; });
+        return ids.concat(causes);
+      }
+    },
+    {
+      id: 'cip', label: 'CIP / EtherNet-IP',
+      keys: ['cip_identity'],
+      breakdownLabel: 'Identity attributes',
+      extract: function(conv) {
+        var ident = conv.cip_identity;
+        if (!ident) return [];
+        if (typeof ident === 'string') return [ident];
+        return Object.keys(ident).map(function(k) { return k + ':' + ident[k]; });
+      }
+    },
+    {
+      id: 'mms', label: 'MMS (IEC 61850)',
+      keys: ['mms_identity'],
+      breakdownLabel: 'Identity / domain references',
+      extract: function(conv) {
+        var ident = conv.mms_identity;
+        if (!ident) return [];
+        if (typeof ident === 'string') return [ident];
+        return Object.keys(ident).map(function(k) { return k + ':' + ident[k]; });
+      }
+    },
+    {
+      id: 'goose', label: 'GOOSE (IEC 61850)',
+      keys: ['goose_identity'],
+      breakdownLabel: 'GoCB references',
+      extract: function(conv) {
+        var ident = conv.goose_identity;
+        if (!ident) return [];
+        if (typeof ident === 'string') return [ident];
+        return Object.keys(ident).map(function(k) { return k + ':' + ident[k]; });
+      }
+    },
+    {
+      id: 'bacnet', label: 'BACnet',
+      keys: ['bacnet_identity'],
+      breakdownLabel: 'Identity attributes',
+      extract: function(conv) {
+        var ident = conv.bacnet_identity;
+        if (!ident) return [];
+        if (typeof ident === 'string') return [ident];
+        return Object.keys(ident).map(function(k) { return k + ':' + ident[k]; });
+      }
+    },
+    {
+      id: 'omron', label: 'OMRON / FINS',
+      keys: ['omron_identity'],
+      breakdownLabel: 'Identity attributes',
+      extract: function(conv) {
+        var ident = conv.omron_identity;
+        if (!ident) return [];
+        if (typeof ident === 'string') return [ident];
+        return Object.keys(ident).map(function(k) { return k + ':' + ident[k]; });
+      }
+    },
+    {
+      id: 'profinet', label: 'PROFINET',
+      keys: ['pn_identity'],
+      breakdownLabel: 'Identity attributes',
+      extract: function(conv) {
+        var ident = conv.pn_identity;
+        if (!ident) return [];
+        if (typeof ident === 'string') return [ident];
+        return Object.keys(ident).map(function(k) { return k + ':' + ident[k]; });
+      }
+    },
+    {
+      id: 'opc', label: 'OPC',
+      keys: ['opc_no_security', 'opc_sessions'],
+      breakdownLabel: 'Session evidence',
+      extract: function(conv) {
+        var items = [];
+        if (conv.opc_no_security) items.push('no_security');
+        var sessions = Number(conv.opc_sessions) || 0;
+        if (sessions > 0) items.push('sessions:' + sessions);
+        return items;
+      }
+    },
+    {
+      id: 'dns', label: 'DNS',
+      keys: ['dns_queries', 'dns_query_types', 'dns_entropy'],
+      breakdownLabel: 'Queries seen',
+      extract: function(conv) {
+        return toArray(conv.dns_queries);
+      }
+    }
+  ];
+
+  function dissectorFamilyHits() {
+    var conversations = toArray(REPORT.conversations);
+    var perFamily = {};
+    DISSECTOR_FAMILIES.forEach(function(family) {
+      perFamily[family.id] = { family: family, conversations: [], breakdown: {}, totalBytes: 0, totalPackets: 0 };
+    });
+    conversations.forEach(function(conv) {
+      DISSECTOR_FAMILIES.forEach(function(family) {
+        var hit = false;
+        for (var i = 0; i < family.keys.length; i++) {
+          var v = conv[family.keys[i]];
+          if (v !== undefined && v !== null && v !== false && v !== '' && !(Array.isArray(v) && v.length === 0)) {
+            hit = true;
+            break;
+          }
+        }
+        if (!hit) return;
+        var bucket = perFamily[family.id];
+        bucket.conversations.push(conv);
+        bucket.totalBytes += Number(conv.bytes_total) || 0;
+        bucket.totalPackets += Number(conv.packet_count) || 0;
+        family.extract(conv).forEach(function(item) {
+          var key = String(item);
+          bucket.breakdown[key] = (bucket.breakdown[key] || 0) + 1;
+        });
+      });
+    });
+    return perFamily;
+  }
+
+  function renderProtocolsWorkbench() {
+    var conversations = toArray(REPORT.conversations);
+    if (!conversations.length) {
+      return '<div class="ms-stage-shell"><div class="ms-stage-stack">'
+        + stageSection('Protocol Drilldown', '<div class="ms-stage-note">No conversation data was preserved in this report.</div>', '0 conversations')
+        + '</div></div>';
+    }
+
+    var perFamily = dissectorFamilyHits();
+    var withHits = DISSECTOR_FAMILIES.filter(function(f) { return perFamily[f.id].conversations.length > 0; });
+    var silent = DISSECTOR_FAMILIES.filter(function(f) { return perFamily[f.id].conversations.length === 0; });
+
+    var rosterChips = '';
+    withHits.forEach(function(family) {
+      var bucket = perFamily[family.id];
+      rosterChips += '<a href="#protocol-family-' + esc(family.id) + '" class="ms-chip" style="border-color:rgba(50,184,198,0.32);background:rgba(50,184,198,0.12);color:var(--accent-cyan);text-decoration:none">'
+        + esc(family.label) + ' · ' + esc(bucket.conversations.length.toLocaleString()) + '</a>';
+    });
+    silent.forEach(function(family) {
+      rosterChips += '<span class="ms-chip" style="opacity:0.4">' + esc(family.label) + ' · 0</span>';
+    });
+    var rosterBody = '<div class="ms-chip-row">' + rosterChips + '</div>'
+      + '<div class="ms-stage-note" style="margin-top:8px">'
+      + esc(withHits.length) + ' of ' + esc(DISSECTOR_FAMILIES.length) + ' dissector families produced evidence in this capture. '
+      + 'Silent families are listed for completeness so the absence of a protocol is itself part of the report.'
+      + '</div>';
+
+    var familyStacks = withHits.map(function(family) {
+      var bucket = perFamily[family.id];
+
+      var breakdown = Object.keys(bucket.breakdown).map(function(k) { return [k, bucket.breakdown[k]]; });
+      breakdown.sort(function(a, b) { return b[1] - a[1]; });
+      var breakdownTrimmed = breakdown.slice(0, 24);
+      var breakdownChips = '<div class="ms-chip-row">'
+        + breakdownTrimmed.map(function(row) {
+            return '<span class="ms-chip">' + esc(row[0]) + ' · <span style="color:var(--accent-cyan)">' + esc(row[1]) + '</span></span>';
+          }).join('')
+        + '</div>';
+      if (breakdown.length > breakdownTrimmed.length) {
+        breakdownChips += '<div class="ms-stage-note" style="margin-top:6px">+' + esc(breakdown.length - breakdownTrimmed.length) + ' more</div>';
+      }
+      if (!breakdown.length) breakdownChips = '<div class="ms-stage-note">No breakdown attributes recorded.</div>';
+
+      var pairTotals = {};
+      bucket.conversations.forEach(function(conv) {
+        var src = String(conv.src_ip || conv.src_mac || 'Unknown');
+        var dst = String(conv.dst_ip || conv.dst_mac || 'Unknown');
+        var key = src + '|' + dst;
+        if (!pairTotals[key]) pairTotals[key] = { src: src, dst: dst, bytes: 0, packets: 0, conversations: 0, ports: {} };
+        pairTotals[key].bytes += Number(conv.bytes_total) || 0;
+        pairTotals[key].packets += Number(conv.packet_count) || 0;
+        pairTotals[key].conversations += 1;
+        if (conv.port) pairTotals[key].ports[conv.port] = true;
+      });
+      var topPairs = Object.keys(pairTotals).map(function(k) { return pairTotals[k]; });
+      topPairs.sort(function(a, b) { return b.bytes - a.bytes; });
+      topPairs = topPairs.slice(0, 10);
+
+      var pairsTable;
+      if (!topPairs.length) {
+        pairsTable = '<div class="ms-stage-note">No source→destination pairs recorded.</div>';
+      } else {
+        pairsTable = '<div class="ms-stage-table-wrap"><table class="ms-stage-table"><thead><tr>'
+          + '<th>Source</th><th>→ Destination</th><th>Ports</th>'
+          + '<th style="text-align:right">Conversations</th><th style="text-align:right">Packets</th><th style="text-align:right">Bytes</th>'
+          + '</tr></thead><tbody>';
+        topPairs.forEach(function(p) {
+          var ports = Object.keys(p.ports).slice(0, 4).join(', ') || '—';
+          pairsTable += '<tr>'
+            + '<td><button class="ms-stage-row-btn" onclick="MS.selectNodeByIp(\'' + escjs(p.src) + '\', true)"><span class="ms-inline-code">' + esc(p.src) + '</span></button></td>'
+            + '<td><button class="ms-stage-row-btn" onclick="MS.selectNodeByIp(\'' + escjs(p.dst) + '\', true)"><span class="ms-inline-code">' + esc(p.dst) + '</span></button></td>'
+            + '<td>' + esc(ports) + '</td>'
+            + '<td style="text-align:right;font-family:var(--font-mono)">' + esc(p.conversations.toLocaleString()) + '</td>'
+            + '<td style="text-align:right;font-family:var(--font-mono)">' + esc(p.packets.toLocaleString()) + '</td>'
+            + '<td style="text-align:right;font-family:var(--font-mono)">' + esc(fmtBytes(p.bytes)) + '</td>'
+            + '</tr>';
+        });
+        pairsTable += '</tbody></table></div>';
+      }
+
+      var meta = bucket.conversations.length + ' conversations · ' + fmtBytes(bucket.totalBytes) + ' · ' + bucket.totalPackets.toLocaleString() + ' pkts';
+      var sectionBody = '<div id="protocol-family-' + esc(family.id) + '">'
+        + '<div class="ms-section-label">' + esc(family.breakdownLabel) + '</div>'
+        + breakdownChips
+        + '<div class="ms-section-label" style="margin-top:14px">Top src→dst pairs</div>'
+        + pairsTable
+        + '</div>';
+
+      return stageSection(family.label, sectionBody, meta);
+    });
+
+    var stacks = '<div class="ms-stage-stack">' + stageSection('Protocol Roster', rosterBody, withHits.length + ' active · ' + silent.length + ' silent') + '</div>';
+    familyStacks.forEach(function(s) {
+      stacks += '<div class="ms-stage-stack">' + s + '</div>';
+    });
+
+    return '<div class="ms-stage-shell">' + stacks + renderModuleStage('protocols') + '</div>';
+  }
+
   function renderEvidenceWorkbench() {
     var summary = VIEWER_CONTEXT.dpi_summary || {};
     var highlights = toArray(VIEWER_CONTEXT.dpi_highlights);
@@ -3601,7 +3865,7 @@ var MS = (function() {
   function renderWorkbenchStage() {
     renderWorkbenchNav();
     var mapModuleViews = document.getElementById('ms-map-module-views');
-    ['dashboard', 'map', 'traffic', 'findings', 'evidence', 'assets', 'intel', 'risk', 'reports'].forEach(function(mode) {
+    ['dashboard', 'map', 'traffic', 'findings', 'protocols', 'evidence', 'assets', 'intel', 'risk', 'reports'].forEach(function(mode) {
       var pane = document.getElementById('ms-pane-' + mode);
       if (pane) pane.classList.toggle('active', workbenchMode === mode);
     });
@@ -3616,6 +3880,8 @@ var MS = (function() {
       document.getElementById('ms-pane-traffic').innerHTML = renderTrafficWorkbench();
     } else if (workbenchMode === 'findings') {
       document.getElementById('ms-pane-findings').innerHTML = renderFindingsWorkbench();
+    } else if (workbenchMode === 'protocols') {
+      document.getElementById('ms-pane-protocols').innerHTML = renderProtocolsWorkbench();
     } else if (workbenchMode === 'evidence') {
       document.getElementById('ms-pane-evidence').innerHTML = renderEvidenceWorkbench();
     } else if (workbenchMode === 'assets') {
