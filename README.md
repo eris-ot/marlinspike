@@ -1,6 +1,6 @@
 # MarlinSpike
 
-Current release: `2.0.7`
+Current release: `2.4.0`
 
 MarlinSpike is a ground-up passive OT/ICS network analysis platform built in the tradition of GrassMarlin-style topology mapping, but wrapped in a multi-user web workbench designed for real engagements. It analyzes PCAP and PCAPNG captures, builds a topology graph, infers Purdue levels, fingerprints vendors, and surfaces responder-grade risk indicators such as cross-zone communication, cleartext services, beaconing, suspicious external communications, and DNS exfiltration, then exports everything as portable JSON report artifacts that travel with the team.
 
@@ -45,6 +45,7 @@ Interactive browser features can improve speed and convenience, but the core tri
 - Topology construction with Purdue-level inference and vendor fingerprinting
 - Risk surfacing for remote access exposure, C2-like beaconing, suspicious external channels, DNS entropy anomalies, policy violations, full MITRE ATT&CK mapping with tactics, sub-techniques, matrix views, response guidance, and IEC 62443 SR-oriented remediation guidance
 - Flask web UI with an upgraded multi-mode analyst workbench, project management, report viewer, baseline/drift comparison, asset inventory, scan history, and a source-backed `/capabilities` detection coverage catalog
+- Project Overview tab as the default project landing surface: walks every report in a project, dedupes assets (MAC-keyed, IP fallback) and findings (`(category, sorted(affected_nodes), sorted(affected_edges))`) across captures, promotes finding severity to the highest seen, and renders one rolled-up KPI strip, severity bar, findings table, asset inventory, protocol list, and ATT&CK coverage chip set — pure compute, no schema migration
 - Docker Compose deployment with PostgreSQL backing the application
 - Rust DPI engine via [`marlinspike-dpi`](https://github.com/riverrisk/marlinspike-dpi) enabled by default (`--dpi-engine auto`), built into the image from a pinned GitHub ref — 14x faster than the Python tshark fallback on large captures
 - MITRE ATT&CK runtime surfaces sourced from the standalone [`marlinspike-mitre`](https://github.com/riverrisk/marlinspike-mitre) repo at a pinned GitHub ref during image build
@@ -275,6 +276,7 @@ MarlinSpike turns raw packet captures into a workflow an OT operator, asset owne
 - Ad hoc scan execution from the web UI
 - Multi-capture handling, including large-PCAP processing with streaming progress
 - Project-scoped organization for captures and reports
+- Project Overview tab as the default project landing surface — cross-report aggregation across every capture in the project (asset dedup, finding dedup with severity promotion, protocol roll-up, ATT&CK coverage)
 - Report history, retry support, and baseline-versus-drift review between report artifacts
 - Portable JSON report artifacts that can be reviewed inside MarlinSpike or elsewhere
 
@@ -293,6 +295,27 @@ The report workflow supports export directly from the UI:
 - PNG export from the topology viewer
 - CSV export from the asset inventory view
 
+## Project Overview — Cross-Report Aggregation
+
+Most engagements produce more than one capture. A site might be captured every day for a week, or different switches might be tapped on the same day, or the same PCAP might be re-run after a rules change. MarlinSpike used to expose those as separate report artifacts side by side; the analyst had to mentally collapse them.
+
+The Project Overview tab does that collapse for you and is the default surface when you open a project.
+
+What it does:
+
+- Walks every report in the project (engine reports plus any plugin sidecars surfaced through the existing extensions bridge — APT, ARP, MITRE).
+- Dedupes assets by MAC first and IP second. Each asset record carries `first_seen_report` / `last_seen_report` and a `report_count`.
+- Dedupes findings by `(category, sorted(affected_nodes), sorted(affected_edges))`. Severity promotes to the highest seen across reports; the latest report wins for the description text. Each finding shows occurrence count as `seen in N of M reports`.
+- Rolls up protocols and ATT&CK technique coverage across reports.
+- Renders one KPI strip, one severity distribution bar, one findings table sorted by severity then occurrence count, one asset inventory with a sticky filter toolbar, one protocol distribution chip set, and one ATT&CK coverage chip set.
+
+What it is not:
+
+- Not a database migration. Aggregation is pure compute over the on-disk JSON report artifacts and runs each time the tab is opened. There is no schema change, no extra storage, and no background job.
+- Not a replacement for the per-report viewer. The per-report MITRE matrix, evidence pivots, baseline/drift, and report-level export paths still live on the report itself. Use Overview for "what does this engagement look like overall," and use a specific report for "what happened in this capture."
+
+The aggregation API is exposed at `/api/projects/<id>/aggregate` for tooling that wants to consume the same roll-up without rendering the tab. Per the v2.4.0 release notes the aggregator is unit-tested across per-report dedup, cross-report dedup, severity promotion, IP-fallback keys, ATT&CK rollup, scan-profile breakdown, and loader failure isolation; a Playwright smoke covers the full login → project select → Overview render → KPI / severity bar / findings sort / asset filter / tab cycling path.
+
 ## Additional Capabilities
 
 - Baseline and drift review with added, removed, changed, and unchanged topology comparison
@@ -308,6 +331,24 @@ The report workflow supports export directly from the UI:
 ## Screenshots
 
 Click any thumbnail for the full-size image.
+
+### Project Overview (cross-report aggregation)
+
+The Project Overview tab is the default project landing surface. It rolls every report in the project up into one view: KPIs, severity distribution, deduped findings sorted by severity then occurrence count, and an asset inventory with a sticky filter toolbar. The severity bar shows distribution at a glance with inline counts, and the findings table tracks how many of the project's reports each distinct finding showed up in (`SEEN IN` column). Asset and finding records are MAC-keyed by default with an IP fallback and carry first/last-seen-in-report attribution.
+
+This screenshot was captured against the 4SICS benchmark project after running three days of `4SICS-GeekLounge` captures (`151020`, `151021`, `151022`) and one re-run of the `151022` day, for four reports total. The aggregator deduped 119 finding occurrences down to 96 distinct findings and 48 unique assets across the four captures.
+
+<table>
+  <tr>
+    <td width="100%">
+      <a href="docs/screenshots/28-project-overview-multiday.png">
+        <img src="docs/screenshots/28-project-overview-multiday-fold.png" alt="Project Overview tab with 4 reports rolled up — KPI strip, severity bar, deduped findings, asset inventory" width="100%">
+      </a>
+      <br>
+      <sub>Project Overview after rolling up four 4SICS reports — 4 reports, 48 unique assets, 96 distinct findings, 15 protocols, 2 ATT&CK techniques mapped. Findings table shows occurrence counts as `seen in N of M` and is sorted by severity then occurrences.</sub>
+    </td>
+  </tr>
+</table>
 
 ### Live Workflow Validation
 
