@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}MarlinSpike — Audit Log{% endblock %}
+{% block title %}MarlinSpike — {{ t('audit.title') }}{% endblock %}
 {% block head %}
 <style>
 .audit-toolbar {
@@ -75,40 +75,40 @@
 <div class="ms-content">
   <div class="panel">
     <div class="panel-header">
-      <h2>Audit Log</h2>
+      <h2>{{ t('audit.title') }}</h2>
     </div>
     <div class="panel-body">
       <div class="audit-toolbar">
-        <input type="text" id="audit-filter-user" placeholder="Username..." oninput="AL.debounceLoad()">
-        <input type="text" id="audit-filter-event" placeholder="Event type..." oninput="AL.debounceLoad()">
+        <input type="text" id="audit-filter-user" placeholder="{{ t('audit.filter_user_placeholder') }}" oninput="AL.debounceLoad()">
+        <input type="text" id="audit-filter-event" placeholder="{{ t('audit.filter_event_placeholder') }}" oninput="AL.debounceLoad()">
         <select id="audit-filter-status" onchange="AL.load()">
-          <option value="">All statuses</option>
-          <option value="success">Success</option>
-          <option value="failure">Failure</option>
+          <option value="">{{ t('audit.all_statuses') }}</option>
+          <option value="success">{{ t('audit.status_success') }}</option>
+          <option value="failure">{{ t('audit.status_failure') }}</option>
         </select>
-        <button class="btn btn-sm" onclick="AL.load()">Refresh</button>
+        <button class="btn btn-sm" onclick="AL.load()">{{ t('common.refresh') }}</button>
       </div>
       <table class="ms-table">
         <thead>
           <tr>
-            <th>Time</th>
-            <th>Event</th>
-            <th>User</th>
-            <th>Status</th>
-            <th>IP</th>
-            <th>Target</th>
-            <th>Detail</th>
+            <th>{{ t('audit.column_time') }}</th>
+            <th>{{ t('audit.column_event') }}</th>
+            <th>{{ t('audit.column_user') }}</th>
+            <th>{{ t('common.status') }}</th>
+            <th>{{ t('audit.column_ip') }}</th>
+            <th>{{ t('audit.column_target') }}</th>
+            <th>{{ t('audit.column_detail') }}</th>
           </tr>
         </thead>
         <tbody id="audit-body">
-          <tr><td colspan="7"><div class="ms-loading"><div class="ms-spinner"></div> Loading audit log&hellip;</div></td></tr>
+          <tr><td colspan="7"><div class="ms-loading"><div class="ms-spinner"></div> {{ t('audit.loading') }}</div></td></tr>
         </tbody>
       </table>
       <div class="audit-pager">
         <span id="audit-pager-info"></span>
         <div style="display:flex;gap:8px;">
-          <button id="audit-prev" onclick="AL.prev()" disabled>&larr; Prev</button>
-          <button id="audit-next" onclick="AL.next()">Next &rarr;</button>
+          <button id="audit-prev" onclick="AL.prev()" disabled>&larr; {{ t('audit.prev') }}</button>
+          <button id="audit-next" onclick="AL.next()">{{ t('audit.next') }} &rarr;</button>
         </div>
       </div>
     </div>

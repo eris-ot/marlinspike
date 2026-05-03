@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MarlinSpike — Asset Inventory</title>
+<title>MarlinSpike — {{ t('assets.title') }}</title>
 <style>
 @font-face {
   font-family: 'Inter';
@@ -158,38 +158,38 @@ tr.detail-row td {
 </head>
 <body>
 <div class="topbar">
-  <a href="/dashboard" class="btn" style="font-size:0.82em;">&larr; Dashboard</a>
-  <h1><span>MarlinSpike</span> Asset Inventory</h1>
+  <a href="/dashboard" class="btn" style="font-size:0.82em;">&larr; {{ t('nav.dashboard') }}</a>
+  <h1><span>MarlinSpike</span> {{ t('assets.title') }}</h1>
   <div class="stats" id="stats"></div>
   <div class="actions">
-    <button class="btn btn-accent" onclick="exportCsv()">Export CSV</button>
-    <button class="btn" onclick="window.print()">Print</button>
+    <button class="btn btn-accent" onclick="exportCsv()">{{ t('assets.export_csv') }}</button>
+    <button class="btn" onclick="window.print()">{{ t('assets.print') }}</button>
   </div>
 </div>
 
 <div class="toolbar">
-  <input type="search" id="search" placeholder="Filter by IP, vendor, role..." oninput="applyFilters()">
+  <input type="search" id="search" placeholder="{{ t('assets.search_placeholder') }}" oninput="applyFilters()">
   <div class="filter-group">
-    <label style="font-size:0.78em;color:var(--text-dim)">Role:</label>
-    <select id="filter-role" onchange="applyFilters()"><option value="">All</option></select>
+    <label style="font-size:0.78em;color:var(--text-dim)">{{ t('assets.label_role') }}</label>
+    <select id="filter-role" onchange="applyFilters()"><option value="">{{ t('assets.filter_all') }}</option></select>
   </div>
   <div class="filter-group">
-    <label style="font-size:0.78em;color:var(--text-dim)">Level:</label>
-    <select id="filter-level" onchange="applyFilters()"><option value="">All</option></select>
+    <label style="font-size:0.78em;color:var(--text-dim)">{{ t('assets.label_level') }}</label>
+    <select id="filter-level" onchange="applyFilters()"><option value="">{{ t('assets.filter_all') }}</option></select>
   </div>
   <div class="filter-group">
-    <label style="font-size:0.78em;color:var(--text-dim)">Type:</label>
+    <label style="font-size:0.78em;color:var(--text-dim)">{{ t('assets.label_type') }}</label>
     <select id="filter-type" onchange="applyFilters()">
-      <option value="">All</option>
-      <option value="local" selected>Local Assets</option>
-      <option value="external">External</option>
-      <option value="network">Broadcast/Multicast</option>
+      <option value="">{{ t('assets.filter_all') }}</option>
+      <option value="local" selected>{{ t('assets.type_local') }}</option>
+      <option value="external">{{ t('assets.type_external') }}</option>
+      <option value="network">{{ t('assets.type_network') }}</option>
     </select>
   </div>
   <div class="filter-group">
-    <label style="font-size:0.78em;color:var(--text-dim)">Auth:</label>
+    <label style="font-size:0.78em;color:var(--text-dim)">{{ t('assets.label_auth') }}</label>
     <select id="filter-auth" onchange="applyFilters()">
-      <option value="">All</option><option value="yes">Yes</option><option value="no">No</option>
+      <option value="">{{ t('assets.filter_all') }}</option><option value="yes">{{ t('common.yes') }}</option><option value="no">{{ t('common.no') }}</option>
     </select>
   </div>
   <span class="count" id="shown-count"></span>

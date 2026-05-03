@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}MarlinSpike — Capabilities{% endblock %}
+{% block title %}MarlinSpike — {{ t('findings.title') }}{% endblock %}
 
 {% block head %}
 <style>
@@ -270,43 +270,41 @@
 <div class="ms-content">
   <div class="hero">
     <div class="hero-copy">
-      <h1>Capabilities Catalog</h1>
+      <h1>{{ t('findings.title') }}</h1>
       <p>
-        This page is a source-backed catalog of what MarlinSpike can currently surface across core report findings,
-        Stage 2 DPI coverage, Stage 4b malware matching, and ATT&amp;CK report mappings. It is a product capability view,
-        not a list of what was detected in any one environment.
+        {{ t('findings.intro') }}
       </p>
     </div>
     <div class="hero-note">
-      <div class="label">Catalog Entries</div>
+      <div class="label">{{ t('findings.catalog_entries') }}</div>
       <div class="value">{{ filtered_count }}</div>
-      <div class="sub">{{ total_count }} total after combining report, DPI, malware, and ATT&amp;CK sources.</div>
+      <div class="sub">{{ t('findings.catalog_total_caption', total=total_count) }}</div>
     </div>
   </div>
 
   <div class="stats-grid">
     <div class="stat-card">
-      <div class="stat-label">Report Classes</div>
+      <div class="stat-label">{{ t('findings.stat_report_classes') }}</div>
       <div class="stat-value">{{ summary.report_classes }}</div>
       <div class="stat-sub">{{ source_meta.report.summary }}</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">DPI Surface</div>
+      <div class="stat-label">{{ t('findings.stat_dpi_surface') }}</div>
       <div class="stat-value">{{ summary.dpi_protocols }}</div>
       <div class="stat-sub">{{ source_meta.dpi.summary }}</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Malware Rules</div>
+      <div class="stat-label">{{ t('findings.stat_malware_rules') }}</div>
       <div class="stat-value">{{ summary.malware_rules or "?" }}</div>
       <div class="stat-sub">{{ source_meta.malware.summary }}</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">ATT&amp;CK Mapping</div>
+      <div class="stat-label">{{ t('findings.stat_attack_mapping') }}</div>
       <div class="stat-value">{{ summary.mitre_rules }}</div>
       <div class="stat-sub">
         {{ source_meta.mitre.summary }}
         {% if summary.mitre_attack_version %}
-        <br>Catalog ATT&amp;CK version {{ summary.mitre_attack_version }}.
+        <br>{{ t('findings.attack_version', version=summary.mitre_attack_version) }}
         {% endif %}
       </div>
     </div>
@@ -314,46 +312,46 @@
 
   <div class="filters-card">
     <div class="filters-head">
-      <h2>Filter Coverage</h2>
-      <div class="filters-meta">{{ filtered_count }} of {{ total_count }} entries shown</div>
+      <h2>{{ t('findings.filter_coverage') }}</h2>
+      <div class="filters-meta">{{ t('findings.entries_shown', shown=filtered_count, total=total_count) }}</div>
     </div>
     <form method="get">
       <div class="filters-grid">
         <div>
-          <label class="filter-label" for="q">Search</label>
-          <input class="ms-input" id="q" name="q" value="{{ selected.q }}" placeholder="Search titles, ids, fields, families, rationale">
+          <label class="filter-label" for="q">{{ t('common.search') }}</label>
+          <input class="ms-input" id="q" name="q" value="{{ selected.q }}" placeholder="{{ t('findings.search_placeholder') }}">
         </div>
         <div>
-          <label class="filter-label" for="source">Source <span class="info-hint">i<span class="info-tip"><b>Source</b> filters by where the capability originates: <b>engine</b> (core analysis chain), <b>mitre</b> (ATT&CK rule packs), <b>malware</b> (IOC matching), or <b>dpi</b> (deep packet inspection).</span></span></label>
+          <label class="filter-label" for="source">{{ t('findings.label_source') }} <span class="info-hint">i<span class="info-tip">{{ t('findings.source_tip')|safe }}</span></span></label>
           <select class="ms-input" id="source" name="source">
-            <option value="">All sources</option>
+            <option value="">{{ t('findings.all_sources') }}</option>
             {% for source in options.sources %}
             <option value="{{ source }}" {% if selected.source == source %}selected{% endif %}>{{ source|replace('-', ' ')|title }}</option>
             {% endfor %}
           </select>
         </div>
         <div>
-          <label class="filter-label" for="type">Type <span class="info-hint">i<span class="info-tip"><b>Type</b> distinguishes capability kinds: <b>classification</b> (finding-driven technique inferences), <b>coverage</b> (platform-level passive recon), <b>detection</b> (malware and IOC rules), <b>field</b> (protocol field extraction).</span></span></label>
+          <label class="filter-label" for="type">{{ t('findings.label_type') }} <span class="info-hint">i<span class="info-tip">{{ t('findings.type_tip')|safe }}</span></span></label>
           <select class="ms-input" id="type" name="type">
-            <option value="">All types</option>
+            <option value="">{{ t('findings.all_types') }}</option>
             {% for item_type in options.types %}
             <option value="{{ item_type }}" {% if selected.type == item_type %}selected{% endif %}>{{ item_type|replace('-', ' ')|title }}</option>
             {% endfor %}
           </select>
         </div>
         <div>
-          <label class="filter-label" for="family">Family <span class="info-hint">i<span class="info-tip"><b>Family</b> groups related capabilities by functional area: e.g. Passive Recon, Controller Manipulation, Zone Traversal, Data Exposure, Command and Control.</span></span></label>
+          <label class="filter-label" for="family">{{ t('findings.label_family') }} <span class="info-hint">i<span class="info-tip">{{ t('findings.family_tip')|safe }}</span></span></label>
           <select class="ms-input" id="family" name="family">
-            <option value="">All families</option>
+            <option value="">{{ t('findings.all_families') }}</option>
             {% for family in options.families %}
             <option value="{{ family }}" {% if selected.family == family %}selected{% endif %}>{{ family }}</option>
             {% endfor %}
           </select>
         </div>
         <div>
-          <label class="filter-label" for="severity">Severity</label>
+          <label class="filter-label" for="severity">{{ t('findings.label_severity') }}</label>
           <select class="ms-input" id="severity" name="severity">
-            <option value="">All severities</option>
+            <option value="">{{ t('findings.all_severities') }}</option>
             {% for severity in options.severities %}
             <option value="{{ severity }}" {% if selected.severity == severity %}selected{% endif %}>{{ severity }}</option>
             {% endfor %}
@@ -361,14 +359,14 @@
         </div>
       </div>
       <div class="filter-actions">
-        <button class="btn btn-primary" type="submit">Apply Filters</button>
-        <a class="btn" href="/capabilities">Clear</a>
+        <button class="btn btn-primary" type="submit">{{ t('findings.apply_filters') }}</button>
+        <a class="btn" href="/capabilities">{{ t('reports.clear') }}</a>
       </div>
     </form>
   </div>
 
   <div class="source-strip">
-    {% for key, label in [("report","Report"), ("dpi","DPI"), ("malware","Malware"), ("mitre","ATT&CK")] %}
+    {% for key, label in [("report", t('findings.source_report')), ("dpi", t('findings.source_dpi')), ("malware", t('findings.source_malware')), ("mitre", t('findings.source_mitre'))] %}
     <div class="source-pill">
       {{ label }}
       <span class="count">{{ filtered_counts.get(key, 0) }}</span>
@@ -390,13 +388,13 @@
           </div>
           <div class="entry-title">{{ entry.title }}</div>
           {% if entry.source == "malware" and entry.type == "rule" %}
-          <div class="entry-subtitle">Stage 4b rule-backed coverage</div>
+          <div class="entry-subtitle">{{ t('findings.subtitle_malware_rule') }}</div>
           {% elif entry.source == "dpi" and entry.type == "protocol" %}
-          <div class="entry-subtitle">Stage 2 parser surface</div>
+          <div class="entry-subtitle">{{ t('findings.subtitle_dpi_protocol') }}</div>
           {% elif entry.source == "mitre" %}
-          <div class="entry-subtitle">Report-side ATT&amp;CK mapping</div>
+          <div class="entry-subtitle">{{ t('findings.subtitle_mitre') }}</div>
           {% elif entry.source == "report" %}
-          <div class="entry-subtitle">Current engine-emitted finding class</div>
+          <div class="entry-subtitle">{{ t('findings.subtitle_report') }}</div>
           {% endif %}
         </div>
         <div class="entry-badges">
@@ -422,7 +420,7 @@
   </div>
   {% else %}
   <div class="empty-state">
-    No coverage entries matched the current filters.
+    {{ t('findings.empty_state') }}
   </div>
   {% endif %}
 </div>

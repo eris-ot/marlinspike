@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MarlinSpike Live</title>
+<title>MarlinSpike — {{ t('live.title') }}</title>
 <style>
 :root {
   --bg: #0f1923; --bg-deep: #0b1420; --bg-surface: #111b2b;
@@ -80,18 +80,18 @@ body { background: var(--bg); color: var(--text); font-family: var(--font-ui); f
 
 <div id="live-app">
   <div id="live-header">
-    <a href="/" class="live-back-link">&#8592; Dashboard</a>
-    <h1><span>MarlinSpike</span> Live</h1>
-    <div class="live-stats" id="live-stats">Connecting...</div>
+    <a href="/" class="live-back-link">&#8592; {{ t('nav.dashboard') }}</a>
+    <h1><span>MarlinSpike</span> {{ t('live.title') }}</h1>
+    <div class="live-stats" id="live-stats">{{ t('live.connecting') }}</div>
     <div class="live-controls">
-      <button class="live-btn" id="live-pause-btn" onclick="LIVE.togglePause()">Pause</button>
-      <button class="live-btn" onclick="LIVE.exportPng()">PNG</button>
+      <button class="live-btn" id="live-pause-btn" onclick="LIVE.togglePause()">{{ t('live.pause') }}</button>
+      <button class="live-btn" onclick="LIVE.exportPng()">{{ t('live.png') }}</button>
     </div>
   </div>
 
   <div id="live-status-bar">
     <div class="live-pulse" id="live-pulse"></div>
-    <span id="live-status-text">Connecting...</span>
+    <span id="live-status-text">{{ t('live.connecting') }}</span>
     <span style="flex:1"></span>
     <span id="live-stage-chain"></span>
   </div>
@@ -106,14 +106,14 @@ body { background: var(--bg); color: var(--text); font-family: var(--font-ui); f
     </div>
     <div id="live-waiting">
       <div class="waiting-spinner"></div>
-      <h2>Waiting for topology data...</h2>
-      <p>Nodes will appear as MarlinSpike discovers devices</p>
+      <h2>{{ t('live.waiting_topology') }}</h2>
+      <p>{{ t('live.waiting_subtitle') }}</p>
     </div>
     <div id="live-tooltip"></div>
   </div>
 
   <div id="live-sidebar">
-    <div id="live-sidebar-content"><h3>Waiting for data...</h3></div>
+    <div id="live-sidebar-content"><h3>{{ t('live.waiting_data') }}</h3></div>
   </div>
 </div>
 

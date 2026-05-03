@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MarlinSpike Baseline Drift</title>
+<title>MarlinSpike — {{ t('diff.title') }}</title>
 <style>
 :root {
   --bg: #0f1923;
@@ -106,15 +106,15 @@ body { background: var(--bg); color: var(--text); font-family: var(--font-ui); f
 
 <div id="diff-app">
   <div id="diff-header">
-    <a href="/" class="diff-back-link">&#8592; Dashboard</a>
-    <h1><span>&#9876;</span> MarlinSpike Baseline Drift</h1>
+    <a href="/" class="diff-back-link">&#8592; {{ t('nav.dashboard') }}</a>
+    <h1><span>&#9876;</span> MarlinSpike {{ t('diff.title') }}</h1>
     <div class="diff-summary" id="diff-stats"></div>
     <div class="diff-drift" id="diff-drift"></div>
     <div class="diff-legend">
-      <div class="diff-legend-item"><div class="diff-legend-dot" style="background:var(--color-added)"></div>New</div>
-      <div class="diff-legend-item"><div class="diff-legend-dot" style="background:var(--color-removed)"></div>Removed</div>
-      <div class="diff-legend-item"><div class="diff-legend-dot" style="background:var(--color-changed)"></div>Changed</div>
-      <div class="diff-legend-item"><div class="diff-legend-dot" style="background:var(--color-unchanged)"></div>Unchanged</div>
+      <div class="diff-legend-item"><div class="diff-legend-dot" style="background:var(--color-added)"></div>{{ t('diff.legend_new') }}</div>
+      <div class="diff-legend-item"><div class="diff-legend-dot" style="background:var(--color-removed)"></div>{{ t('diff.legend_removed') }}</div>
+      <div class="diff-legend-item"><div class="diff-legend-dot" style="background:var(--color-changed)"></div>{{ t('diff.legend_changed') }}</div>
+      <div class="diff-legend-item"><div class="diff-legend-dot" style="background:var(--color-unchanged)"></div>{{ t('diff.legend_unchanged') }}</div>
     </div>
   </div>
 

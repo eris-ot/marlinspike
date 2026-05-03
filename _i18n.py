@@ -88,6 +88,22 @@ def t(key: str, locale: str = DEFAULT_LOCALE, **kwargs) -> str:
     return value
 
 
+def merged_for_locale(locale: str) -> dict[str, str]:
+    """Return a flat dict of every key resolved for ``locale``.
+
+    Starts from the English baseline and overlays the requested locale so
+    callers (e.g. JS in viewer.html) get a single dict to look up against
+    without re-implementing the English fallback rule.
+    """
+    if not _loaded:
+        load_translations()
+    locale = normalise_locale(locale)
+    base = dict(_translations.get(DEFAULT_LOCALE) or {})
+    if locale != DEFAULT_LOCALE:
+        base.update(_translations.get(locale) or {})
+    return base
+
+
 def resolve_locale(session_value: str | None, accept_language: str | None) -> str:
     """Pick a locale: session override → Accept-Language → default."""
     if session_value:

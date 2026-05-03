@@ -58,6 +58,7 @@ from _i18n import (
     LOCALE_LABELS,
     SUPPORTED_LOCALES,
     load_translations,
+    merged_for_locale,
     normalise_locale,
     resolve_locale,
     t as _translate,
@@ -2380,7 +2381,11 @@ def create_app():
     def _t(key, **kwargs):
         return _translate(key, locale=getattr(g, "locale", DEFAULT_LOCALE), **kwargs)
 
+    def _i18n_dict():
+        return merged_for_locale(getattr(g, "locale", DEFAULT_LOCALE))
+
     app.jinja_env.globals["t"] = _t
+    app.jinja_env.globals["i18n_dict"] = _i18n_dict
 
     @app.route("/i18n/set/<locale>", methods=["GET", "POST"])
     def i18n_set(locale):

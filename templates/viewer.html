@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MarlinSpike — {{ filename }}</title>
+<title>{{ t('viewer.title', filename=filename) }}</title>
 <script>document.documentElement.className=document.documentElement.className.replace(/\bno-js\b/,'js');</script>
 <style>
 @font-face {
@@ -1642,46 +1642,46 @@ body {
       <div class="ms-title-row">
         <div class="ms-title-copy">
           <div class="ms-subtitle">
-            <span>Breach triage, topology, and portable report review from a single report artifact.</span>
+            <span>{{ t('viewer.subtitle') }}</span>
           </div>
         </div>
         <div class="ms-stats" id="ms-stats">
           {% if viewer_context.summary.packet_count %}
-          <span><b>{{ "{:,}".format(viewer_context.summary.packet_count) }}</b> packets</span>
+          <span><b>{{ "{:,}".format(viewer_context.summary.packet_count) }}</b> {{ t('viewer.stats.packets') }}</span>
           {% endif %}
           {% if viewer_context.summary.duration_seconds %}
-          <span><b>{{ "%.1f"|format(viewer_context.summary.duration_seconds) }}s</b> duration</span>
+          <span><b>{{ "%.1f"|format(viewer_context.summary.duration_seconds) }}s</b> {{ t('viewer.stats.duration') }}</span>
           {% endif %}
-          <span><b>{{ viewer_context.summary.asset_count }}</b> nodes</span>
-          <span><b>{{ viewer_context.summary.edge_count }}</b> edges</span>
-          <span><b>{{ viewer_context.summary.protocol_count }}</b> protocols</span>
+          <span><b>{{ viewer_context.summary.asset_count }}</b> {{ t('viewer.stats.nodes') }}</span>
+          <span><b>{{ viewer_context.summary.edge_count }}</b> {{ t('viewer.stats.edges') }}</span>
+          <span><b>{{ viewer_context.summary.protocol_count }}</b> {{ t('viewer.stats.protocols') }}</span>
         </div>
       </div>
       <div class="ms-overview-strip" id="ms-overview-strip">
         <div class="ms-kpi-card healthy">
           <span class="ms-kpi-value">{{ viewer_context.summary.classified_count }}</span>
-          <span class="ms-kpi-label">Classified Assets</span>
-          <span class="ms-kpi-detail">{{ viewer_context.summary.unclassified_count }} still need deeper identity review</span>
+          <span class="ms-kpi-label">{{ t('viewer.kpi.classified_assets') }}</span>
+          <span class="ms-kpi-detail">{{ t('viewer.kpi.classified_detail', count=viewer_context.summary.unclassified_count) }}</span>
         </div>
         <div class="ms-kpi-card {{ 'danger' if viewer_context.summary.critical_high_count else 'healthy' }}">
           <span class="ms-kpi-value">{{ viewer_context.summary.critical_high_count }}</span>
-          <span class="ms-kpi-label">Critical / High</span>
-          <span class="ms-kpi-detail">Risk records linked to the current report artifact</span>
+          <span class="ms-kpi-label">{{ t('viewer.kpi.critical_high') }}</span>
+          <span class="ms-kpi-detail">{{ t('viewer.kpi.critical_high_detail') }}</span>
         </div>
         <div class="ms-kpi-card {{ 'warn' if viewer_context.summary.auth_gap_count else 'healthy' }}">
           <span class="ms-kpi-value">{{ viewer_context.summary.auth_gap_count }}</span>
-          <span class="ms-kpi-label">Auth Gaps</span>
-          <span class="ms-kpi-detail">Assets where authentication was not observed in traffic</span>
+          <span class="ms-kpi-label">{{ t('viewer.kpi.auth_gaps') }}</span>
+          <span class="ms-kpi-detail">{{ t('viewer.kpi.auth_gaps_detail') }}</span>
         </div>
         <div class="ms-kpi-card {{ 'warn' if viewer_context.summary.write_node_count else 'healthy' }}">
           <span class="ms-kpi-value">{{ viewer_context.summary.write_node_count }}</span>
-          <span class="ms-kpi-label">Write-Capable Nodes</span>
-          <span class="ms-kpi-detail">{{ viewer_context.summary.write_edge_count }} writable or programming-capable paths</span>
+          <span class="ms-kpi-label">{{ t('viewer.kpi.write_capable_nodes') }}</span>
+          <span class="ms-kpi-detail">{{ t('viewer.kpi.write_capable_detail', count=viewer_context.summary.write_edge_count) }}</span>
         </div>
         <div class="ms-kpi-card {{ 'danger' if viewer_context.summary.priority_count else 'healthy' }}">
           <span class="ms-kpi-value">{{ viewer_context.summary.priority_count }}</span>
-          <span class="ms-kpi-label">Priority Targets</span>
-          <span class="ms-kpi-detail">High-value assets surfaced for immediate responder review</span>
+          <span class="ms-kpi-label">{{ t('viewer.kpi.priority_targets') }}</span>
+          <span class="ms-kpi-detail">{{ t('viewer.kpi.priority_targets_detail') }}</span>
         </div>
       </div>
     </div>
@@ -1691,26 +1691,26 @@ body {
     <div class="ms-toolbar-main">
       <div class="ms-toolbar-controls">
         <label class="ms-search-field">
-          <span>Find Asset</span>
-          <input id="ms-search" type="search" autocomplete="off" placeholder="IP, vendor, role, product, protocol">
+          <span>{{ t('viewer.toolbar.find_asset') }}</span>
+          <input id="ms-search" type="search" autocomplete="off" placeholder="{{ t('viewer.toolbar.find_asset_placeholder') }}">
         </label>
         <label class="ms-select-field">
-          <span>Focus Queue</span>
+          <span>{{ t('viewer.toolbar.focus_queue') }}</span>
           <select id="ms-focus">
-            <option value="all">All assets</option>
-            <option value="priority">Priority targets</option>
-            <option value="risk">Assets with findings</option>
-            <option value="auth-gap">Auth gaps</option>
-            <option value="writes">Write-capable paths</option>
-            <option value="unclassified">Needs classification review</option>
-            <option value="ot">OT levels 0-2</option>
-            <option value="external">External / Level 5</option>
-            <option value="level-1">Purdue Level 1</option>
-            <option value="level-2">Purdue Level 2</option>
-            <option value="level-3">Purdue Level 3</option>
+            <option value="all">{{ t('viewer.focus.all') }}</option>
+            <option value="priority">{{ t('viewer.focus.priority') }}</option>
+            <option value="risk">{{ t('viewer.focus.risk') }}</option>
+            <option value="auth-gap">{{ t('viewer.focus.auth_gap') }}</option>
+            <option value="writes">{{ t('viewer.focus.writes') }}</option>
+            <option value="unclassified">{{ t('viewer.focus.unclassified') }}</option>
+            <option value="ot">{{ t('viewer.focus.ot') }}</option>
+            <option value="external">{{ t('viewer.focus.external') }}</option>
+            <option value="level-1">{{ t('viewer.focus.level_1') }}</option>
+            <option value="level-2">{{ t('viewer.focus.level_2') }}</option>
+            <option value="level-3">{{ t('viewer.focus.level_3') }}</option>
           </select>
         </label>
-        <button class="ms-btn" onclick="MS.clearFilters()">Clear Focus</button>
+        <button class="ms-btn" onclick="MS.clearFilters()">{{ t('viewer.toolbar.clear_focus') }}</button>
       </div>
     </div>
     <div class="ms-toolbar-status" id="ms-toolbar-status"></div>
@@ -1719,63 +1719,63 @@ body {
   <div id="ms-left-rail">
     <div class="ms-nav-brand">
       <div class="ms-nav-brand-mark">Marlin<span>Spike</span></div>
-      <div class="ms-nav-brand-name">Analyst Workbench</div>
+      <div class="ms-nav-brand-name">{{ t('viewer.nav.brand') }}</div>
       <div class="ms-nav-brand-file">{{ filename }}</div>
     </div>
     <div class="ms-nav-divider"></div>
     <div class="ms-nav-rail" id="ms-nav-rail">
       <button class="ms-nav-btn active" data-mode="dashboard" onclick="MS.setWorkbenchMode('dashboard')">
-        <div class="ms-nav-head"><span class="ms-nav-label">Dashboard</span><span class="ms-nav-badge">{{ viewer_context.summary.priority_count }}</span></div>
-        <span class="ms-nav-note">Operator snapshot, queues, and first-pass triage.</span>
+        <div class="ms-nav-head"><span class="ms-nav-label">{{ t('viewer.rail.dashboard') }}</span><span class="ms-nav-badge">{{ viewer_context.summary.priority_count }}</span></div>
+        <span class="ms-nav-note">{{ t('viewer.rail.dashboard_note') }}</span>
       </button>
       <button class="ms-nav-btn" data-mode="map" onclick="MS.setWorkbenchMode('map')">
-        <div class="ms-nav-head"><span class="ms-nav-label">Map</span><span class="ms-nav-badge">{{ viewer_context.summary.asset_count }}</span></div>
-        <span class="ms-nav-note">Topology view, path review, and live node selection.</span>
+        <div class="ms-nav-head"><span class="ms-nav-label">{{ t('viewer.rail.map') }}</span><span class="ms-nav-badge">{{ viewer_context.summary.asset_count }}</span></div>
+        <span class="ms-nav-note">{{ t('viewer.rail.map_note') }}</span>
       </button>
       <button class="ms-nav-btn" data-mode="traffic" onclick="MS.setWorkbenchMode('traffic')">
-        <div class="ms-nav-head"><span class="ms-nav-label">Traffic</span><span class="ms-nav-badge">{{ viewer_context.summary.conversation_count or 0 }}</span></div>
-        <span class="ms-nav-note">Top talkers, conversation ledger, and protocol byte distribution.</span>
+        <div class="ms-nav-head"><span class="ms-nav-label">{{ t('viewer.rail.traffic') }}</span><span class="ms-nav-badge">{{ viewer_context.summary.conversation_count or 0 }}</span></div>
+        <span class="ms-nav-note">{{ t('viewer.rail.traffic_note') }}</span>
       </button>
       <button class="ms-nav-btn" data-mode="findings" onclick="MS.setWorkbenchMode('findings')">
-        <div class="ms-nav-head"><span class="ms-nav-label">Findings</span><span class="ms-nav-badge">{{ viewer_context.top_findings|length + viewer_context.c2_indicators|length }}</span></div>
-        <span class="ms-nav-note">Responder findings, suspicious channels, and action queues.</span>
+        <div class="ms-nav-head"><span class="ms-nav-label">{{ t('viewer.rail.findings') }}</span><span class="ms-nav-badge">{{ viewer_context.top_findings|length + viewer_context.c2_indicators|length }}</span></div>
+        <span class="ms-nav-note">{{ t('viewer.rail.findings_note') }}</span>
       </button>
       <button class="ms-nav-btn" data-mode="protocols" onclick="MS.setWorkbenchMode('protocols')">
-        <div class="ms-nav-head"><span class="ms-nav-label">Protocols</span><span class="ms-nav-badge">{{ viewer_context.summary.dissector_family_count or 0 }}</span></div>
-        <span class="ms-nav-note">Per-dissector drilldown — Modbus, S7, DNP3, CIP, IEC104, MMS, GOOSE, BACnet, DNS.</span>
+        <div class="ms-nav-head"><span class="ms-nav-label">{{ t('viewer.rail.protocols') }}</span><span class="ms-nav-badge">{{ viewer_context.summary.dissector_family_count or 0 }}</span></div>
+        <span class="ms-nav-note">{{ t('viewer.rail.protocols_note') }}</span>
       </button>
       <button class="ms-nav-btn" data-mode="evidence" onclick="MS.setWorkbenchMode('evidence')">
-        <div class="ms-nav-head"><span class="ms-nav-label">Evidence</span><span class="ms-nav-badge">{{ viewer_context.dpi_highlights|length }}</span></div>
-        <span class="ms-nav-note">DPI-enriched sessions, identities, hunt pivots, and module views.</span>
+        <div class="ms-nav-head"><span class="ms-nav-label">{{ t('viewer.rail.evidence') }}</span><span class="ms-nav-badge">{{ viewer_context.dpi_highlights|length }}</span></div>
+        <span class="ms-nav-note">{{ t('viewer.rail.evidence_note') }}</span>
       </button>
       <button class="ms-nav-btn" data-mode="assets" onclick="MS.setWorkbenchMode('assets')">
-        <div class="ms-nav-head"><span class="ms-nav-label">Assets</span><span class="ms-nav-badge">{{ viewer_context.assets_sorted|length }}</span></div>
-        <span class="ms-nav-note">Asset ledger, identity depth, and evidence-heavy hosts.</span>
+        <div class="ms-nav-head"><span class="ms-nav-label">{{ t('viewer.rail.assets') }}</span><span class="ms-nav-badge">{{ viewer_context.assets_sorted|length }}</span></div>
+        <span class="ms-nav-note">{{ t('viewer.rail.assets_note') }}</span>
       </button>
       <button class="ms-nav-btn" data-mode="intel" onclick="MS.setWorkbenchMode('intel')">
-        <div class="ms-nav-head"><span class="ms-nav-label">Intel</span><span class="ms-nav-badge">{{ viewer_context.mitre_classifications|length + viewer_context.protocol_items|length }}</span></div>
-        <span class="ms-nav-note">Protocol coverage, ATT&CK mapping, and extension intelligence.</span>
+        <div class="ms-nav-head"><span class="ms-nav-label">{{ t('viewer.rail.intel') }}</span><span class="ms-nav-badge">{{ viewer_context.mitre_classifications|length + viewer_context.protocol_items|length }}</span></div>
+        <span class="ms-nav-note">{{ t('viewer.rail.intel_note') }}</span>
       </button>
       <button class="ms-nav-btn" data-mode="risk" onclick="MS.setWorkbenchMode('risk')">
-        <div class="ms-nav-head"><span class="ms-nav-label">Risk</span><span class="ms-nav-badge">{{ viewer_context.summary.critical_high_count }}</span></div>
-        <span class="ms-nav-note">High-severity findings, Purdue violations, and writable exposure.</span>
+        <div class="ms-nav-head"><span class="ms-nav-label">{{ t('viewer.rail.risk') }}</span><span class="ms-nav-badge">{{ viewer_context.summary.critical_high_count }}</span></div>
+        <span class="ms-nav-note">{{ t('viewer.rail.risk_note') }}</span>
       </button>
       <button class="ms-nav-btn" data-mode="reports" onclick="MS.setWorkbenchMode('reports')">
-        <div class="ms-nav-head"><span class="ms-nav-label">Reports</span><span class="ms-nav-badge">{{ viewer_context.summary.module_view_total }}</span></div>
-        <span class="ms-nav-note">Portable artifact review, exports, and extension supplements.</span>
+        <div class="ms-nav-head"><span class="ms-nav-label">{{ t('viewer.rail.reports') }}</span><span class="ms-nav-badge">{{ viewer_context.summary.module_view_total }}</span></div>
+        <span class="ms-nav-note">{{ t('viewer.rail.reports_note') }}</span>
       </button>
     </div>
     <div class="ms-nav-divider" style="margin-top:12px"></div>
     <div class="ms-nav-actions">
-      <div class="ms-nav-section-label">Utilities</div>
-      <button class="ms-nav-action accent" id="ms-btn-risk" onclick="MS.toggleRisk()">Risk Overlay</button>
-      <button class="ms-nav-action" id="ms-btn-report" onclick="MS.toggleReport()">Assessment Report</button>
+      <div class="ms-nav-section-label">{{ t('viewer.utilities.label') }}</div>
+      <button class="ms-nav-action accent" id="ms-btn-risk" onclick="MS.toggleRisk()">{{ t('viewer.utilities.risk_overlay') }}</button>
+      <button class="ms-nav-action" id="ms-btn-report" onclick="MS.toggleReport()">{{ t('viewer.utilities.assessment_report') }}</button>
       <div class="ms-nav-actions-grid">
-        <a class="ms-nav-action" href="/api/reports/{{ filename }}/assets" target="_blank">Assets</a>
-        <button class="ms-nav-action" onclick="MS.printReport()">Print</button>
-        <button class="ms-nav-action" onclick="MS.exportPng()">PNG</button>
-        <button class="ms-nav-action" onclick="MS.exportCsvAssets()">CSV Assets</button>
-        <button class="ms-nav-action" onclick="MS.exportCsvFindings()">CSV Findings</button>
+        <a class="ms-nav-action" href="/api/reports/{{ filename }}/assets" target="_blank">{{ t('viewer.utilities.assets') }}</a>
+        <button class="ms-nav-action" onclick="MS.printReport()">{{ t('viewer.utilities.print') }}</button>
+        <button class="ms-nav-action" onclick="MS.exportPng()">{{ t('viewer.utilities.png') }}</button>
+        <button class="ms-nav-action" onclick="MS.exportCsvAssets()">{{ t('viewer.utilities.csv_assets') }}</button>
+        <button class="ms-nav-action" onclick="MS.exportCsvFindings()">{{ t('viewer.utilities.csv_findings') }}</button>
       </div>
     </div>
   </div>
@@ -1786,7 +1786,7 @@ body {
       <div id="ms-pane-map" class="ms-workbench-pane">
         <div id="ms-svg-container"></div>
         <div id="ms-tooltip"></div>
-        <div id="ms-empty"><h2>No topology data</h2><p>Report contains no discovered nodes.</p></div>
+        <div id="ms-empty"><h2>{{ t('viewer.map.empty_title') }}</h2><p>{{ t('viewer.map.empty_body') }}</p></div>
         <div id="ms-map-module-views" class="ms-map-module-views"></div>
       </div>
       <div id="ms-pane-traffic" class="ms-workbench-pane ms-stage-pane"></div>
@@ -1808,27 +1808,27 @@ body {
   <div id="ms-sidebar">
     <div id="ms-sidebar-content">
       <div class="ms-sidebar-panel">
-        <h3>Selected Asset</h3>
+        <h3>{{ t('viewer.sidebar.selected_asset') }}</h3>
         <div class="ms-empty-panel">
-          <strong>No asset selected.</strong><br>
-          With JavaScript enabled you can click a node to inspect it in place. Without JavaScript, use the rendered queues below to jump directly into asset sections in the report.
+          <strong>{{ t('viewer.sidebar.no_asset_selected') }}</strong><br>
+          {{ t('viewer.sidebar.no_asset_help') }}
         </div>
       </div>
 
       <div class="ms-sidebar-panel">
-        <h3>Operator Snapshot</h3>
+        <h3>{{ t('viewer.sidebar.operator_snapshot') }}</h3>
         <div class="ms-sidebar-kpis">
-          <div class="ms-sidebar-kpi"><span class="val">{{ viewer_context.summary.classified_count }}</span><span class="lbl">Classified assets</span></div>
-          <div class="ms-sidebar-kpi"><span class="val">{{ viewer_context.summary.unclassified_count }}</span><span class="lbl">Needs review</span></div>
-          <div class="ms-sidebar-kpi"><span class="val">{{ viewer_context.summary.critical_high_count }}</span><span class="lbl">Critical / high</span></div>
-          <div class="ms-sidebar-kpi"><span class="val">{{ viewer_context.summary.auth_gap_count }}</span><span class="lbl">Auth gaps</span></div>
-          <div class="ms-sidebar-kpi"><span class="val">{{ viewer_context.summary.write_node_count }}</span><span class="lbl">Write-capable nodes</span></div>
-          <div class="ms-sidebar-kpi"><span class="val">{{ viewer_context.summary.external_count }}</span><span class="lbl">External assets</span></div>
+          <div class="ms-sidebar-kpi"><span class="val">{{ viewer_context.summary.classified_count }}</span><span class="lbl">{{ t('viewer.sidebar.kpi.classified_assets') }}</span></div>
+          <div class="ms-sidebar-kpi"><span class="val">{{ viewer_context.summary.unclassified_count }}</span><span class="lbl">{{ t('viewer.sidebar.kpi.needs_review') }}</span></div>
+          <div class="ms-sidebar-kpi"><span class="val">{{ viewer_context.summary.critical_high_count }}</span><span class="lbl">{{ t('viewer.sidebar.kpi.critical_high') }}</span></div>
+          <div class="ms-sidebar-kpi"><span class="val">{{ viewer_context.summary.auth_gap_count }}</span><span class="lbl">{{ t('viewer.sidebar.kpi.auth_gaps') }}</span></div>
+          <div class="ms-sidebar-kpi"><span class="val">{{ viewer_context.summary.write_node_count }}</span><span class="lbl">{{ t('viewer.sidebar.kpi.write_capable_nodes') }}</span></div>
+          <div class="ms-sidebar-kpi"><span class="val">{{ viewer_context.summary.external_count }}</span><span class="lbl">{{ t('viewer.sidebar.kpi.external_assets') }}</span></div>
         </div>
       </div>
 
       <div class="ms-sidebar-panel">
-        <h3>Priority Targets</h3>
+        <h3>{{ t('viewer.sidebar.priority_targets') }}</h3>
         {% if viewer_context.priority_nodes %}
         <div class="ms-link-list">
           {% for node in viewer_context.priority_nodes %}
@@ -1836,9 +1836,9 @@ body {
             <div class="ms-queue-item">
               <div class="ms-queue-copy">
                 <div class="ms-queue-ip">{{ node._ip }}</div>
-                <div class="ms-queue-role">{{ node.role or 'Unknown' }}</div>
+                <div class="ms-queue-role">{{ node.role or t('viewer.unknown') }}</div>
                 <div class="ms-queue-note">
-                  {{ node.vendor or 'Unknown vendor' }}{% if node.product_line %} · {{ node.product_line }}{% endif %}
+                  {{ node.vendor or t('viewer.unknown_vendor') }}{% if node.product_line %} · {{ node.product_line }}{% endif %}
                   {% if node.recommended_modules %} · {{ node.recommended_modules[:2] | join(', ') }}{% endif %}
                 </div>
               </div>
@@ -1848,12 +1848,12 @@ body {
           {% endfor %}
         </div>
         {% else %}
-        <div class="ms-empty-panel">No attack-prioritized assets were surfaced in this report.</div>
+        <div class="ms-empty-panel">{{ t('viewer.sidebar.priority_empty') }}</div>
         {% endif %}
       </div>
 
       <div class="ms-sidebar-panel">
-        <h3>Auth Gaps</h3>
+        <h3>{{ t('viewer.sidebar.auth_gaps') }}</h3>
         {% if viewer_context.auth_gap_nodes %}
         <div class="ms-link-list">
           {% for node in viewer_context.auth_gap_nodes %}
@@ -1861,8 +1861,8 @@ body {
             <div class="ms-queue-item">
               <div class="ms-queue-copy">
                 <div class="ms-queue-ip">{{ node._ip }}</div>
-                <div class="ms-queue-role">{{ node.role or 'Unknown' }}</div>
-                <div class="ms-queue-note">Authentication was not observed{% if node.protocols %} · {{ node.protocols[:3] | join(', ') }}{% endif %}</div>
+                <div class="ms-queue-role">{{ node.role or t('viewer.unknown') }}</div>
+                <div class="ms-queue-note">{{ t('viewer.auth_not_observed') }}{% if node.protocols %} · {{ node.protocols[:3] | join(', ') }}{% endif %}</div>
               </div>
               <span class="ms-queue-priority">{{ node._risk_count }}</span>
             </div>
@@ -1870,12 +1870,12 @@ body {
           {% endfor %}
         </div>
         {% else %}
-        <div class="ms-empty-panel">No auth-gap assets were identified in this report.</div>
+        <div class="ms-empty-panel">{{ t('viewer.sidebar.auth_gaps_empty') }}</div>
         {% endif %}
       </div>
 
       <div class="ms-sidebar-panel">
-        <h3>Write-Capable Paths</h3>
+        <h3>{{ t('viewer.sidebar.write_capable_paths') }}</h3>
         {% if viewer_context.write_paths %}
         {% for edge in viewer_context.write_paths %}
         <div class="ms-service-item">
@@ -1883,18 +1883,18 @@ body {
           &nbsp;→&nbsp;
           <a class="ms-link-item" href="#asset-{{ edge._anchor_dst }}"><code>{{ edge.dst }}</code></a>
           <br>
-          <span style="color:{{ '#ef4444' if edge.includes_program_access else '#f59e0b' if edge.includes_writes else 'var(--text-dim)' }}">{{ edge.protocol or 'Unknown' }}</span>
-          · {{ edge.conversation_count or 0 }} conv
-          {% if edge.includes_program_access %} · PROGRAM{% elif edge.includes_writes %} · WRITE{% endif %}
+          <span style="color:{{ '#ef4444' if edge.includes_program_access else '#f59e0b' if edge.includes_writes else 'var(--text-dim)' }}">{{ edge.protocol or t('viewer.unknown') }}</span>
+          · {{ edge.conversation_count or 0 }} {{ t('viewer.conv_short') }}
+          {% if edge.includes_program_access %} · {{ t('viewer.tag_program') }}{% elif edge.includes_writes %} · {{ t('viewer.tag_write') }}{% endif %}
         </div>
         {% endfor %}
         {% else %}
-        <div class="ms-empty-panel">No write-capable or programming-capable paths were identified.</div>
+        <div class="ms-empty-panel">{{ t('viewer.sidebar.write_paths_empty') }}</div>
         {% endif %}
       </div>
 
       <div class="ms-sidebar-panel">
-        <h3>Suspicious External Comms</h3>
+        <h3>{{ t('viewer.sidebar.suspicious_external') }}</h3>
         {% if viewer_context.external_indicators %}
         {% for indicator in viewer_context.external_indicators[:5] %}
         <div class="ms-risk-item sev-{{ indicator.severity }}">
@@ -1903,12 +1903,12 @@ body {
         </div>
         {% endfor %}
         {% else %}
-        <div class="ms-empty-panel">No C2 or external-communication indicators were produced for this report.</div>
+        <div class="ms-empty-panel">{{ t('viewer.sidebar.external_empty') }}</div>
         {% endif %}
       </div>
 
       <div class="ms-sidebar-panel">
-        <h3>Protocol Mix</h3>
+        <h3>{{ t('viewer.sidebar.protocol_mix') }}</h3>
         {% if viewer_context.protocol_items %}
         {% for proto in viewer_context.protocol_items %}
         <div class="ms-legend-item">
@@ -1917,18 +1917,18 @@ body {
         </div>
         {% endfor %}
         {% else %}
-        <div class="ms-empty-panel">No protocol summary is available.</div>
+        <div class="ms-empty-panel">{{ t('viewer.sidebar.protocol_mix_empty') }}</div>
         {% endif %}
       </div>
 
       <div class="ms-sidebar-panel" id="ms-map-legend">
-        <h3>Map Legend</h3>
+        <h3>{{ t('viewer.legend.title') }}</h3>
         <div id="ms-role-legend"></div>
         <div style="margin-top:10px;font-size:0.82em;color:var(--text-dim);line-height:1.55;">
-          <div style="padding:2px 0;"><svg width="14" height="10" style="vertical-align:middle;margin-right:6px;"><circle cx="7" cy="5" r="4" fill="var(--text-dim)"/></svg>Circle size = connection count</div>
-          <div style="padding:2px 0;"><svg width="14" height="10" style="vertical-align:middle;margin-right:6px;"><line x1="0" y1="5" x2="14" y2="5" stroke="var(--text-dim)" stroke-width="2"/></svg>Solid edge = read traffic</div>
-          <div style="padding:2px 0;"><svg width="14" height="10" style="vertical-align:middle;margin-right:6px;"><line x1="0" y1="5" x2="14" y2="5" stroke="#ef4444" stroke-width="2" stroke-dasharray="4,2"/></svg>Dashed edge = write traffic</div>
-          <div style="padding:2px 0;">Horizontal bands = Purdue levels (0&ndash;5)</div>
+          <div style="padding:2px 0;"><svg width="14" height="10" style="vertical-align:middle;margin-right:6px;"><circle cx="7" cy="5" r="4" fill="var(--text-dim)"/></svg>{{ t('viewer.legend.circle_size') }}</div>
+          <div style="padding:2px 0;"><svg width="14" height="10" style="vertical-align:middle;margin-right:6px;"><line x1="0" y1="5" x2="14" y2="5" stroke="var(--text-dim)" stroke-width="2"/></svg>{{ t('viewer.legend.solid_edge') }}</div>
+          <div style="padding:2px 0;"><svg width="14" height="10" style="vertical-align:middle;margin-right:6px;"><line x1="0" y1="5" x2="14" y2="5" stroke="#ef4444" stroke-width="2" stroke-dasharray="4,2"/></svg>{{ t('viewer.legend.dashed_edge') }}</div>
+          <div style="padding:2px 0;">{{ t('viewer.legend.bands') }}</div>
         </div>
       </div>
     </div>
@@ -1936,50 +1936,50 @@ body {
 
   <div id="ms-report-pane">
     <div class="ms-report-header">
-      <h2><span>Assessment</span> & Triage Report</h2>
-      <button class="ms-report-close" onclick="MS.toggleReport()" title="Close">&times;</button>
+      <h2><span>{{ t('viewer.report.assessment') }}</span> {{ t('viewer.report.and_triage') }}</h2>
+      <button class="ms-report-close" onclick="MS.toggleReport()" title="{{ t('common.close') }}">&times;</button>
     </div>
     <div class="ms-report-tabs">
-      <button class="ms-report-tab active" onclick="MS.switchReportTab('report')">Report</button>
-      <button class="ms-report-tab" onclick="MS.switchReportTab('mac-table')">MAC Table</button>
+      <button class="ms-report-tab active" onclick="MS.switchReportTab('report')">{{ t('viewer.report.tab_report') }}</button>
+      <button class="ms-report-tab" onclick="MS.switchReportTab('mac-table')">{{ t('viewer.report.tab_mac') }}</button>
     </div>
     <div id="ms-tab-report" class="ms-report-tab-content active">
       <div class="ms-report-columns">
         <div class="ms-report-col">
           <div id="ms-rpt-summary" class="ms-section open">
-            <button class="ms-section-toggle" onclick="MS.toggleSection('ms-rpt-summary')"><span class="chevron">&#9654;</span>Executive Summary</button>
+            <button class="ms-section-toggle" onclick="MS.toggleSection('ms-rpt-summary')"><span class="chevron">&#9654;</span>{{ t('viewer.report.executive_summary') }}</button>
             <div class="ms-section-body">
               <div class="ms-summary-grid">
-                <div class="ms-summary-card"><div class="val">{{ viewer_context.summary.asset_count }}</div><div class="lbl">Assets</div></div>
-                <div class="ms-summary-card"><div class="val">{{ viewer_context.summary.edge_count }}</div><div class="lbl">Connections</div></div>
-                <div class="ms-summary-card"><div class="val">{{ viewer_context.summary.protocol_count }}</div><div class="lbl">Protocols</div></div>
+                <div class="ms-summary-card"><div class="val">{{ viewer_context.summary.asset_count }}</div><div class="lbl">{{ t('viewer.report.lbl.assets') }}</div></div>
+                <div class="ms-summary-card"><div class="val">{{ viewer_context.summary.edge_count }}</div><div class="lbl">{{ t('viewer.report.lbl.connections') }}</div></div>
+                <div class="ms-summary-card"><div class="val">{{ viewer_context.summary.protocol_count }}</div><div class="lbl">{{ t('viewer.report.lbl.protocols') }}</div></div>
                 {% if viewer_context.summary.packet_count %}
-                <div class="ms-summary-card"><div class="val">{{ "{:,}".format(viewer_context.summary.packet_count) }}</div><div class="lbl">Packets</div></div>
+                <div class="ms-summary-card"><div class="val">{{ "{:,}".format(viewer_context.summary.packet_count) }}</div><div class="lbl">{{ t('viewer.report.lbl.packets') }}</div></div>
                 {% endif %}
                 {% if viewer_context.summary.duration_seconds %}
-                <div class="ms-summary-card"><div class="val">{{ "%.1f"|format(viewer_context.summary.duration_seconds) }}s</div><div class="lbl">Duration</div></div>
+                <div class="ms-summary-card"><div class="val">{{ "%.1f"|format(viewer_context.summary.duration_seconds) }}s</div><div class="lbl">{{ t('viewer.report.lbl.duration') }}</div></div>
                 {% endif %}
-                <div class="ms-summary-card"><div class="val" style="color:{{ 'var(--color-danger)' if viewer_context.summary.critical_high_count else 'var(--accent-green)' }}">{{ viewer_context.summary.critical_high_count }}</div><div class="lbl">Critical/High</div></div>
+                <div class="ms-summary-card"><div class="val" style="color:{{ 'var(--color-danger)' if viewer_context.summary.critical_high_count else 'var(--accent-green)' }}">{{ viewer_context.summary.critical_high_count }}</div><div class="lbl">{{ t('viewer.report.lbl.critical_high') }}</div></div>
                 {% if viewer_context.summary.mitre_classification_total or viewer_context.summary.mitre_platform_total %}
-                <div class="ms-summary-card"><div class="val">{{ viewer_context.summary.mitre_classification_total }}</div><div class="lbl">ATT&CK Hits</div></div>
+                <div class="ms-summary-card"><div class="val">{{ viewer_context.summary.mitre_classification_total }}</div><div class="lbl">{{ t('viewer.report.lbl.attack_hits') }}</div></div>
                 {% endif %}
                 {% if viewer_context.summary.mitre_platform_total %}
-                <div class="ms-summary-card"><div class="val">{{ viewer_context.summary.mitre_platform_total }}</div><div class="lbl">Coverage</div></div>
+                <div class="ms-summary-card"><div class="val">{{ viewer_context.summary.mitre_platform_total }}</div><div class="lbl">{{ t('viewer.report.lbl.coverage') }}</div></div>
                 {% endif %}
                 {% if viewer_context.summary.mitre_tactic_total %}
-                <div class="ms-summary-card"><div class="val">{{ viewer_context.summary.mitre_tactic_total }}</div><div class="lbl">ATT&CK Tactics</div></div>
+                <div class="ms-summary-card"><div class="val">{{ viewer_context.summary.mitre_tactic_total }}</div><div class="lbl">{{ t('viewer.report.lbl.attack_tactics') }}</div></div>
                 {% endif %}
               </div>
               {% if report.timestamp_start %}
-              <div style="font-size:0.82em;color:var(--text-dim);margin-top:4px;">Scan: {{ report.timestamp_start }}{% if report.timestamp_end %} — {{ report.timestamp_end }}{% endif %}</div>
+              <div style="font-size:0.82em;color:var(--text-dim);margin-top:4px;">{{ t('viewer.report.scan_label') }}: {{ report.timestamp_start }}{% if report.timestamp_end %} — {{ report.timestamp_end }}{% endif %}</div>
               {% endif %}
               {% if report.capture_info and report.capture_info.pcap_path %}
-              <div style="font-size:0.82em;color:var(--text-dim);">Source: <span style="font-family:var(--font-mono)">{{ report.capture_info.pcap_path }}</span></div>
+              <div style="font-size:0.82em;color:var(--text-dim);">{{ t('viewer.report.source_label') }}: <span style="font-family:var(--font-mono)">{{ report.capture_info.pcap_path }}</span></div>
               {% endif %}
             </div>
           </div>
           <div id="ms-rpt-findings" class="ms-section open">
-            <button class="ms-section-toggle" onclick="MS.toggleSection('ms-rpt-findings')"><span class="chevron">&#9654;</span>Risk Findings & Recommendations ({{ viewer_context.top_findings|length }})</button>
+            <button class="ms-section-toggle" onclick="MS.toggleSection('ms-rpt-findings')"><span class="chevron">&#9654;</span>{{ t('viewer.report.risk_findings_title', count=viewer_context.top_findings|length) }}</button>
             <div class="ms-section-body">
               {% if viewer_context.top_findings %}
                 {% for finding in viewer_context.top_findings %}
@@ -1997,55 +1997,55 @@ body {
                   </div>
                   {% endif %}
                   {% if finding.purdue_context %}
-                  <div class="ms-finding-context"><strong>Purdue:</strong> {{ finding.purdue_context }}</div>
+                  <div class="ms-finding-context"><strong>{{ t('viewer.report.purdue_label') }}:</strong> {{ finding.purdue_context }}</div>
                   {% endif %}
                   {% if finding.remediation %}
-                  <div class="ms-finding-remediation"><strong>Recommendation:</strong> {{ finding.remediation }}</div>
+                  <div class="ms-finding-remediation"><strong>{{ t('viewer.report.recommendation_label') }}:</strong> {{ finding.remediation }}</div>
                   {% endif %}
                   {% if finding.affected_nodes %}
-                  <div class="ms-finding-nodes">Affected: {{ finding.affected_nodes | join(', ') }}</div>
+                  <div class="ms-finding-nodes">{{ t('viewer.report.affected_label') }}: {{ finding.affected_nodes | join(', ') }}</div>
                   {% endif %}
                 </div>
                 {% endfor %}
               {% else %}
-              <div style="color:var(--text-dim);padding:8px 0;">No risk findings.</div>
+              <div style="color:var(--text-dim);padding:8px 0;">{{ t('viewer.report.no_findings') }}</div>
               {% endif %}
             </div>
           </div>
           <div id="ms-rpt-purdue" class="ms-section">
-            <button class="ms-section-toggle" onclick="MS.toggleSection('ms-rpt-purdue')"><span class="chevron">&#9654;</span>Purdue Model Violations ({{ viewer_context.purdue_violations|length }})</button>
+            <button class="ms-section-toggle" onclick="MS.toggleSection('ms-rpt-purdue')"><span class="chevron">&#9654;</span>{{ t('viewer.report.purdue_violations_title', count=viewer_context.purdue_violations|length) }}</button>
             <div class="ms-section-body">
               {% if viewer_context.purdue_violations %}
                 {% for violation in viewer_context.purdue_violations %}
                 <div class="ms-purdue-item">{{ violation }}</div>
                 {% endfor %}
               {% else %}
-              <div style="color:var(--text-dim);padding:8px 0;">No violations detected.</div>
+              <div style="color:var(--text-dim);padding:8px 0;">{{ t('viewer.report.no_violations') }}</div>
               {% endif %}
             </div>
           </div>
         </div>
         <div class="ms-report-col">
           <div id="ms-rpt-assets" class="ms-section open">
-            <button class="ms-section-toggle" onclick="MS.toggleSection('ms-rpt-assets')"><span class="chevron">&#9654;</span>Asset Inventory ({{ viewer_context.assets_sorted|length }})</button>
+            <button class="ms-section-toggle" onclick="MS.toggleSection('ms-rpt-assets')"><span class="chevron">&#9654;</span>{{ t('viewer.report.asset_inventory_title', count=viewer_context.assets_sorted|length) }}</button>
             <div class="ms-section-body">
               {% for node in viewer_context.assets_sorted %}
               <div id="asset-{{ node._anchor }}" class="ms-asset-card" style="background:var(--panel-alt);border:1px solid var(--border-dim);border-radius:4px;padding:12px;margin-bottom:8px;border-left:3px solid var(--border);">
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;">
                   <span style="font-family:var(--font-mono);font-size:1.05em;font-weight:600">{{ node._ip }}</span>
-                  <span class="role-tag" style="background:rgba(91,138,240,0.12);color:var(--accent);border:1px solid rgba(91,138,240,0.24);padding:2px 8px;border-radius:3px;font-size:0.82em">{{ node.role or 'Unknown' }}</span>
-                  <span style="color:var(--text-dim);font-size:0.82em;font-weight:600">Level {{ node.purdue_level if node.purdue_level is not none else -1 }}</span>
+                  <span class="role-tag" style="background:rgba(91,138,240,0.12);color:var(--accent);border:1px solid rgba(91,138,240,0.24);padding:2px 8px;border-radius:3px;font-size:0.82em">{{ node.role or t('viewer.unknown') }}</span>
+                  <span style="color:var(--text-dim);font-size:0.82em;font-weight:600">{{ t('viewer.report.level_label') }} {{ node.purdue_level if node.purdue_level is not none else -1 }}</span>
                   {% if node.attack_priority %}
-                  <span style="margin-left:auto;font-family:var(--font-mono);font-size:0.82em;padding:2px 8px;border-radius:3px;background:rgba(239,68,68,0.1);color:var(--color-danger)">Priority {{ node.attack_priority }}</span>
+                  <span style="margin-left:auto;font-family:var(--font-mono);font-size:0.82em;padding:2px 8px;border-radius:3px;background:rgba(239,68,68,0.1);color:var(--color-danger)">{{ t('viewer.report.priority_label') }} {{ node.attack_priority }}</span>
                   {% endif %}
                 </div>
                 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:4px 16px;font-size:0.85em;margin-bottom:6px">
-                  <div><span style="color:var(--text-dim)">Vendor:</span> <span style="font-family:var(--font-mono)">{{ node.vendor or 'Unknown' }}</span></div>
-                  <div><span style="color:var(--text-dim)">Device Type:</span> <span style="font-family:var(--font-mono)">{{ node.device_type or 'Unknown' }}</span></div>
-                  <div><span style="color:var(--text-dim)">Product:</span> <span style="font-family:var(--font-mono)">{{ node.product_line or '—' }}</span></div>
-                  <div><span style="color:var(--text-dim)">System Name:</span> <span style="font-family:var(--font-mono)">{{ node.system_name or '—' }}</span></div>
-                  <div><span style="color:var(--text-dim)">Auth Observed:</span> <span style="font-family:var(--font-mono);color:{{ 'var(--accent-green)' if node.auth_observed else 'var(--color-warning)' }}">{{ 'Yes' if node.auth_observed else 'No' }}</span></div>
-                  <div><span style="color:var(--text-dim)">Mgmt IP:</span> <span style="font-family:var(--font-mono)">{{ node.mgmt_ip or '—' }}</span></div>
+                  <div><span style="color:var(--text-dim)">{{ t('viewer.report.vendor') }}:</span> <span style="font-family:var(--font-mono)">{{ node.vendor or t('viewer.unknown') }}</span></div>
+                  <div><span style="color:var(--text-dim)">{{ t('viewer.report.device_type') }}:</span> <span style="font-family:var(--font-mono)">{{ node.device_type or t('viewer.unknown') }}</span></div>
+                  <div><span style="color:var(--text-dim)">{{ t('viewer.report.product') }}:</span> <span style="font-family:var(--font-mono)">{{ node.product_line or '—' }}</span></div>
+                  <div><span style="color:var(--text-dim)">{{ t('viewer.report.system_name') }}:</span> <span style="font-family:var(--font-mono)">{{ node.system_name or '—' }}</span></div>
+                  <div><span style="color:var(--text-dim)">{{ t('viewer.report.auth_observed') }}:</span> <span style="font-family:var(--font-mono);color:{{ 'var(--accent-green)' if node.auth_observed else 'var(--color-warning)' }}">{{ t('common.yes') if node.auth_observed else t('common.no') }}</span></div>
+                  <div><span style="color:var(--text-dim)">{{ t('viewer.report.mgmt_ip') }}:</span> <span style="font-family:var(--font-mono)">{{ node.mgmt_ip or '—' }}</span></div>
                 </div>
                 {% if node.protocols %}
                 <div style="margin-bottom:6px">
@@ -2055,13 +2055,13 @@ body {
                 </div>
                 {% endif %}
                 {% if node.recommended_modules %}
-                <div style="margin-bottom:6px;font-size:0.82em"><span style="color:var(--text-dim)">Recommended Modules:</span> {{ node.recommended_modules | join(', ') }}</div>
+                <div style="margin-bottom:6px;font-size:0.82em"><span style="color:var(--text-dim)">{{ t('viewer.report.recommended_modules') }}:</span> {{ node.recommended_modules | join(', ') }}</div>
                 {% endif %}
                 {% if node._dpi and node._dpi.conversation_count %}
                 <div style="margin:8px 0 6px;padding-top:8px;border-top:1px solid var(--border-dim)">
                   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
-                    <span style="font-size:0.74em;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent-cyan);font-weight:700">Protocol Evidence</span>
-                    <span class="ms-finding-chip">{{ node._dpi.conversation_count }} enriched sessions</span>
+                    <span style="font-size:0.74em;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent-cyan);font-weight:700">{{ t('viewer.report.protocol_evidence_label') }}</span>
+                    <span class="ms-finding-chip">{{ t('viewer.report.enriched_sessions', count=node._dpi.conversation_count) }}</span>
                     {% for proto in node._dpi.protocols or [] %}
                     <span class="ms-finding-chip">{{ proto }}</span>
                     {% endfor %}
@@ -2074,10 +2074,10 @@ body {
                   </div>
                   {% endif %}
                   {% if node._dpi.operations %}
-                  <div style="margin-bottom:6px;font-size:0.82em"><span style="color:var(--text-dim)">Operations:</span> {{ node._dpi.operations[:6] | join(', ') }}</div>
+                  <div style="margin-bottom:6px;font-size:0.82em"><span style="color:var(--text-dim)">{{ t('viewer.report.operations_label') }}:</span> {{ node._dpi.operations[:6] | join(', ') }}</div>
                   {% endif %}
                   {% if node._dpi.objects %}
-                  <div style="margin-bottom:6px;font-size:0.82em"><span style="color:var(--text-dim)">Objects / Pivots:</span> {{ node._dpi.objects[:4] | join(', ') }}</div>
+                  <div style="margin-bottom:6px;font-size:0.82em"><span style="color:var(--text-dim)">{{ t('viewer.report.objects_pivots_label') }}:</span> {{ node._dpi.objects[:4] | join(', ') }}</div>
                   {% endif %}
                   {% if node._dpi.asset_hints %}
                   <div class="ms-service-list" style="margin-top:4px">
@@ -2099,14 +2099,14 @@ body {
             </div>
           </div>
           <div id="ms-rpt-dpi" class="ms-section">
-            <button class="ms-section-toggle" onclick="MS.toggleSection('ms-rpt-dpi')"><span class="chevron">&#9654;</span>Protocol Observables & Hunt Pivots ({{ viewer_context.dpi_highlights|length }})</button>
+            <button class="ms-section-toggle" onclick="MS.toggleSection('ms-rpt-dpi')"><span class="chevron">&#9654;</span>{{ t('viewer.report.dpi_title', count=viewer_context.dpi_highlights|length) }}</button>
             <div class="ms-section-body">
               {% if viewer_context.dpi_summary.enriched_conversation_count %}
               <div class="ms-evidence-summary">
-                <div class="ms-evidence-kpi"><span class="val">{{ viewer_context.dpi_summary.enriched_conversation_count }}</span><span class="lbl">Enriched sessions</span></div>
-                <div class="ms-evidence-kpi"><span class="val">{{ viewer_context.dpi_summary.asset_count }}</span><span class="lbl">Assets with pivots</span></div>
-                <div class="ms-evidence-kpi"><span class="val">{{ viewer_context.dpi_summary.identity_count }}</span><span class="lbl">Identity clues</span></div>
-                <div class="ms-evidence-kpi"><span class="val">{{ viewer_context.dpi_summary.hunt_term_count }}</span><span class="lbl">Search pivots</span></div>
+                <div class="ms-evidence-kpi"><span class="val">{{ viewer_context.dpi_summary.enriched_conversation_count }}</span><span class="lbl">{{ t('viewer.report.dpi.enriched_sessions') }}</span></div>
+                <div class="ms-evidence-kpi"><span class="val">{{ viewer_context.dpi_summary.asset_count }}</span><span class="lbl">{{ t('viewer.report.dpi.assets_with_pivots') }}</span></div>
+                <div class="ms-evidence-kpi"><span class="val">{{ viewer_context.dpi_summary.identity_count }}</span><span class="lbl">{{ t('viewer.report.dpi.identity_clues') }}</span></div>
+                <div class="ms-evidence-kpi"><span class="val">{{ viewer_context.dpi_summary.hunt_term_count }}</span><span class="lbl">{{ t('viewer.report.dpi.search_pivots') }}</span></div>
               </div>
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
                 {% if viewer_context.dpi_summary.engine %}
@@ -2116,7 +2116,7 @@ body {
                 <span class="ms-finding-chip">v{{ viewer_context.dpi_summary.engine_version }}</span>
                 {% endif %}
                 {% if viewer_context.dpi_summary.schema_version %}
-                <span class="ms-finding-chip">schema {{ viewer_context.dpi_summary.schema_version }}</span>
+                <span class="ms-finding-chip">{{ t('viewer.report.dpi.schema_label') }} {{ viewer_context.dpi_summary.schema_version }}</span>
                 {% endif %}
                 {% for proto in viewer_context.dpi_summary.top_protocols or [] %}
                 <span class="ms-finding-chip">{{ proto.name }} {{ proto.count }}</span>
@@ -2128,7 +2128,7 @@ body {
                   <div class="ms-evidence-head">
                     <span class="ms-finding-chip" style="background:rgba(50,184,198,0.12);color:var(--accent-cyan);border:1px solid rgba(50,184,198,0.24)">{{ item.protocol }}</span>
                     <span class="ms-evidence-title">{{ item.src }} → {{ item.dst }}</span>
-                    <span class="ms-evidence-meta">{{ item.packet_count }} pkts · {{ "{:,}".format(item.bytes_total or 0) }} bytes</span>
+                    <span class="ms-evidence-meta">{{ item.packet_count }} {{ t('viewer.report.pkts') }} · {{ "{:,}".format(item.bytes_total or 0) }} {{ t('viewer.report.bytes') }}</span>
                   </div>
                   {% if item.identities %}
                   <div class="ms-chip-row" style="margin-bottom:6px">
@@ -2138,13 +2138,13 @@ body {
                   </div>
                   {% endif %}
                   {% if item.operations %}
-                  <div class="ms-evidence-copy"><strong>Operations:</strong> {{ item.operations | join(', ') }}</div>
+                  <div class="ms-evidence-copy"><strong>{{ t('viewer.report.operations_label') }}:</strong> {{ item.operations | join(', ') }}</div>
                   {% endif %}
                   {% if item.object_refs %}
-                  <div class="ms-evidence-copy"><strong>Objects:</strong> {{ item.object_refs | join(', ') }}</div>
+                  <div class="ms-evidence-copy"><strong>{{ t('viewer.report.objects_label') }}:</strong> {{ item.object_refs | join(', ') }}</div>
                   {% endif %}
                   {% if item.asset_hints %}
-                  <div class="ms-evidence-copy"><strong>Asset Clues:</strong>
+                  <div class="ms-evidence-copy"><strong>{{ t('viewer.report.asset_clues_label') }}:</strong>
                     {% for pair in item.asset_hints[:4] %}
                     {% if not loop.first %} · {% endif %}{{ pair.label }}: {{ pair.value }}
                     {% endfor %}
@@ -2154,16 +2154,16 @@ body {
                 {% endfor %}
               </div>
               {% else %}
-              <div style="color:var(--text-dim);padding:8px 0;">No enriched DPI observables were preserved in this report.</div>
+              <div style="color:var(--text-dim);padding:8px 0;">{{ t('viewer.report.dpi_empty') }}</div>
               {% endif %}
             </div>
           </div>
           <div id="ms-rpt-protocols" class="ms-section">
-            <button class="ms-section-toggle" onclick="MS.toggleSection('ms-rpt-protocols')"><span class="chevron">&#9654;</span>Protocol Breakdown ({{ viewer_context.protocol_items|length }})</button>
+            <button class="ms-section-toggle" onclick="MS.toggleSection('ms-rpt-protocols')"><span class="chevron">&#9654;</span>{{ t('viewer.report.protocol_breakdown_title', count=viewer_context.protocol_items|length) }}</button>
             <div class="ms-section-body">
               {% if viewer_context.protocol_items %}
               <table class="ms-asset-table">
-                <thead><tr><th>Protocol</th><th>Conversations</th></tr></thead>
+                <thead><tr><th>{{ t('viewer.traffic.col.protocol') }}</th><th>{{ t('viewer.proto.col.conversations') }}</th></tr></thead>
                 <tbody>
                   {% for proto in viewer_context.protocol_items %}
                   <tr><td>{{ proto.name }}</td><td>{{ proto.count }}</td></tr>
@@ -2171,16 +2171,16 @@ body {
                 </tbody>
               </table>
               {% else %}
-              <div style="color:var(--text-dim);padding:8px 0;">No protocols.</div>
+              <div style="color:var(--text-dim);padding:8px 0;">{{ t('viewer.report.no_protocols') }}</div>
               {% endif %}
             </div>
           </div>
           <div id="ms-rpt-ports" class="ms-section">
-            <button class="ms-section-toggle" onclick="MS.toggleSection('ms-rpt-ports')"><span class="chevron">&#9654;</span>Port Analysis ({{ viewer_context.port_items|length }})</button>
+            <button class="ms-section-toggle" onclick="MS.toggleSection('ms-rpt-ports')"><span class="chevron">&#9654;</span>{{ t('viewer.report.port_analysis_title', count=viewer_context.port_items|length) }}</button>
             <div class="ms-section-body">
               {% if viewer_context.port_items %}
               <table class="ms-asset-table">
-                <thead><tr><th>Port</th><th>Protocol</th><th>Category</th><th>Conns</th><th>Peers</th></tr></thead>
+                <thead><tr><th>{{ t('viewer.traffic.col.port') }}</th><th>{{ t('viewer.traffic.col.protocol') }}</th><th>{{ t('viewer.intel.col.category') }}</th><th>{{ t('viewer.report.col.conns') }}</th><th>{{ t('viewer.report.col.peers') }}</th></tr></thead>
                 <tbody>
                   {% for port in viewer_context.port_items %}
                   <tr>
@@ -2194,12 +2194,12 @@ body {
                 </tbody>
               </table>
               {% else %}
-              <div style="color:var(--text-dim);padding:8px 0;">No port data.</div>
+              <div style="color:var(--text-dim);padding:8px 0;">{{ t('viewer.report.no_port_data') }}</div>
               {% endif %}
             </div>
           </div>
           <div id="ms-rpt-c2" class="ms-section">
-            <button class="ms-section-toggle" onclick="MS.toggleSection('ms-rpt-c2')"><span class="chevron">&#9654;</span>C2 Indicators ({{ viewer_context.c2_indicators|length }})</button>
+            <button class="ms-section-toggle" onclick="MS.toggleSection('ms-rpt-c2')"><span class="chevron">&#9654;</span>{{ t('viewer.report.c2_title', count=viewer_context.c2_indicators|length) }}</button>
             <div class="ms-section-body">
               {% if viewer_context.c2_indicators %}
                 {% for indicator in viewer_context.c2_indicators %}
@@ -2219,12 +2219,12 @@ body {
                 </div>
                 {% endfor %}
               {% else %}
-              <div style="color:var(--accent-green);padding:8px 0;">No C2 indicators detected.</div>
+              <div style="color:var(--accent-green);padding:8px 0;">{{ t('viewer.report.c2_empty') }}</div>
               {% endif %}
             </div>
           </div>
           <div id="ms-rpt-mitre" class="ms-section">
-            <button class="ms-section-toggle" onclick="MS.toggleSection('ms-rpt-mitre')"><span class="chevron">&#9654;</span>MITRE ATT&CK Mapping ({{ viewer_context.mitre_classifications|length + viewer_context.mitre_platform_coverage|length }})</button>
+            <button class="ms-section-toggle" onclick="MS.toggleSection('ms-rpt-mitre')"><span class="chevron">&#9654;</span>{{ t('viewer.report.mitre_title', count=viewer_context.mitre_classifications|length + viewer_context.mitre_platform_coverage|length) }}</button>
             <div class="ms-section-body">
               {% if viewer_context.mitre_classifications or viewer_context.mitre_platform_coverage %}
                 {% if viewer_context.mitre_domains %}
@@ -2233,15 +2233,15 @@ body {
                   <span class="ms-finding-chip" style="background:rgba(50,184,198,0.12);color:var(--accent-cyan);border:1px solid rgba(50,184,198,0.28);">{{ domain.name or domain.domain }} v{{ domain.attack_version }}</span>
                   {% endfor %}
                   {% if viewer_context.summary.mitre_subtechnique_total %}
-                  <span class="ms-finding-chip">{{ viewer_context.summary.mitre_subtechnique_total }} sub-techniques</span>
+                  <span class="ms-finding-chip">{{ t('viewer.report.mitre.subtechniques', count=viewer_context.summary.mitre_subtechnique_total) }}</span>
                   {% endif %}
                   {% if viewer_context.summary.mitre_tactic_total %}
-                  <span class="ms-finding-chip">{{ viewer_context.summary.mitre_tactic_total }} tactics represented</span>
+                  <span class="ms-finding-chip">{{ t('viewer.report.mitre.tactics_represented', count=viewer_context.summary.mitre_tactic_total) }}</span>
                   {% endif %}
                 </div>
                 {% endif %}
                 {% if viewer_context.mitre_matrix_domains %}
-                <div style="font-size:0.78em;color:var(--text-dim);margin:0 0 8px;text-transform:uppercase;letter-spacing:0.08em;">Tactic Matrix</div>
+                <div style="font-size:0.78em;color:var(--text-dim);margin:0 0 8px;text-transform:uppercase;letter-spacing:0.08em;">{{ t('viewer.report.mitre.tactic_matrix') }}</div>
                 {% for domain in viewer_context.mitre_matrix_domains %}
                 {% set mapped_tactics = domain.tactics | selectattr('mapped_total') | list %}
                 {% if mapped_tactics %}
@@ -2282,7 +2282,7 @@ body {
                 {% endif %}
                 {% if viewer_context.mitre_classifications %}
                 <div style="font-size:0.82em;color:var(--text-dim);margin-bottom:8px;">
-                  Techniques inferred from passive findings and external communication indicators.
+                  {{ t('viewer.report.mitre.inferred_blurb') }}
                 </div>
                 {% for classification in viewer_context.mitre_classifications %}
                 {% set tone = 'var(--color-danger)' if classification.basis == 'observed' else ('var(--accent-cyan)' if classification.basis == 'platform' else 'var(--color-warning)') %}
@@ -2303,18 +2303,18 @@ body {
                     {% if classification.attack_version %}
                     <span class="ms-finding-chip">ATT&CK {{ classification.attack_version }}</span>
                     {% endif %}
-                    <span class="ms-finding-chip">{{ classification.basis or 'inferred' }}</span>
-                    <span class="ms-finding-chip">{{ ((classification.confidence or 0) * 100)|round|int }}% confidence</span>
+                    <span class="ms-finding-chip">{{ classification.basis or t('viewer.report.mitre.basis_inferred') }}</span>
+                    <span class="ms-finding-chip">{{ t('viewer.report.mitre.confidence_pct', pct=((classification.confidence or 0) * 100)|round|int) }}</span>
                   </div>
                   {% if classification.tactics %}
-                  <div style="margin-top:4px;font-size:0.82em;color:var(--text-dim);"><strong>Tactics:</strong>
+                  <div style="margin-top:4px;font-size:0.82em;color:var(--text-dim);"><strong>{{ t('viewer.report.mitre.tactics_label') }}:</strong>
                     {% for tactic in classification.tactics %}
                     {% if tactic.url %}<a href="{{ tactic.url }}" target="_blank" rel="noopener noreferrer" style="color:var(--accent-cyan);text-decoration:none;">{{ tactic.name }}</a>{% else %}{{ tactic.name }}{% endif %}{% if not loop.last %}, {% endif %}
                     {% endfor %}
                   </div>
                   {% endif %}
                   {% if classification.is_subtechnique and classification.parent_technique_id %}
-                  <div style="margin-top:4px;font-size:0.82em;color:var(--text-dim);"><strong>Parent:</strong> {{ classification.parent_technique_id }}{% if classification.parent_technique_name %} · {{ classification.parent_technique_name }}{% endif %}</div>
+                  <div style="margin-top:4px;font-size:0.82em;color:var(--text-dim);"><strong>{{ t('viewer.report.mitre.parent_label') }}:</strong> {{ classification.parent_technique_id }}{% if classification.parent_technique_name %} · {{ classification.parent_technique_name }}{% endif %}</div>
                   {% endif %}
                   {% if classification.response_guidance and classification.response_guidance.analyst_summary %}
                   <div class="ms-finding-desc">{{ classification.response_guidance.analyst_summary }}</div>
@@ -2322,20 +2322,20 @@ body {
                   <div class="ms-finding-desc">{{ classification.rationale }}</div>
                   {% endif %}
                   {% if classification.mapped_from %}
-                  <div style="margin-top:6px;font-size:0.82em;color:var(--text-dim);"><strong>Signals:</strong> {{ classification.mapped_from | join(', ') }}</div>
+                  <div style="margin-top:6px;font-size:0.82em;color:var(--text-dim);"><strong>{{ t('viewer.report.mitre.signals_label') }}:</strong> {{ classification.mapped_from | join(', ') }}</div>
                   {% endif %}
                   {% if classification.affected_nodes %}
-                  <div class="ms-finding-nodes">Affected: {{ classification.affected_nodes | join(', ') }}</div>
+                  <div class="ms-finding-nodes">{{ t('viewer.report.affected_label') }}: {{ classification.affected_nodes | join(', ') }}</div>
                   {% endif %}
                   {% if classification.evidence_refs %}
-                  <div style="margin-top:4px;font-size:0.78em;color:var(--text-muted);font-family:var(--font-mono);word-break:break-word;">Evidence: {{ classification.evidence_refs | join(', ') }}</div>
+                  <div style="margin-top:4px;font-size:0.78em;color:var(--text-muted);font-family:var(--font-mono);word-break:break-word;">{{ t('viewer.report.mitre.evidence_label') }}: {{ classification.evidence_refs | join(', ') }}</div>
                   {% endif %}
                   {% if classification.platforms %}
-                  <div style="margin-top:6px;font-size:0.82em;color:var(--text-dim);"><strong>Platforms:</strong> {{ classification.platforms | join(', ') }}</div>
+                  <div style="margin-top:6px;font-size:0.82em;color:var(--text-dim);"><strong>{{ t('viewer.report.mitre.platforms_label') }}:</strong> {{ classification.platforms | join(', ') }}</div>
                   {% endif %}
                   {% if classification.response_guidance and classification.response_guidance.next_steps %}
                   <div style="margin-top:8px;padding:8px 10px;background:rgba(50,184,198,0.08);border:1px solid rgba(50,184,198,0.18);border-radius:4px;">
-                    <div style="font-size:0.78em;color:var(--accent-cyan);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">Response Guidance</div>
+                    <div style="font-size:0.78em;color:var(--accent-cyan);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">{{ t('viewer.report.mitre.response_guidance') }}</div>
                     <ul style="margin:0;padding-left:18px;color:var(--text-dim);font-size:0.82em;">
                       {% for step in classification.response_guidance.next_steps[:4] %}
                       <li style="margin:3px 0;">{{ step }}</li>
@@ -2344,15 +2344,15 @@ body {
                   </div>
                   {% endif %}
                   {% if classification.mitigations %}
-                  <div style="margin-top:6px;font-size:0.82em;color:var(--text-dim);"><strong>Mitigations:</strong> {{ classification.mitigations[:5] | map(attribute='name') | join(', ') }}</div>
+                  <div style="margin-top:6px;font-size:0.82em;color:var(--text-dim);"><strong>{{ t('viewer.report.mitre.mitigations_label') }}:</strong> {{ classification.mitigations[:5] | map(attribute='name') | join(', ') }}</div>
                   {% endif %}
                 </div>
                 {% endfor %}
                 {% else %}
-                <div style="color:var(--text-dim);padding:8px 0;">No ATT&CK techniques were inferred from the observed findings.</div>
+                <div style="color:var(--text-dim);padding:8px 0;">{{ t('viewer.report.mitre.no_techniques') }}</div>
                 {% endif %}
                 {% if viewer_context.mitre_platform_coverage %}
-                <div style="font-size:0.78em;color:var(--text-dim);margin:12px 0 8px;text-transform:uppercase;letter-spacing:0.08em;">Platform Coverage</div>
+                <div style="font-size:0.78em;color:var(--text-dim);margin:12px 0 8px;text-transform:uppercase;letter-spacing:0.08em;">{{ t('viewer.report.mitre.platform_coverage') }}</div>
                 {% for coverage in viewer_context.mitre_platform_coverage %}
                 <div class="ms-finding-card" style="border-left:3px solid var(--accent-cyan);">
                   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
@@ -2369,10 +2369,10 @@ body {
                     {% if coverage.attack_version %}
                     <span class="ms-finding-chip">ATT&CK {{ coverage.attack_version }}</span>
                     {% endif %}
-                    <span class="ms-finding-chip">platform</span>
+                    <span class="ms-finding-chip">{{ t('viewer.report.mitre.platform_basis') }}</span>
                   </div>
                   {% if coverage.tactics %}
-                  <div style="margin-top:4px;font-size:0.82em;color:var(--text-dim);"><strong>Tactics:</strong> {{ coverage.tactics | map(attribute='name') | join(', ') }}</div>
+                  <div style="margin-top:4px;font-size:0.82em;color:var(--text-dim);"><strong>{{ t('viewer.report.mitre.tactics_label') }}:</strong> {{ coverage.tactics | map(attribute='name') | join(', ') }}</div>
                   {% endif %}
                   {% if coverage.response_guidance and coverage.response_guidance.analyst_summary %}
                   <div class="ms-finding-desc">{{ coverage.response_guidance.analyst_summary }}</div>
@@ -2384,11 +2384,11 @@ body {
                 {% endif %}
                 {% if viewer_context.mitre_summary.unmapped_category_total %}
                 <div style="margin-top:8px;font-size:0.82em;color:var(--text-dim);">
-                  {{ viewer_context.mitre_summary.unmapped_category_total }} finding categories remain unmapped in the active ATT&CK pack.
+                  {{ t('viewer.report.mitre.unmapped_categories', count=viewer_context.mitre_summary.unmapped_category_total) }}
                 </div>
                 {% endif %}
               {% else %}
-              <div style="color:var(--text-dim);padding:8px 0;">No MITRE ATT&CK mappings available.</div>
+              <div style="color:var(--text-dim);padding:8px 0;">{{ t('viewer.report.mitre.empty') }}</div>
               {% endif %}
             </div>
           </div>
@@ -2399,22 +2399,22 @@ body {
       <div id="ms-rpt-mac-table" style="margin-top:12px">
         {% if viewer_context.mac_table %}
         <table class="ms-asset-table">
-          <thead><tr><th>MAC Address</th><th>IP Address</th><th>Vendor</th><th>System Name</th><th>Capabilities</th><th>Source</th></tr></thead>
+          <thead><tr><th>{{ t('viewer.mac.col.mac') }}</th><th>{{ t('viewer.mac.col.ip') }}</th><th>{{ t('viewer.mac.col.vendor') }}</th><th>{{ t('viewer.mac.col.system_name') }}</th><th>{{ t('viewer.mac.col.capabilities') }}</th><th>{{ t('viewer.mac.col.source') }}</th></tr></thead>
           <tbody>
             {% for entry in viewer_context.mac_table %}
             <tr>
               <td style="font-family:var(--font-mono)">{{ entry.mac }}</td>
               <td style="font-family:var(--font-mono)">{{ entry.ip or '—' }}</td>
-              <td>{{ entry.vendor or 'Unknown' }}</td>
+              <td>{{ entry.vendor or t('viewer.unknown') }}</td>
               <td>{{ entry.system_name or '—' }}</td>
               <td>{{ (entry.capabilities or []) | join(', ') or '—' }}</td>
-              <td>{{ entry.source or 'unknown' }}</td>
+              <td>{{ entry.source or t('viewer.unknown_lower') }}</td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
         {% else %}
-        <div style="color:var(--text-dim);padding:16px 0;">No MAC address data available.</div>
+        <div style="color:var(--text-dim);padding:16px 0;">{{ t('viewer.mac.empty') }}</div>
         {% endif %}
       </div>
     </div>
@@ -2428,6 +2428,21 @@ var MS = (function() {
   var REPORT = {{ report_json | tojson }};
   var VIEWER_CONTEXT = {{ viewer_context | tojson }};
   var REPORT_FILENAME = {{ filename | tojson }};
+  var I18N = {{ i18n_dict() | tojson }};
+
+  // JS-side translation lookup. Key resolution mirrors the Python `t()`:
+  // current-locale string → English fallback (already merged in by the
+  // server) → the key itself so missing translations stay visible.
+  function tjs(key, params) {
+    var raw = I18N[key];
+    if (raw == null) raw = key;
+    if (params) {
+      Object.keys(params).forEach(function(k) {
+        raw = raw.replace(new RegExp('\\{' + k + '\\}', 'g'), String(params[k]));
+      });
+    }
+    return raw;
+  }
 
   var ROLE_STYLES = {
     'PLC': { color: '#d4943a', label: 'PLC', level: 1 },
@@ -2941,17 +2956,17 @@ var MS = (function() {
 
   function workbenchModeTitle(mode) {
     return {
-      dashboard: 'Operator Dashboard',
-      map: 'Topology Map',
-      traffic: 'Traffic Statistics',
-      findings: 'Findings & Response',
-      protocols: 'Protocol Drilldown',
-      evidence: 'Protocol Evidence',
-      assets: 'Asset Ledger',
-      intel: 'Protocol & ATT&CK Intel',
-      risk: 'Risk Surface',
-      reports: 'Assessment Report'
-    }[mode || 'dashboard'] || 'Operator Dashboard';
+      dashboard: tjs('viewer.mode.dashboard'),
+      map: tjs('viewer.mode.map'),
+      traffic: tjs('viewer.mode.traffic'),
+      findings: tjs('viewer.mode.findings'),
+      protocols: tjs('viewer.mode.protocols'),
+      evidence: tjs('viewer.mode.evidence'),
+      assets: tjs('viewer.mode.assets'),
+      intel: tjs('viewer.mode.intel'),
+      risk: tjs('viewer.mode.risk'),
+      reports: tjs('viewer.mode.reports')
+    }[mode || 'dashboard'] || tjs('viewer.mode.dashboard');
   }
 
   function stageSection(title, body, meta) {
@@ -3089,11 +3104,11 @@ var MS = (function() {
 
     return '<div class="ms-stage-shell">'
       + '<div class="ms-stage-stack">'
-      + stageSection('Operator Snapshot', hero + '<div class="ms-stage-note">Use the rail to pivot between topology, risk, evidence, and extension intelligence without losing report context.</div>', workbenchModeTitle('dashboard'))
-      + stageSection('Focus Queues', queueBody, queueTitle(filterState.focus))
+      + stageSection(tjs('viewer.section.operator_snapshot'), hero + '<div class="ms-stage-note">' + esc(tjs('viewer.dashboard.rail_hint')) + '</div>', workbenchModeTitle('dashboard'))
+      + stageSection(tjs('viewer.section.focus_queues'), queueBody, queueTitle(filterState.focus))
       + '</div>'
       + '<div class="ms-stage-stack">'
-      + stageSection('First-Pass Findings', findingsBody, (REPORT.risk_findings || []).length + ' findings')
+      + stageSection(tjs('viewer.section.first_pass_findings'), findingsBody, tjs('viewer.meta.findings', { count: (REPORT.risk_findings || []).length }))
       + '</div>'
       + renderModuleStage('dashboard')
       + '</div>';
@@ -3162,11 +3177,11 @@ var MS = (function() {
 
     return '<div class="ms-stage-shell">'
       + '<div class="ms-stage-stack">'
-      + stageSection('Responder Findings', findingsBody, risks.length + c2.length + ' surfaced items')
+      + stageSection(tjs('viewer.section.responder_findings'), findingsBody, tjs('viewer.meta.surfaced_items', { count: risks.length + c2.length }))
       + '</div>'
       + '<div class="ms-stage-stack">'
-      + stageSection('Response Queues', queueBody, queueTitle(filterState.focus))
-      + stageSection('Priority Assets', priorityBody, priorityNodes.length + ' assets')
+      + stageSection(tjs('viewer.section.response_queues'), queueBody, queueTitle(filterState.focus))
+      + stageSection(tjs('viewer.section.priority_assets'), priorityBody, tjs('viewer.meta.assets', { count: priorityNodes.length }))
       + '</div>'
       + renderModuleStage('findings')
       + '</div>';
@@ -3203,7 +3218,7 @@ var MS = (function() {
 
     if (!conversations.length) {
       return '<div class="ms-stage-shell"><div class="ms-stage-stack">'
-        + stageSection('Traffic Statistics', '<div class="ms-stage-note">No conversation data was preserved in this report.</div>', '0 conversations')
+        + stageSection(tjs('viewer.mode.traffic'), '<div class="ms-stage-note">' + esc(tjs('viewer.traffic.empty')) + '</div>', tjs('viewer.traffic.zero_conversations'))
         + '</div></div>';
     }
 
@@ -3240,11 +3255,11 @@ var MS = (function() {
     var uniquePairs = Object.keys(pairKeys).length;
 
     var hero = '<div class="ms-stage-hero">'
-      + '<div class="ms-stage-hero-card"><span class="val">' + esc(conversations.length.toLocaleString()) + '</span><span class="lbl">Conversations</span></div>'
-      + '<div class="ms-stage-hero-card"><span class="val">' + esc(uniquePairs.toLocaleString()) + '</span><span class="lbl">Unique src→dst pairs</span></div>'
-      + '<div class="ms-stage-hero-card"><span class="val">' + esc(fmtBytes(totalBytes)) + '</span><span class="lbl">Total bytes</span></div>'
-      + '<div class="ms-stage-hero-card"><span class="val">' + esc(totalPackets.toLocaleString()) + '</span><span class="lbl">Total packets</span></div>'
-      + '<div class="ms-stage-hero-card"><span class="val">' + esc(span > 0 ? fmtDurationSeconds(span) : '—') + '</span><span class="lbl">Capture span</span></div>'
+      + '<div class="ms-stage-hero-card"><span class="val">' + esc(conversations.length.toLocaleString()) + '</span><span class="lbl">' + esc(tjs('viewer.traffic.kpi.conversations')) + '</span></div>'
+      + '<div class="ms-stage-hero-card"><span class="val">' + esc(uniquePairs.toLocaleString()) + '</span><span class="lbl">' + esc(tjs('viewer.traffic.kpi.unique_pairs')) + '</span></div>'
+      + '<div class="ms-stage-hero-card"><span class="val">' + esc(fmtBytes(totalBytes)) + '</span><span class="lbl">' + esc(tjs('viewer.traffic.kpi.total_bytes')) + '</span></div>'
+      + '<div class="ms-stage-hero-card"><span class="val">' + esc(totalPackets.toLocaleString()) + '</span><span class="lbl">' + esc(tjs('viewer.traffic.kpi.total_packets')) + '</span></div>'
+      + '<div class="ms-stage-hero-card"><span class="val">' + esc(span > 0 ? fmtDurationSeconds(span) : '—') + '</span><span class="lbl">' + esc(tjs('viewer.traffic.kpi.capture_span')) + '</span></div>'
       + '</div>';
 
     var topConvs = conversations.slice().sort(function(a, b) {
@@ -3252,8 +3267,8 @@ var MS = (function() {
     }).slice(0, 25);
 
     var convTable = '<div class="ms-stage-table-wrap"><table class="ms-stage-table"><thead><tr>'
-      + '<th>Source</th><th>→ Destination</th><th>Protocol</th><th>Port</th>'
-      + '<th style="text-align:right">Packets</th><th style="text-align:right">Bytes</th><th style="text-align:right">Duration</th>'
+      + '<th>' + esc(tjs('viewer.traffic.col.source')) + '</th><th>' + esc(tjs('viewer.traffic.col.destination_arrow')) + '</th><th>' + esc(tjs('viewer.traffic.col.protocol')) + '</th><th>' + esc(tjs('viewer.traffic.col.port')) + '</th>'
+      + '<th style="text-align:right">' + esc(tjs('viewer.traffic.col.packets')) + '</th><th style="text-align:right">' + esc(tjs('viewer.traffic.col.bytes')) + '</th><th style="text-align:right">' + esc(tjs('viewer.traffic.col.duration')) + '</th>'
       + '</tr></thead><tbody>';
     topConvs.forEach(function(conv) {
       var src = String(conv.src_ip || conv.src_mac || 'Unknown');
@@ -3279,7 +3294,7 @@ var MS = (function() {
     }
 
     function endpointList(entries, totalForPct) {
-      if (!entries.length) return '<div class="ms-stage-note">No endpoints recorded.</div>';
+      if (!entries.length) return '<div class="ms-stage-note">' + esc(tjs('viewer.traffic.endpoints.empty')) + '</div>';
       var html = '<div class="ms-stage-collection">';
       entries.forEach(function(row) {
         var endpoint = row[0];
@@ -3287,7 +3302,7 @@ var MS = (function() {
         var pct = totalForPct > 0 ? ((bytes / totalForPct) * 100).toFixed(1) : '0.0';
         html += '<button class="ms-queue-item ms-stage-row-btn" onclick="MS.selectNodeByIp(\'' + escjs(endpoint) + '\', true)">'
           + '<div class="ms-queue-copy"><div class="ms-queue-ip">' + esc(endpoint) + '</div>'
-          + '<div class="ms-queue-note">' + esc(fmtBytes(bytes)) + ' · ' + esc(pct) + '% of capture</div></div>'
+          + '<div class="ms-queue-note">' + esc(fmtBytes(bytes)) + ' · ' + esc(tjs('viewer.traffic.endpoints.pct_of_capture', { pct: pct })) + '</div></div>'
           + '<span class="ms-queue-priority">' + esc(pct + '%') + '</span></button>';
       });
       html += '</div>';
@@ -3300,13 +3315,13 @@ var MS = (function() {
     var protoEntries = topMap(byProtocolBytes, 24);
     var protoBody = '';
     if (!protoEntries.length) {
-      protoBody = '<div class="ms-stage-note">No protocol breakdown available.</div>';
+      protoBody = '<div class="ms-stage-note">' + esc(tjs('viewer.traffic.proto.empty')) + '</div>';
     } else {
       protoBody = '<div class="ms-stage-table-wrap"><table class="ms-stage-table"><thead><tr>'
-        + '<th>Protocol</th>'
-        + '<th style="text-align:right">Bytes</th>'
-        + '<th style="text-align:right">Packets</th>'
-        + '<th style="text-align:right">% of capture</th>'
+        + '<th>' + esc(tjs('viewer.traffic.col.protocol')) + '</th>'
+        + '<th style="text-align:right">' + esc(tjs('viewer.traffic.col.bytes')) + '</th>'
+        + '<th style="text-align:right">' + esc(tjs('viewer.traffic.col.packets')) + '</th>'
+        + '<th style="text-align:right">' + esc(tjs('viewer.traffic.col.pct_of_capture')) + '</th>'
         + '</tr></thead><tbody>';
       protoEntries.forEach(function(row) {
         var proto = row[0];
@@ -3329,12 +3344,12 @@ var MS = (function() {
 
     var anomBody;
     if (!anomalous.length) {
-      anomBody = '<div class="ms-stage-note">No beaconing, high-entropy DNS, or unsecured OPC sessions flagged in conversations.</div>';
+      anomBody = '<div class="ms-stage-note">' + esc(tjs('viewer.traffic.anom.empty')) + '</div>';
     } else {
       anomBody = '<div class="ms-stage-table-wrap"><table class="ms-stage-table"><thead><tr>'
-        + '<th>Source</th><th>→ Destination</th><th>Protocol</th>'
-        + '<th style="text-align:right">Beacon score</th><th style="text-align:right">Beacon interval</th>'
-        + '<th style="text-align:right">DNS entropy</th><th>Flags</th>'
+        + '<th>' + esc(tjs('viewer.traffic.col.source')) + '</th><th>' + esc(tjs('viewer.traffic.col.destination_arrow')) + '</th><th>' + esc(tjs('viewer.traffic.col.protocol')) + '</th>'
+        + '<th style="text-align:right">' + esc(tjs('viewer.traffic.col.beacon_score')) + '</th><th style="text-align:right">' + esc(tjs('viewer.traffic.col.beacon_interval')) + '</th>'
+        + '<th style="text-align:right">' + esc(tjs('viewer.traffic.col.dns_entropy')) + '</th><th>' + esc(tjs('viewer.traffic.col.flags')) + '</th>'
         + '</tr></thead><tbody>';
       anomalous.forEach(function(conv) {
         var src = String(conv.src_ip || conv.src_mac || 'Unknown');
@@ -3359,12 +3374,15 @@ var MS = (function() {
       anomBody += '</tbody></table></div>';
     }
 
-    var heroSection = stageSection('Capture Volume', hero, (captureInfo.total_packets ? captureInfo.total_packets.toLocaleString() + ' total packets in capture' : conversations.length + ' conversations'));
-    var convSection = stageSection('Top Conversations by Bytes', convTable, 'top ' + topConvs.length + ' of ' + conversations.length);
-    var protoSection = stageSection('Protocol Byte Distribution', protoBody, Object.keys(byProtocolBytes).length + ' protocols');
-    var topSrcSection = stageSection('Top Source Endpoints', topSrcBody, 'by bytes sent');
-    var topDstSection = stageSection('Top Destination Endpoints', topDstBody, 'by bytes received');
-    var anomSection = stageSection('Conversation Anomalies', anomBody, anomalous.length + ' flagged');
+    var heroMeta = captureInfo.total_packets
+      ? tjs('viewer.traffic.meta.total_packets_in_capture', { count: captureInfo.total_packets.toLocaleString() })
+      : tjs('viewer.traffic.meta.conversations', { count: conversations.length });
+    var heroSection = stageSection(tjs('viewer.traffic.section.capture_volume'), hero, heroMeta);
+    var convSection = stageSection(tjs('viewer.traffic.section.top_conversations'), convTable, tjs('viewer.traffic.meta.top_of', { top: topConvs.length, total: conversations.length }));
+    var protoSection = stageSection(tjs('viewer.traffic.section.proto_distribution'), protoBody, tjs('viewer.traffic.meta.protocols', { count: Object.keys(byProtocolBytes).length }));
+    var topSrcSection = stageSection(tjs('viewer.traffic.section.top_sources'), topSrcBody, tjs('viewer.traffic.meta.by_bytes_sent'));
+    var topDstSection = stageSection(tjs('viewer.traffic.section.top_destinations'), topDstBody, tjs('viewer.traffic.meta.by_bytes_received'));
+    var anomSection = stageSection(tjs('viewer.traffic.section.anomalies'), anomBody, tjs('viewer.traffic.meta.flagged', { count: anomalous.length }));
 
     return '<div class="ms-stage-shell">'
       + '<div class="ms-stage-stack">' + heroSection + '</div>'
@@ -3382,9 +3400,9 @@ var MS = (function() {
   // a list of breakdown items (function names / object types / typeIDs / etc).
   var DISSECTOR_FAMILIES = [
     {
-      id: 'modbus', label: 'Modbus / Modbus-TCP',
+      id: 'modbus', labelKey: 'viewer.proto.modbus.label',
       keys: ['modbus_functions', 'modbus_writes'],
-      breakdownLabel: 'Function codes seen',
+      breakdownLabelKey: 'viewer.proto.modbus.breakdown',
       extract: function(conv) {
         var fns = toArray(conv.modbus_functions);
         var items = fns.slice();
@@ -3393,9 +3411,9 @@ var MS = (function() {
       }
     },
     {
-      id: 's7', label: 'Siemens S7',
+      id: 's7', labelKey: 'viewer.proto.s7.label',
       keys: ['s7_functions', 's7_program_access'],
-      breakdownLabel: 'Function codes seen',
+      breakdownLabelKey: 'viewer.proto.s7.breakdown',
       extract: function(conv) {
         var items = toArray(conv.s7_functions).slice();
         if (conv.s7_program_access) items.push('program_access');
@@ -3403,15 +3421,15 @@ var MS = (function() {
       }
     },
     {
-      id: 'dnp3', label: 'DNP3',
+      id: 'dnp3', labelKey: 'viewer.proto.dnp3.label',
       keys: ['dnp3_objects'],
-      breakdownLabel: 'Object groups / requests',
+      breakdownLabelKey: 'viewer.proto.dnp3.breakdown',
       extract: function(conv) { return toArray(conv.dnp3_objects); }
     },
     {
-      id: 'iec104', label: 'IEC 60870-5-104',
+      id: 'iec104', labelKey: 'viewer.proto.iec104.label',
       keys: ['iec104_typeids', 'iec104_causes'],
-      breakdownLabel: 'TypeIDs and cause codes',
+      breakdownLabelKey: 'viewer.proto.iec104.breakdown',
       extract: function(conv) {
         var ids = toArray(conv.iec104_typeids).map(function(v) { return 'typeid:' + v; });
         var causes = toArray(conv.iec104_causes).map(function(v) { return 'cause:' + v; });
@@ -3419,9 +3437,9 @@ var MS = (function() {
       }
     },
     {
-      id: 'cip', label: 'CIP / EtherNet-IP',
+      id: 'cip', labelKey: 'viewer.proto.cip.label',
       keys: ['cip_identity'],
-      breakdownLabel: 'Identity attributes',
+      breakdownLabelKey: 'viewer.proto.identity_attrs',
       extract: function(conv) {
         var ident = conv.cip_identity;
         if (!ident) return [];
@@ -3430,9 +3448,9 @@ var MS = (function() {
       }
     },
     {
-      id: 'mms', label: 'MMS (IEC 61850)',
+      id: 'mms', labelKey: 'viewer.proto.mms.label',
       keys: ['mms_identity'],
-      breakdownLabel: 'Identity / domain references',
+      breakdownLabelKey: 'viewer.proto.mms.breakdown',
       extract: function(conv) {
         var ident = conv.mms_identity;
         if (!ident) return [];
@@ -3441,9 +3459,9 @@ var MS = (function() {
       }
     },
     {
-      id: 'goose', label: 'GOOSE (IEC 61850)',
+      id: 'goose', labelKey: 'viewer.proto.goose.label',
       keys: ['goose_identity'],
-      breakdownLabel: 'GoCB references',
+      breakdownLabelKey: 'viewer.proto.goose.breakdown',
       extract: function(conv) {
         var ident = conv.goose_identity;
         if (!ident) return [];
@@ -3452,9 +3470,9 @@ var MS = (function() {
       }
     },
     {
-      id: 'bacnet', label: 'BACnet',
+      id: 'bacnet', labelKey: 'viewer.proto.bacnet.label',
       keys: ['bacnet_identity'],
-      breakdownLabel: 'Identity attributes',
+      breakdownLabelKey: 'viewer.proto.identity_attrs',
       extract: function(conv) {
         var ident = conv.bacnet_identity;
         if (!ident) return [];
@@ -3463,9 +3481,9 @@ var MS = (function() {
       }
     },
     {
-      id: 'omron', label: 'OMRON / FINS',
+      id: 'omron', labelKey: 'viewer.proto.omron.label',
       keys: ['omron_identity'],
-      breakdownLabel: 'Identity attributes',
+      breakdownLabelKey: 'viewer.proto.identity_attrs',
       extract: function(conv) {
         var ident = conv.omron_identity;
         if (!ident) return [];
@@ -3474,9 +3492,9 @@ var MS = (function() {
       }
     },
     {
-      id: 'profinet', label: 'PROFINET',
+      id: 'profinet', labelKey: 'viewer.proto.profinet.label',
       keys: ['pn_identity'],
-      breakdownLabel: 'Identity attributes',
+      breakdownLabelKey: 'viewer.proto.identity_attrs',
       extract: function(conv) {
         var ident = conv.pn_identity;
         if (!ident) return [];
@@ -3485,9 +3503,9 @@ var MS = (function() {
       }
     },
     {
-      id: 'opc', label: 'OPC',
+      id: 'opc', labelKey: 'viewer.proto.opc.label',
       keys: ['opc_no_security', 'opc_sessions'],
-      breakdownLabel: 'Session evidence',
+      breakdownLabelKey: 'viewer.proto.opc.breakdown',
       extract: function(conv) {
         var items = [];
         if (conv.opc_no_security) items.push('no_security');
@@ -3497,9 +3515,9 @@ var MS = (function() {
       }
     },
     {
-      id: 'dns', label: 'DNS',
+      id: 'dns', labelKey: 'viewer.proto.dns.label',
       keys: ['dns_queries', 'dns_query_types', 'dns_entropy'],
-      breakdownLabel: 'Queries seen',
+      breakdownLabelKey: 'viewer.proto.dns.breakdown',
       extract: function(conv) {
         return toArray(conv.dns_queries);
       }
@@ -3540,7 +3558,7 @@ var MS = (function() {
     var conversations = toArray(REPORT.conversations);
     if (!conversations.length) {
       return '<div class="ms-stage-shell"><div class="ms-stage-stack">'
-        + stageSection('Protocol Drilldown', '<div class="ms-stage-note">No conversation data was preserved in this report.</div>', '0 conversations')
+        + stageSection(tjs('viewer.mode.protocols'), '<div class="ms-stage-note">' + esc(tjs('viewer.proto.empty_no_conversations')) + '</div>', tjs('viewer.traffic.zero_conversations'))
         + '</div></div>';
     }
 
@@ -3552,15 +3570,14 @@ var MS = (function() {
     withHits.forEach(function(family) {
       var bucket = perFamily[family.id];
       rosterChips += '<a href="#protocol-family-' + esc(family.id) + '" class="ms-chip" style="border-color:rgba(50,184,198,0.32);background:rgba(50,184,198,0.12);color:var(--accent-cyan);text-decoration:none">'
-        + esc(family.label) + ' · ' + esc(bucket.conversations.length.toLocaleString()) + '</a>';
+        + esc(tjs(family.labelKey)) + ' · ' + esc(bucket.conversations.length.toLocaleString()) + '</a>';
     });
     silent.forEach(function(family) {
-      rosterChips += '<span class="ms-chip" style="opacity:0.4">' + esc(family.label) + ' · 0</span>';
+      rosterChips += '<span class="ms-chip" style="opacity:0.4">' + esc(tjs(family.labelKey)) + ' · 0</span>';
     });
     var rosterBody = '<div class="ms-chip-row">' + rosterChips + '</div>'
       + '<div class="ms-stage-note" style="margin-top:8px">'
-      + esc(withHits.length) + ' of ' + esc(DISSECTOR_FAMILIES.length) + ' dissector families produced evidence in this capture. '
-      + 'Silent families are listed for completeness so the absence of a protocol is itself part of the report.'
+      + esc(tjs('viewer.proto.roster_summary', { active: withHits.length, total: DISSECTOR_FAMILIES.length }))
       + '</div>';
 
     var familyStacks = withHits.map(function(family) {
@@ -3575,9 +3592,9 @@ var MS = (function() {
           }).join('')
         + '</div>';
       if (breakdown.length > breakdownTrimmed.length) {
-        breakdownChips += '<div class="ms-stage-note" style="margin-top:6px">+' + esc(breakdown.length - breakdownTrimmed.length) + ' more</div>';
+        breakdownChips += '<div class="ms-stage-note" style="margin-top:6px">' + esc(tjs('viewer.proto.more_count', { n: breakdown.length - breakdownTrimmed.length })) + '</div>';
       }
-      if (!breakdown.length) breakdownChips = '<div class="ms-stage-note">No breakdown attributes recorded.</div>';
+      if (!breakdown.length) breakdownChips = '<div class="ms-stage-note">' + esc(tjs('viewer.proto.no_breakdown')) + '</div>';
 
       var pairTotals = {};
       bucket.conversations.forEach(function(conv) {
@@ -3596,11 +3613,11 @@ var MS = (function() {
 
       var pairsTable;
       if (!topPairs.length) {
-        pairsTable = '<div class="ms-stage-note">No source→destination pairs recorded.</div>';
+        pairsTable = '<div class="ms-stage-note">' + esc(tjs('viewer.proto.no_pairs')) + '</div>';
       } else {
         pairsTable = '<div class="ms-stage-table-wrap"><table class="ms-stage-table"><thead><tr>'
-          + '<th>Source</th><th>→ Destination</th><th>Ports</th>'
-          + '<th style="text-align:right">Conversations</th><th style="text-align:right">Packets</th><th style="text-align:right">Bytes</th>'
+          + '<th>' + esc(tjs('viewer.traffic.col.source')) + '</th><th>' + esc(tjs('viewer.traffic.col.destination_arrow')) + '</th><th>' + esc(tjs('viewer.proto.col.ports')) + '</th>'
+          + '<th style="text-align:right">' + esc(tjs('viewer.proto.col.conversations')) + '</th><th style="text-align:right">' + esc(tjs('viewer.traffic.col.packets')) + '</th><th style="text-align:right">' + esc(tjs('viewer.traffic.col.bytes')) + '</th>'
           + '</tr></thead><tbody>';
         topPairs.forEach(function(p) {
           var ports = Object.keys(p.ports).slice(0, 4).join(', ') || '—';
@@ -3616,18 +3633,22 @@ var MS = (function() {
         pairsTable += '</tbody></table></div>';
       }
 
-      var meta = bucket.conversations.length + ' conversations · ' + fmtBytes(bucket.totalBytes) + ' · ' + bucket.totalPackets.toLocaleString() + ' pkts';
+      var meta = tjs('viewer.proto.family_meta', {
+        conv: bucket.conversations.length,
+        bytes: fmtBytes(bucket.totalBytes),
+        pkts: bucket.totalPackets.toLocaleString()
+      });
       var sectionBody = '<div id="protocol-family-' + esc(family.id) + '">'
-        + '<div class="ms-section-label">' + esc(family.breakdownLabel) + '</div>'
+        + '<div class="ms-section-label">' + esc(tjs(family.breakdownLabelKey)) + '</div>'
         + breakdownChips
-        + '<div class="ms-section-label" style="margin-top:14px">Top src→dst pairs</div>'
+        + '<div class="ms-section-label" style="margin-top:14px">' + esc(tjs('viewer.proto.top_pairs_label')) + '</div>'
         + pairsTable
         + '</div>';
 
-      return stageSection(family.label, sectionBody, meta);
+      return stageSection(tjs(family.labelKey), sectionBody, meta);
     });
 
-    var stacks = '<div class="ms-stage-stack">' + stageSection('Protocol Roster', rosterBody, withHits.length + ' active · ' + silent.length + ' silent') + '</div>';
+    var stacks = '<div class="ms-stage-stack">' + stageSection(tjs('viewer.proto.section.roster'), rosterBody, tjs('viewer.proto.roster_meta', { active: withHits.length, silent: silent.length })) + '</div>';
     familyStacks.forEach(function(s) {
       stacks += '<div class="ms-stage-stack">' + s + '</div>';
     });
@@ -3688,10 +3709,10 @@ var MS = (function() {
 
     return '<div class="ms-stage-shell">'
       + '<div class="ms-stage-stack">'
-      + stageSection('Protocol Evidence', highlightsBody, (summary.engine || 'dpi') + (summary.engine_version ? ' v' + summary.engine_version : ''))
+      + stageSection(tjs('viewer.section.protocol_evidence'), highlightsBody, (summary.engine || 'dpi') + (summary.engine_version ? ' v' + summary.engine_version : ''))
       + '</div>'
       + '<div class="ms-stage-stack">'
-      + stageSection('Identity & Hunt Pivots', pivotsBody, (summary.hunt_term_count || 0) + ' searchable terms')
+      + stageSection(tjs('viewer.section.identity_hunt'), pivotsBody, tjs('viewer.meta.search_terms', { count: summary.hunt_term_count || 0 }))
       + '</div>'
       + renderModuleStage('evidence')
       + '</div>';
@@ -3728,10 +3749,10 @@ var MS = (function() {
 
     return '<div class="ms-stage-shell">'
       + '<div class="ms-stage-stack">'
-      + stageSection('Asset Ledger', table, list.length + ' assets in view')
+      + stageSection(tjs('viewer.section.asset_ledger'), table, tjs('viewer.meta.assets_in_view', { count: list.length }))
       + '</div>'
       + '<div class="ms-stage-stack">'
-      + stageSection('Evidence Leaders', side, evidenceLeaders.length + ' enriched assets')
+      + stageSection(tjs('viewer.section.evidence_leaders'), side, tjs('viewer.meta.enriched_assets', { count: evidenceLeaders.length }))
       + '</div>'
       + renderModuleStage('assets')
       + '</div>';
@@ -3755,10 +3776,10 @@ var MS = (function() {
       + '<div class="ms-stage-hero-card"><span class="val">' + esc(mitreSummary.tactic_total || 0) + '</span><span class="lbl">Tactics</span></div>'
       + '</div>';
     left += '<div class="ms-stage-split">';
-    left += stageSection('Protocol Mix', protoKeys.length ? '<div class="ms-stage-table-wrap"><table class="ms-stage-table"><thead><tr><th>Protocol</th><th>Conversations</th></tr></thead><tbody>' + protoKeys.slice(0, 12).map(function(key) {
+    left += stageSection(tjs('viewer.section.protocol_mix'), protoKeys.length ? '<div class="ms-stage-table-wrap"><table class="ms-stage-table"><thead><tr><th>' + esc(tjs('viewer.traffic.col.protocol')) + '</th><th>' + esc(tjs('viewer.proto.col.conversations')) + '</th></tr></thead><tbody>' + protoKeys.slice(0, 12).map(function(key) {
       return '<tr><td>' + esc(key) + '</td><td>' + esc(protocolSummary[key]) + '</td></tr>';
     }).join('') + '</tbody></table></div>' : '<div class="ms-stage-note">No protocol summary available.</div>', protoKeys.length + ' protocols');
-    left += stageSection('Port Surface', portKeys.length ? '<div class="ms-stage-table-wrap"><table class="ms-stage-table"><thead><tr><th>Port</th><th>Protocol</th><th>Category</th><th>Connections</th></tr></thead><tbody>' + portKeys.slice(0, 12).map(function(key) {
+    left += stageSection(tjs('viewer.section.port_surface'), portKeys.length ? '<div class="ms-stage-table-wrap"><table class="ms-stage-table"><thead><tr><th>' + esc(tjs('viewer.traffic.col.port')) + '</th><th>' + esc(tjs('viewer.traffic.col.protocol')) + '</th><th>' + esc(tjs('viewer.intel.col.category')) + '</th><th>' + esc(tjs('viewer.intel.col.connections')) + '</th></tr></thead><tbody>' + portKeys.slice(0, 12).map(function(key) {
       var item = portSummary[key] || {};
       return '<tr><td><span class="ms-inline-code">' + esc(key) + '</span></td><td>' + esc(item.protocol || 'Unknown') + '</td><td>' + esc(item.category || 'Unknown') + '</td><td>' + esc(item.connections || 0) + '</td></tr>';
     }).join('') + '</tbody></table></div>' : '<div class="ms-stage-note">No port summary available.</div>', portKeys.length + ' port groupings');
@@ -3776,8 +3797,8 @@ var MS = (function() {
     }
 
     return '<div class="ms-stage-shell">'
-      + '<div class="ms-stage-stack">' + stageSection('Protocol & Coverage', left, workbenchModeTitle('intel')) + '</div>'
-      + '<div class="ms-stage-stack">' + stageSection('ATT&CK Intelligence', right, mitreClassifications.length + mitrePlatformCoverage.length + ' mapped records') + '</div>'
+      + '<div class="ms-stage-stack">' + stageSection(tjs('viewer.section.protocol_coverage'), left, workbenchModeTitle('intel')) + '</div>'
+      + '<div class="ms-stage-stack">' + stageSection(tjs('viewer.section.attack_intelligence'), right, tjs('viewer.meta.mapped_records', { count: mitreClassifications.length + mitrePlatformCoverage.length })) + '</div>'
       + renderModuleStage('intel')
       + '</div>';
   }
@@ -3833,8 +3854,8 @@ var MS = (function() {
     right += '</div>';
 
     return '<div class="ms-stage-shell">'
-      + '<div class="ms-stage-stack">' + stageSection('Risk Surface', left, risks.length + external.length + ' surfaced items') + '</div>'
-      + '<div class="ms-stage-stack">' + stageSection('Exposure Queues', right, writePaths.length + authGaps.length + purdue.length + ' queued records') + '</div>'
+      + '<div class="ms-stage-stack">' + stageSection(tjs('viewer.section.risk_surface'), left, tjs('viewer.meta.surfaced_items', { count: risks.length + external.length })) + '</div>'
+      + '<div class="ms-stage-stack">' + stageSection(tjs('viewer.section.exposure_queues'), right, tjs('viewer.meta.queued_records', { count: writePaths.length + authGaps.length + purdue.length })) + '</div>'
       + renderModuleStage('risk')
       + '</div>';
   }
@@ -3856,8 +3877,8 @@ var MS = (function() {
     }
 
     return '<div class="ms-stage-shell">'
-      + '<div class="ms-stage-stack">' + stageSection('Assessment Artifact', reportBody, workbenchModeTitle('reports')) + '</div>'
-      + '<div class="ms-stage-stack">' + stageSection('Extension Supplements', supplements, reportViews.length + ' views') + '</div>'
+      + '<div class="ms-stage-stack">' + stageSection(tjs('viewer.section.assessment_artifact'), reportBody, workbenchModeTitle('reports')) + '</div>'
+      + '<div class="ms-stage-stack">' + stageSection(tjs('viewer.section.extension_supplements'), supplements, tjs('viewer.meta.views', { count: reportViews.length })) + '</div>'
       + renderModuleStage('reports')
       + '</div>';
   }

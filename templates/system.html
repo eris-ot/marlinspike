@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}MarlinSpike — System{% endblock %}
+{% block title %}MarlinSpike — {{ t('system.title') }}{% endblock %}
 
 {% block head %}
 <style>
@@ -203,34 +203,34 @@
   <!-- Top cards -->
   <div class="stats-grid" id="stats-cards">
     <div class="stat-card">
-      <div class="stat-label">Uptime</div>
+      <div class="stat-label">{{ t('system.stat_uptime') }}</div>
       <div class="stat-value" id="s-uptime">--</div>
       <div class="stat-sub" id="s-platform"></div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">CPU Load</div>
+      <div class="stat-label">{{ t('system.stat_cpu_load') }}</div>
       <div class="stat-value" id="s-load">--</div>
       <div class="stat-sub" id="s-cpu-info"></div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Memory</div>
+      <div class="stat-label">{{ t('system.stat_memory') }}</div>
       <div class="stat-value" id="s-mem">--</div>
       <div class="usage-bar"><div class="usage-bar-fill fill-blue" id="s-mem-bar" style="width:0%"></div></div>
       <div class="stat-sub" id="s-mem-detail"></div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Disk</div>
+      <div class="stat-label">{{ t('system.stat_disk') }}</div>
       <div class="stat-value" id="s-disk">--</div>
       <div class="usage-bar"><div class="usage-bar-fill fill-green" id="s-disk-bar" style="width:0%"></div></div>
       <div class="stat-sub" id="s-disk-detail"></div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Active Scans</div>
+      <div class="stat-label">{{ t('system.stat_active_scans') }}</div>
       <div class="stat-value" id="s-active">--</div>
-      <div class="stat-sub">of 3 max concurrent</div>
+      <div class="stat-sub">{{ t('system.stat_active_scans_caption') }}</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Total Scans</div>
+      <div class="stat-label">{{ t('system.stat_total_scans') }}</div>
       <div class="stat-value" id="s-scans">--</div>
       <div class="stat-sub" id="s-scan-detail"></div>
     </div>
@@ -240,25 +240,25 @@
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
     <div class="panel" style="margin-bottom:0;">
       <div class="panel-header">
-        <h2>Database</h2>
+        <h2>{{ t('system.database') }}</h2>
       </div>
       <div class="panel-body" id="db-info">
-        <div class="info-row"><span class="info-label">Users</span><span class="info-value" id="s-users">--</span></div>
-        <div class="info-row"><span class="info-label">Scans (total)</span><span class="info-value" id="s-db-total">--</span></div>
-        <div class="info-row"><span class="info-label">Completed</span><span class="info-value" id="s-db-completed">--</span></div>
-        <div class="info-row"><span class="info-label">Failed</span><span class="info-value" id="s-db-failed">--</span></div>
-        <div class="info-row"><span class="info-label">Running</span><span class="info-value" id="s-db-running">--</span></div>
+        <div class="info-row"><span class="info-label">{{ t('nav.users') }}</span><span class="info-value" id="s-users">--</span></div>
+        <div class="info-row"><span class="info-label">{{ t('system.db_scans_total') }}</span><span class="info-value" id="s-db-total">--</span></div>
+        <div class="info-row"><span class="info-label">{{ t('system.db_completed') }}</span><span class="info-value" id="s-db-completed">--</span></div>
+        <div class="info-row"><span class="info-label">{{ t('system.db_failed') }}</span><span class="info-value" id="s-db-failed">--</span></div>
+        <div class="info-row"><span class="info-label">{{ t('system.db_running') }}</span><span class="info-value" id="s-db-running">--</span></div>
       </div>
     </div>
     <div class="panel" style="margin-bottom:0;">
       <div class="panel-header">
-        <h2>Data Storage</h2>
+        <h2>{{ t('system.data_storage') }}</h2>
       </div>
       <div class="panel-body" id="data-info">
-        <div class="info-row"><span class="info-label">PCAPs</span><span class="info-value" id="s-pcap-info">--</span></div>
-        <div class="info-row"><span class="info-label">Reports</span><span class="info-value" id="s-report-info">--</span></div>
-        <div class="info-row"><span class="info-label">Submissions archive</span><span class="info-value" id="s-submissions-info">--</span></div>
-        <div class="info-row"><span class="info-label">Total data</span><span class="info-value" id="s-data-total">--</span></div>
+        <div class="info-row"><span class="info-label">{{ t('system.data_pcaps') }}</span><span class="info-value" id="s-pcap-info">--</span></div>
+        <div class="info-row"><span class="info-label">{{ t('system.data_reports') }}</span><span class="info-value" id="s-report-info">--</span></div>
+        <div class="info-row"><span class="info-label">{{ t('system.data_submissions') }}</span><span class="info-value" id="s-submissions-info">--</span></div>
+        <div class="info-row"><span class="info-label">{{ t('system.data_total') }}</span><span class="info-value" id="s-data-total">--</span></div>
       </div>
     </div>
   </div>
@@ -266,21 +266,21 @@
   <!-- Per-user storage -->
   <div class="panel">
     <div class="panel-header">
-      <h2>Per-User Storage</h2>
-      <button class="btn btn-sm" onclick="SYS.refresh()">Refresh</button>
+      <h2>{{ t('system.per_user_storage') }}</h2>
+      <button class="btn btn-sm" onclick="SYS.refresh()">{{ t('common.refresh') }}</button>
     </div>
     <div class="panel-body">
       <table class="storage-table">
         <thead>
           <tr>
-            <th>User</th>
-            <th>PCAPs</th>
-            <th>Reports</th>
-            <th>Total Size</th>
+            <th>{{ t('system.col_user') }}</th>
+            <th>{{ t('system.data_pcaps') }}</th>
+            <th>{{ t('system.data_reports') }}</th>
+            <th>{{ t('system.col_total_size') }}</th>
           </tr>
         </thead>
         <tbody id="user-storage-body">
-          <tr><td colspan="4"><div class="ms-loading"><div class="ms-spinner"></div> Loading storage data&hellip;</div></td></tr>
+          <tr><td colspan="4"><div class="ms-loading"><div class="ms-spinner"></div> {{ t('system.loading_storage') }}</div></td></tr>
         </tbody>
       </table>
     </div>
@@ -289,29 +289,29 @@
   <!-- Sample Library -->
   <div class="panel">
     <div class="panel-header">
-      <h2>Sample Library</h2>
+      <h2>{{ t('system.sample_library') }}</h2>
       <div style="display:flex;gap:8px;align-items:center;">
-        <button class="btn btn-sm" onclick="LIB.refresh()">Refresh</button>
-        <button class="btn btn-sm btn-primary" onclick="LIB.showAddCategory()">Add Category</button>
+        <button class="btn btn-sm" onclick="LIB.refresh()">{{ t('common.refresh') }}</button>
+        <button class="btn btn-sm btn-primary" onclick="LIB.showAddCategory()">{{ t('system.add_category') }}</button>
       </div>
     </div>
     <div class="panel-body">
       <div id="lib-add-cat" style="display:none;margin-bottom:12px;">
         <div class="add-cat-row">
-          <input type="text" class="ms-input" id="lib-cat-name" placeholder="Category name (e.g. benchmark)">
-          <button class="btn btn-sm btn-primary" onclick="LIB.createCategory()">Create</button>
-          <button class="btn btn-sm" onclick="LIB.hideAddCategory()">Cancel</button>
+          <input type="text" class="ms-input" id="lib-cat-name" placeholder="{{ t('system.category_placeholder') }}">
+          <button class="btn btn-sm btn-primary" onclick="LIB.createCategory()">{{ t('common.create') }}</button>
+          <button class="btn btn-sm" onclick="LIB.hideAddCategory()">{{ t('common.cancel') }}</button>
         </div>
       </div>
       <div class="lib-drop-zone" id="lib-drop-zone">
-        Drop PCAP files here to upload, or click to select
+        {{ t('system.drop_zone') }}
         <input type="file" id="lib-drop-input" accept=".pcap,.pcapng,.cap" multiple>
         <div id="lib-drop-cat-select" style="display:none;margin-top:8px;">
           <select class="ms-input" id="lib-drop-category" style="font-size:0.85em;"></select>
         </div>
       </div>
       <div class="lib-grid" id="lib-grid">
-        <div style="grid-column:1/-1;"><div class="ms-loading"><div class="ms-spinner"></div> Loading sample library&hellip;</div></div>
+        <div style="grid-column:1/-1;"><div class="ms-loading"><div class="ms-spinner"></div> {{ t('system.loading_library') }}</div></div>
       </div>
     </div>
   </div>
