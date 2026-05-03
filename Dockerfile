@@ -97,7 +97,7 @@ RUN apt-get update && \
     tshark && \
     rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt pyproject.toml ./
+COPY requirements.txt pyproject.toml LICENSE README.md ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY --from=dpi-builder /build/marlinspike-dpi/target/release/marlinspike-dpi /usr/local/bin/marlinspike-dpi
