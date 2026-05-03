@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ locale }}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -155,6 +155,50 @@ body {
   border: 1px solid var(--border-dim);
   border-radius: 3px;
 }
+
+/* ── Language picker ── */
+.ms-lang-picker { position: relative; display: inline-block; }
+.ms-lang-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.85em;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+.ms-lang-btn:hover { color: var(--text); background: var(--bg-surface); border-color: var(--border-dim); }
+.ms-lang-caret { font-size: 0.7em; opacity: 0.7; }
+.ms-lang-menu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  min-width: 140px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  padding: 4px;
+  z-index: 200;
+}
+.ms-lang-picker.open .ms-lang-menu { display: block; }
+.ms-lang-item {
+  display: block;
+  padding: 6px 10px;
+  border-radius: 4px;
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 0.85em;
+  transition: color 0.1s, background 0.1s;
+}
+.ms-lang-item:hover { color: var(--text); background: var(--bg-surface); }
+.ms-lang-item.active { color: var(--accent); }
 
 /* ── Content wrapper ── */
 .ms-content {
@@ -507,21 +551,34 @@ body {
     <span class="ms-nav-version">v{{ app_version }}</span>
   </a>
   <div class="ms-nav-links">
-    <a href="/dashboard" class="{% if request.path == '/dashboard' %}active{% endif %}">Dashboard</a>
-    <a href="/reports" class="{% if request.path == '/reports' %}active{% endif %}">Reports</a>
-    <a href="/scans" class="{% if request.path == '/scans' %}active{% endif %}">Scans</a>
-    <a href="/projects" class="{% if request.path == '/projects' %}active{% endif %}">Projects</a>
-    <a href="/capabilities" class="{% if request.path == '/capabilities' %}active{% endif %}">Capabilities</a>
+    <a href="/dashboard" class="{% if request.path == '/dashboard' %}active{% endif %}">{{ t('nav.dashboard') }}</a>
+    <a href="/reports" class="{% if request.path == '/reports' %}active{% endif %}">{{ t('nav.reports') }}</a>
+    <a href="/scans" class="{% if request.path == '/scans' %}active{% endif %}">{{ t('nav.scans') }}</a>
+    <a href="/projects" class="{% if request.path == '/projects' %}active{% endif %}">{{ t('nav.projects') }}</a>
+    <a href="/capabilities" class="{% if request.path == '/capabilities' %}active{% endif %}">{{ t('nav.capabilities') }}</a>
     {% if session.get('role') == 'admin' %}
-    <a href="/users" class="{% if request.path == '/users' %}active{% endif %}">Users</a>
-    <a href="/audit" class="{% if request.path == '/audit' %}active{% endif %}">Audit</a>
-    <a href="/system" class="{% if request.path == '/system' %}active{% endif %}">System</a>
+    <a href="/users" class="{% if request.path == '/users' %}active{% endif %}">{{ t('nav.users') }}</a>
+    <a href="/audit" class="{% if request.path == '/audit' %}active{% endif %}">{{ t('nav.audit') }}</a>
+    <a href="/system" class="{% if request.path == '/system' %}active{% endif %}">{{ t('nav.system') }}</a>
     {% endif %}
   </div>
   <div class="ms-nav-right">
-    <a href="/about">About</a>
+    <div class="ms-lang-picker" id="ms-lang-picker">
+      <button type="button" class="ms-lang-btn" id="ms-lang-btn" aria-haspopup="true" aria-expanded="false" aria-label="{{ t('lang.label') }}">
+        {{ locale_labels[locale] }}
+        <span class="ms-lang-caret">&#9662;</span>
+      </button>
+      <div class="ms-lang-menu" id="ms-lang-menu" role="menu">
+        {% for lc in supported_locales %}
+        <a href="/i18n/set/{{ lc }}?next={{ request.full_path | urlencode }}"
+           role="menuitem"
+           class="ms-lang-item {% if lc == locale %}active{% endif %}">{{ locale_labels[lc] }}</a>
+        {% endfor %}
+      </div>
+    </div>
+    <a href="/about">{{ t('nav.about') }}</a>
     <a href="/profile" class="{% if request.path == '/profile' %}active{% endif %}">{{ session.get('user', '') }}</a>
-    <a href="/logout">Logout</a>
+    <a href="/logout">{{ t('nav.logout') }}</a>
   </div>
 </nav>
 
@@ -533,6 +590,173 @@ body {
 </div>
 
 <script>
+/** i18n: server-rendered string table for client-side rendering.
+ *  Use as MS_T['nav.reports'] || 'fallback'. Add keys here as templates
+ *  surface JS-rendered strings; missing keys fall back to the key itself. */
+window.MS_T = {
+  "common.loading": {{ t('common.loading') | tojson }},
+  "common.refresh": {{ t('common.refresh') | tojson }},
+  "common.cancel": {{ t('common.cancel') | tojson }},
+  "common.save": {{ t('common.save') | tojson }},
+  "common.delete": {{ t('common.delete') | tojson }},
+  "common.confirm": {{ t('common.confirm') | tojson }},
+  "common.close": {{ t('common.close') | tojson }},
+  "common.error": {{ t('common.error') | tojson }},
+  "common.actions": {{ t('common.actions') | tojson }},
+  "common.status": {{ t('common.status') | tojson }},
+  "errors.network": {{ t('errors.network') | tojson }},
+  "errors.upload_failed": {{ t('errors.upload_failed') | tojson }},
+  "errors.scan_failed": {{ t('errors.scan_failed') | tojson }},
+  "dashboard.no_recent_scans": {{ t('dashboard.no_recent_scans') | tojson }},
+  "reports.empty_title": {{ t('reports.empty_title') | tojson }},
+  "reports.empty_sub": {{ t('reports.empty_sub') | tojson }},
+  "reports.empty_action": {{ t('reports.empty_action') | tojson }},
+  "reports.empty_run_a_scan": {{ t('reports.empty_run_a_scan') | tojson }},
+  "reports.filter_all_projects": {{ t('reports.filter_all_projects') | tojson }},
+  "reports.view": {{ t('reports.view') | tojson }},
+  "reports.deleted": {{ t('reports.deleted') | tojson }},
+  "reports.confirm_delete": {{ t('reports.confirm_delete') | tojson }},
+  "reports.compare_limit": {{ t('reports.compare_limit') | tojson }},
+  "common.download": {{ t('common.download') | tojson }},
+  "scans.empty_title": {{ t('scans.empty_title') | tojson }},
+  "scans.empty_sub": {{ t('scans.empty_sub') | tojson }},
+  "scans.empty_action": {{ t('scans.empty_action') | tojson }},
+  "scans.view_report": {{ t('scans.view_report') | tojson }},
+  "scans.retry": {{ t('scans.retry') | tojson }},
+  "scans.details": {{ t('scans.details') | tojson }},
+  "scans.hide": {{ t('scans.hide') | tojson }},
+  "scans.retry_started": {{ t('scans.retry_started') | tojson }},
+  "scans.retry_failed": {{ t('scans.retry_failed') | tojson }},
+  "projects.overview_empty": {{ t('projects.overview_empty') | tojson }},
+  "profile.username": {{ t('profile.username') | tojson }},
+  "profile.role": {{ t('profile.role') | tojson }},
+  "profile.saved": {{ t('profile.saved') | tojson }},
+  "profile.save_failed": {{ t('profile.save_failed') | tojson }},
+  "profile.load_failed": {{ t('profile.load_failed') | tojson }},
+  "profile.password_changed": {{ t('profile.password_changed') | tojson }},
+  "profile.password_fill_both": {{ t('profile.password_fill_both') | tojson }},
+  "dashboard.opt_select_file": {{ t('dashboard.opt_select_file') | tojson }},
+  "dashboard.opt_no_pcaps": {{ t('dashboard.opt_no_pcaps') | tojson }},
+  "dashboard.opt_failed_to_load": {{ t('dashboard.opt_failed_to_load') | tojson }},
+  "dashboard.loading_sample_library": {{ t('dashboard.loading_sample_library') | tojson }},
+  "dashboard.run_stop": {{ t('dashboard.run_stop') | tojson }},
+  "dashboard.run_detach": {{ t('dashboard.run_detach') | tojson }},
+  "dashboard.run_show_log": {{ t('dashboard.run_show_log') | tojson }},
+  "dashboard.run_hide_log": {{ t('dashboard.run_hide_log') | tojson }},
+  "dashboard.run_attach": {{ t('dashboard.run_attach') | tojson }},
+  "dashboard.run_retry": {{ t('dashboard.run_retry') | tojson }},
+  "dashboard.run_details": {{ t('dashboard.run_details') | tojson }},
+  "dashboard.run_hide": {{ t('dashboard.run_hide') | tojson }},
+  "dashboard.run_delete": {{ t('dashboard.run_delete') | tojson }},
+  "dashboard.no_project_selected": {{ t('dashboard.no_project_selected') | tojson }},
+  "dashboard.no_project": {{ t('dashboard.no_project') | tojson }},
+  "dashboard.no_recent_activity": {{ t('dashboard.no_recent_activity') | tojson }},
+  "dashboard.report_relative": {{ t('dashboard.report_relative') | tojson }},
+  "dashboard.scan_relative": {{ t('dashboard.scan_relative') | tojson }},
+  "dashboard.workspace_projects_one": {{ t('dashboard.workspace_projects_one') | tojson }},
+  "dashboard.workspace_projects_many": {{ t('dashboard.workspace_projects_many') | tojson }},
+  "dashboard.workspace_files_empty": {{ t('dashboard.workspace_files_empty') | tojson }},
+  "dashboard.workspace_files_ready": {{ t('dashboard.workspace_files_ready') | tojson }},
+  "dashboard.workspace_reports_detail": {{ t('dashboard.workspace_reports_detail') | tojson }},
+  "dashboard.workspace_reports_empty": {{ t('dashboard.workspace_reports_empty') | tojson }},
+  "dashboard.workspace_scans_detail": {{ t('dashboard.workspace_scans_detail') | tojson }},
+  "dashboard.workspace_scans_detail_no_time": {{ t('dashboard.workspace_scans_detail_no_time') | tojson }},
+  "dashboard.workspace_scans_empty": {{ t('dashboard.workspace_scans_empty') | tojson }},
+  "dashboard.run_summary_empty": {{ t('dashboard.run_summary_empty') | tojson }},
+  "dashboard.run_summary_one": {{ t('dashboard.run_summary_one') | tojson }},
+  "dashboard.run_summary_many": {{ t('dashboard.run_summary_many') | tojson }},
+  "dashboard.scan_started": {{ t('dashboard.scan_started') | tojson }},
+  "dashboard.scan_stopped": {{ t('dashboard.scan_stopped') | tojson }},
+  "dashboard.scan_start_failed": {{ t('dashboard.scan_start_failed') | tojson }},
+  "dashboard.select_pcap_required": {{ t('dashboard.select_pcap_required') | tojson }},
+  "dashboard.select_sample_required": {{ t('dashboard.select_sample_required') | tojson }},
+  "dashboard.upload_pcap_required": {{ t('dashboard.upload_pcap_required') | tojson }},
+  "dashboard.project_created": {{ t('dashboard.project_created') | tojson }},
+  "dashboard.project_create_failed": {{ t('dashboard.project_create_failed') | tojson }},
+  "dashboard.file_too_large": {{ t('dashboard.file_too_large') | tojson }},
+  "dashboard.attached_to_run": {{ t('dashboard.attached_to_run') | tojson }},
+  "dashboard.create_new_project": {{ t('dashboard.create_new_project') | tojson }},
+  "dashboard.view_all_reports": {{ t('dashboard.view_all_reports') | tojson }},
+  "dashboard.view_all_scans": {{ t('dashboard.view_all_scans') | tojson }},
+  "dashboard.scans_empty_sub": {{ t('dashboard.scans_empty_sub') | tojson }},
+  "dashboard.source_pcap_file": {{ t('dashboard.source_pcap_file') | tojson }},
+  "dashboard.source_tab_library": {{ t('dashboard.source_tab_library') | tojson }},
+  "dashboard.source_tab_upload": {{ t('dashboard.source_tab_upload') | tojson }},
+  "common.failed": {{ t('common.failed') | tojson }},
+  "projects.sidebar_meta_one": {{ t('projects.sidebar_meta_one') | tojson }},
+  "projects.sidebar_meta_many": {{ t('projects.sidebar_meta_many') | tojson }},
+  "projects.option_select_dash": {{ t('projects.option_select_dash') | tojson }},
+  "projects.empty_pcap_title": {{ t('projects.empty_pcap_title') | tojson }},
+  "projects.empty_pcap_sub": {{ t('projects.empty_pcap_sub') | tojson }},
+  "projects.empty_history_title": {{ t('projects.empty_history_title') | tojson }},
+  "projects.empty_history_sub": {{ t('projects.empty_history_sub') | tojson }},
+  "projects.upload_success": {{ t('projects.upload_success') | tojson }},
+  "projects.upload_trim_notice": {{ t('projects.upload_trim_notice') | tojson }},
+  "projects.upload_failed": {{ t('projects.upload_failed') | tojson }},
+  "projects.kpi_assets_split": {{ t('projects.kpi_assets_split') | tojson }},
+  "projects.kpi_findings_split": {{ t('projects.kpi_findings_split') | tojson }},
+  "projects.kpi_attack_mapped": {{ t('projects.kpi_attack_mapped') | tojson }},
+  "projects.kpi_attack_none": {{ t('projects.kpi_attack_none') | tojson }},
+  "projects.findings_meta": {{ t('projects.findings_meta') | tojson }},
+  "projects.assets_meta_header": {{ t('projects.assets_meta_header') | tojson }},
+  "projects.protocols_meta": {{ t('projects.protocols_meta') | tojson }},
+  "projects.attack_meta": {{ t('projects.attack_meta') | tojson }},
+  "projects.context_reports_count": {{ t('projects.context_reports_count') | tojson }},
+  "projects.context_across_span": {{ t('projects.context_across_span') | tojson }},
+  "projects.context_profile": {{ t('projects.context_profile') | tojson }},
+  "projects.span_one_day": {{ t('projects.span_one_day') | tojson }},
+  "projects.span_days": {{ t('projects.span_days') | tojson }},
+  "projects.span_weeks": {{ t('projects.span_weeks') | tojson }},
+  "projects.span_months": {{ t('projects.span_months') | tojson }},
+  "projects.severity_total": {{ t('projects.severity_total') | tojson }},
+  "projects.severity_empty_seg": {{ t('projects.severity_empty_seg') | tojson }},
+  "projects.severity_empty_legend": {{ t('projects.severity_empty_legend') | tojson }},
+  "projects.severity_tooltip_one": {{ t('projects.severity_tooltip_one') | tojson }},
+  "projects.severity_tooltip_many": {{ t('projects.severity_tooltip_many') | tojson }},
+  "projects.findings_empty_table": {{ t('projects.findings_empty_table') | tojson }},
+  "projects.findings_more": {{ t('projects.findings_more') | tojson }},
+  "projects.assets_count_label": {{ t('projects.assets_count_label') | tojson }},
+  "projects.assets_count_filtered": {{ t('projects.assets_count_filtered') | tojson }},
+  "projects.assets_filter_empty": {{ t('projects.assets_filter_empty') | tojson }},
+  "projects.assets_ip_label": {{ t('projects.assets_ip_label') | tojson }},
+  "projects.assets_truncate": {{ t('projects.assets_truncate') | tojson }},
+  "projects.protocols_empty": {{ t('projects.protocols_empty') | tojson }},
+  "projects.protocol_tooltip": {{ t('projects.protocol_tooltip') | tojson }},
+  "projects.profiles_across_project": {{ t('projects.profiles_across_project') | tojson }},
+  "projects.relative_recently": {{ t('projects.relative_recently') | tojson }},
+  "projects.relative_just_now": {{ t('projects.relative_just_now') | tojson }},
+  "projects.relative_min": {{ t('projects.relative_min') | tojson }},
+  "projects.relative_hour": {{ t('projects.relative_hour') | tojson }},
+  "projects.relative_day": {{ t('projects.relative_day') | tojson }},
+  "projects.btn_open": {{ t('projects.btn_open') | tojson }}
+};
+/** t(key, fallback) — JS-side translator. Falls back to fallback or key. */
+window.msT = function(key, fallback) {
+  return (window.MS_T && window.MS_T[key]) || fallback || key;
+};
+/** Language picker open/close */
+(function() {
+  var btn = document.getElementById('ms-lang-btn');
+  var picker = document.getElementById('ms-lang-picker');
+  if (!btn || !picker) return;
+  btn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    var open = picker.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  document.addEventListener('click', function(e) {
+    if (!picker.contains(e.target)) {
+      picker.classList.remove('open');
+      btn.setAttribute('aria-expanded', 'false');
+    }
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      picker.classList.remove('open');
+      btn.setAttribute('aria-expanded', 'false');
+    }
+  });
+})();
 /** Modal system — msModal.open(id), msModal.close(id) */
 var msModal = (function() {
   function open(id) {

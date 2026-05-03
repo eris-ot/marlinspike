@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}MarlinSpike — Projects{% endblock %}
+{% block title %}MarlinSpike — {{ t('projects.title') }}{% endblock %}
 
 {% block head %}
 <style>
@@ -658,16 +658,16 @@
     <div class="proj-sidebar">
       <div class="panel" style="margin-bottom:0;height:100%;">
         <div class="panel-header">
-          <h2>Projects</h2>
-          <button class="btn btn-primary btn-sm" onclick="PROJ.showNewForm()">+ New</button>
+          <h2>{{ t('projects.title') }}</h2>
+          <button class="btn btn-primary btn-sm" onclick="PROJ.showNewForm()">{{ t('projects.add_new') }}</button>
         </div>
         <div class="panel-body">
           <div class="proj-new-row" id="proj-new-form" style="display:none;">
-            <input type="text" id="proj-new-name" placeholder="Project name..." maxlength="200"
+            <input type="text" id="proj-new-name" placeholder="{{ t('projects.placeholder_name') }}" maxlength="200"
               onkeydown="if(event.key==='Enter')PROJ.createProject();if(event.key==='Escape')PROJ.hideNewForm();">
             <div class="proj-new-btns">
-              <button class="btn btn-primary btn-sm" onclick="PROJ.createProject()">Create</button>
-              <button class="btn btn-sm" onclick="PROJ.hideNewForm()">Cancel</button>
+              <button class="btn btn-primary btn-sm" onclick="PROJ.createProject()">{{ t('projects.create') }}</button>
+              <button class="btn btn-sm" onclick="PROJ.hideNewForm()">{{ t('projects.cancel') }}</button>
             </div>
           </div>
           <ul class="proj-list" id="proj-list"></ul>
@@ -680,45 +680,42 @@
       <div class="proj-workspace" id="proj-workspace">
         <section class="proj-workspace-hero">
           <div class="proj-hero-copy">
-            <div class="proj-hero-eyebrow"><span class="dot"></span> Project Workspace</div>
-            <h1 class="proj-workspace-title"><span>MarlinSpike</span> keeps capture intake, scan follow-through, and assessment outputs attached to the project that owns them.</h1>
-            <p class="proj-workspace-subtitle">
-              Use this surface to move from PCAP intake to report review without losing project context.
-              The project becomes the unit of work, and the workspace shows what is ready, what is running, and what to open next.
-            </p>
+            <div class="proj-hero-eyebrow"><span class="dot"></span> {{ t('projects.workspace_eyebrow') }}</div>
+            <h1 class="proj-workspace-title"><span>{{ t('projects.workspace_title_lead') }}</span> {{ t('projects.workspace_title_rest') }}</h1>
+            <p class="proj-workspace-subtitle">{{ t('projects.workspace_subtitle') }}</p>
             <div class="proj-context-row">
-              <div class="proj-context-pill">Project <b id="proj-context-name">--</b></div>
-              <div class="proj-context-pill">Latest status <b id="proj-context-status">Waiting</b></div>
-              <div class="proj-context-pill">Latest report <b id="proj-context-report">None</b></div>
+              <div class="proj-context-pill">{{ t('projects.context_project') }} <b id="proj-context-name">--</b></div>
+              <div class="proj-context-pill">{{ t('projects.context_latest_status') }} <b id="proj-context-status">{{ t('projects.context_waiting') }}</b></div>
+              <div class="proj-context-pill">{{ t('projects.context_latest_report') }} <b id="proj-context-report">{{ t('projects.context_none') }}</b></div>
             </div>
           </div>
           <div class="proj-hero-actions">
-            <button class="btn btn-primary" onclick="PROJ.setTab('pcaps')">Capture Intake</button>
-            <button class="btn" onclick="PROJ.setTab('reports')">Reports</button>
-            <button class="btn" onclick="PROJ.setTab('history')">History</button>
+            <button class="btn btn-primary" onclick="PROJ.setTab('pcaps')">{{ t('projects.action_capture_intake') }}</button>
+            <button class="btn" onclick="PROJ.setTab('reports')">{{ t('projects.action_reports') }}</button>
+            <button class="btn" onclick="PROJ.setTab('history')">{{ t('projects.action_history') }}</button>
           </div>
         </section>
 
-        <section class="proj-summary-grid" aria-label="Project summary">
+        <section class="proj-summary-grid" aria-label="{{ t('projects.workspace_eyebrow') }}">
           <div class="proj-summary-card">
-            <div class="proj-summary-label">PCAP Inventory</div>
+            <div class="proj-summary-label">{{ t('projects.kpi_pcap_inventory') }}</div>
             <div class="proj-summary-value" id="proj-kpi-pcaps">0</div>
-            <div class="proj-summary-detail" id="proj-kpi-pcaps-detail">No capture files loaded for this project yet.</div>
+            <div class="proj-summary-detail" id="proj-kpi-pcaps-detail">{{ t('projects.kpi_pcap_inventory_empty') }}</div>
           </div>
           <div class="proj-summary-card">
-            <div class="proj-summary-label">Assessment Outputs</div>
+            <div class="proj-summary-label">{{ t('projects.kpi_assessment_outputs') }}</div>
             <div class="proj-summary-value" id="proj-kpi-reports">0</div>
-            <div class="proj-summary-detail" id="proj-kpi-reports-detail">No reports generated yet.</div>
+            <div class="proj-summary-detail" id="proj-kpi-reports-detail">{{ t('projects.kpi_assessment_outputs_empty') }}</div>
           </div>
           <div class="proj-summary-card">
-            <div class="proj-summary-label">Project Activity</div>
+            <div class="proj-summary-label">{{ t('projects.kpi_project_activity') }}</div>
             <div class="proj-summary-value" id="proj-kpi-history">0</div>
-            <div class="proj-summary-detail" id="proj-kpi-history-detail">No scan history for this project yet.</div>
+            <div class="proj-summary-detail" id="proj-kpi-history-detail">{{ t('projects.kpi_project_activity_empty') }}</div>
           </div>
           <div class="proj-summary-card">
-            <div class="proj-summary-label">Open Next</div>
-            <div class="proj-summary-value" id="proj-kpi-next">Capture Intake</div>
-            <div class="proj-summary-detail" id="proj-kpi-next-detail">Upload a PCAP, select a file, and start a scan.</div>
+            <div class="proj-summary-label">{{ t('projects.kpi_open_next') }}</div>
+            <div class="proj-summary-value" id="proj-kpi-next">{{ t('projects.kpi_open_next_default') }}</div>
+            <div class="proj-summary-detail" id="proj-kpi-next-detail">{{ t('projects.kpi_open_next_detail') }}</div>
           </div>
         </section>
       </div>
@@ -730,29 +727,29 @@
           <div class="proj-header" id="proj-header" style="display:none;">
             <h2 id="proj-title"></h2>
             <div class="proj-header-actions">
-              <button class="btn btn-sm" id="proj-rename-btn" onclick="PROJ.startRename()">Rename</button>
-              <button class="btn btn-danger btn-sm" id="proj-delete-btn" onclick="PROJ.deleteProject()">Delete</button>
+              <button class="btn btn-sm" id="proj-rename-btn" onclick="PROJ.startRename()">{{ t('projects.rename') }}</button>
+              <button class="btn btn-danger btn-sm" id="proj-delete-btn" onclick="PROJ.deleteProject()">{{ t('projects.delete') }}</button>
             </div>
           </div>
 
           <!-- Tabs -->
           <div class="proj-tabs" id="proj-tabs" style="display:none;">
-            <div class="proj-tab active" data-tab="overview" onclick="PROJ.setTab('overview')">Overview</div>
-            <div class="proj-tab" data-tab="pcaps" onclick="PROJ.setTab('pcaps')">PCAPs</div>
-            <div class="proj-tab" data-tab="reports" onclick="PROJ.setTab('reports')">Reports</div>
-            <div class="proj-tab" data-tab="history" onclick="PROJ.setTab('history')">History</div>
+            <div class="proj-tab active" data-tab="overview" onclick="PROJ.setTab('overview')">{{ t('projects.tab_overview') }}</div>
+            <div class="proj-tab" data-tab="pcaps" onclick="PROJ.setTab('pcaps')">{{ t('projects.tab_pcaps') }}</div>
+            <div class="proj-tab" data-tab="reports" onclick="PROJ.setTab('reports')">{{ t('projects.tab_reports') }}</div>
+            <div class="proj-tab" data-tab="history" onclick="PROJ.setTab('history')">{{ t('projects.tab_history') }}</div>
           </div>
 
           <!-- Overview tab -->
           <div class="proj-tab-panel active" id="tab-overview">
             <div id="overview-loading" class="ms-empty ov-empty-tab" style="display:none;">
               <div class="ms-spinner" style="margin:0 auto 12px;"></div>
-              <div class="ms-empty-sub">Aggregating reports…</div>
+              <div class="ms-empty-sub">{{ t('projects.aggregating') }}</div>
             </div>
             <div id="overview-empty" class="ms-empty ov-empty-tab" style="display:none;">
               <svg class="ms-empty-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="18"/><path d="M16 24l6 6 12-12"/></svg>
-              <div class="ms-empty-title">No reports yet</div>
-              <div class="ms-empty-sub">Upload a PCAP and run a scan — the project overview rolls up assets, findings, protocols, and ATT&amp;CK coverage across every report in this project.</div>
+              <div class="ms-empty-title">{{ t('projects.no_reports_title') }}</div>
+              <div class="ms-empty-sub">{{ t('projects.no_reports_sub') }}</div>
             </div>
             <div id="overview-content" style="display:none;">
 
@@ -762,22 +759,22 @@
               <!-- KPI strip (project-aggregated risk metrics) -->
               <div class="ov-kpi-grid">
                 <div class="ov-kpi" id="ov-kpi-reports-card">
-                  <div class="ov-kpi-label">Reports rolled up</div>
+                  <div class="ov-kpi-label">{{ t('projects.ov_kpi_reports_rolled') }}</div>
                   <div class="ov-kpi-value" id="ov-kpi-reports">0</div>
                   <div class="ov-kpi-detail" id="ov-kpi-reports-detail"></div>
                 </div>
                 <div class="ov-kpi">
-                  <div class="ov-kpi-label">Unique assets</div>
+                  <div class="ov-kpi-label">{{ t('projects.ov_kpi_unique_assets') }}</div>
                   <div class="ov-kpi-value" id="ov-kpi-assets">0</div>
-                  <div class="ov-kpi-detail" id="ov-kpi-assets-detail">MAC- or IP-keyed</div>
+                  <div class="ov-kpi-detail" id="ov-kpi-assets-detail">{{ t('projects.ov_kpi_assets_detail') }}</div>
                 </div>
                 <div class="ov-kpi" id="ov-kpi-findings-card">
-                  <div class="ov-kpi-label">Distinct findings</div>
+                  <div class="ov-kpi-label">{{ t('projects.ov_kpi_distinct_findings') }}</div>
                   <div class="ov-kpi-value" id="ov-kpi-findings">0</div>
                   <div class="ov-kpi-detail" id="ov-kpi-findings-detail"></div>
                 </div>
                 <div class="ov-kpi">
-                  <div class="ov-kpi-label">Protocols observed</div>
+                  <div class="ov-kpi-label">{{ t('projects.ov_kpi_protocols_observed') }}</div>
                   <div class="ov-kpi-value" id="ov-kpi-protocols">0</div>
                   <div class="ov-kpi-detail" id="ov-kpi-protocols-detail"></div>
                 </div>
@@ -786,7 +783,7 @@
               <!-- Severity bar + legend -->
               <div class="ov-panel" style="margin-bottom:12px;">
                 <div class="ov-panel-header">
-                  <h3>Severity Distribution</h3>
+                  <h3>{{ t('projects.severity_distribution') }}</h3>
                   <span class="meta" id="ov-sev-total"></span>
                 </div>
                 <div class="ov-panel-body">
@@ -798,17 +795,17 @@
               <!-- Findings (deduped, severity-sorted) -->
               <div class="ov-panel" style="margin-bottom:12px;">
                 <div class="ov-panel-header">
-                  <h3>Findings — deduped across all reports</h3>
+                  <h3>{{ t('projects.findings_deduped') }}</h3>
                   <span class="meta" id="ov-findings-meta"></span>
                 </div>
                 <div class="ov-panel-body flush ov-table-scroll tight">
                   <table class="ms-table" id="ov-findings-table">
                     <thead><tr>
-                      <th style="width:90px;">Severity</th>
-                      <th>Category &amp; description</th>
-                      <th style="width:240px;">Affected</th>
-                      <th style="width:100px;">Seen in</th>
-                      <th style="width:120px;">Last seen</th>
+                      <th style="width:90px;">{{ t('projects.col_severity') }}</th>
+                      <th>{{ t('projects.col_category_description') }}</th>
+                      <th style="width:240px;">{{ t('projects.col_affected') }}</th>
+                      <th style="width:100px;">{{ t('projects.col_seen_in') }}</th>
+                      <th style="width:120px;">{{ t('projects.col_last_seen') }}</th>
                       <th style="width:80px;"></th>
                     </tr></thead>
                     <tbody id="ov-findings-body"></tbody>
@@ -819,25 +816,25 @@
               <!-- Asset inventory -->
               <div class="ov-panel" style="margin-bottom:12px;">
                 <div class="ov-panel-header">
-                  <h3>Asset inventory</h3>
+                  <h3>{{ t('projects.asset_inventory') }}</h3>
                   <span class="meta" id="ov-asset-meta-header"></span>
                 </div>
                 <div class="ov-asset-toolbar">
                   <input type="text" id="ov-asset-filter" class="ov-asset-filter"
-                         placeholder="Filter by MAC, IP, role, vendor…"
+                         placeholder="{{ t('projects.asset_filter_placeholder') }}"
                          oninput="PROJ.filterAssets(this.value)">
                   <div class="ov-asset-meta" id="ov-asset-count"></div>
                 </div>
                 <div class="ov-panel-body flush ov-table-scroll">
                   <table class="ms-table" id="ov-assets-table">
                     <thead><tr>
-                      <th>Key</th>
-                      <th>Role</th>
-                      <th>Vendor</th>
-                      <th style="width:60px;">Purdue</th>
-                      <th>IPs</th>
-                      <th>Protocols</th>
-                      <th style="width:80px;">Seen in</th>
+                      <th>{{ t('projects.asset_key') }}</th>
+                      <th>{{ t('projects.asset_role') }}</th>
+                      <th>{{ t('projects.asset_vendor') }}</th>
+                      <th style="width:60px;">{{ t('projects.asset_purdue') }}</th>
+                      <th>{{ t('projects.asset_ips') }}</th>
+                      <th>{{ t('projects.asset_protocols') }}</th>
+                      <th style="width:80px;">{{ t('projects.col_seen_in') }}</th>
                       <th style="width:70px;"></th>
                     </tr></thead>
                     <tbody id="ov-assets-body"></tbody>
@@ -849,7 +846,7 @@
               <div class="ov-section-grid two-col">
                 <div class="ov-panel">
                   <div class="ov-panel-header">
-                    <h3>Protocol distribution</h3>
+                    <h3>{{ t('projects.protocol_distribution') }}</h3>
                     <span class="meta" id="ov-proto-meta"></span>
                   </div>
                   <div class="ov-panel-body">
@@ -858,7 +855,7 @@
                 </div>
                 <div class="ov-panel" id="ov-attack-section" style="display:none;">
                   <div class="ov-panel-header">
-                    <h3>ATT&amp;CK coverage</h3>
+                    <h3>{{ t('projects.attack_coverage') }}</h3>
                     <span class="meta" id="ov-attack-meta"></span>
                   </div>
                   <div class="ov-panel-body">
@@ -874,8 +871,8 @@
           <div class="proj-tab-panel" id="tab-pcaps">
             <div class="proj-upload-zone" id="proj-upload-zone"
                  onclick="document.getElementById('proj-upload-input').click()">
-              Drop PCAP file here or click to browse
-              <span id="upload-limit-label" style="font-size:0.82em;color:var(--text-muted);margin-left:8px;">Max 200 MB</span>
+              {{ t('projects.upload_drop_hint') }}
+              <span id="upload-limit-label" style="font-size:0.82em;color:var(--text-muted);margin-left:8px;">{{ t('projects.upload_max', mb=200) }}</span>
             </div>
             <input type="file" id="proj-upload-input" accept=".pcap,.pcapng,.cap" style="display:none;">
             <div id="proj-upload-status" style="margin-bottom:8px;font-size:0.85em;color:var(--text-dim);"></div>
@@ -883,43 +880,43 @@
             <!-- Scan controls -->
             <div class="proj-scan-row" id="proj-scan-row" style="display:none;">
               <div class="scan-field">
-                <label>Selected PCAP</label>
+                <label>{{ t('projects.selected_pcap') }}</label>
                 <select id="proj-pcap-select" style="min-width:240px;">
-                  <option value="">-- Select --</option>
+                  <option value="">{{ t('projects.option_select') }}</option>
                 </select>
               </div>
               <div class="scan-field">
-                <label>Command</label>
+                <label>{{ t('projects.command') }}</label>
                 <select id="proj-scan-cmd">
-                  <option value="chain">Full Chain</option>
-                  <option value="ingest">Ingest Only</option>
-                  <option value="dissect">Dissect Only</option>
-                  <option value="topology">Topology Only</option>
-                  <option value="risk">Risk Only</option>
+                  <option value="chain">{{ t('projects.cmd_chain') }}</option>
+                  <option value="ingest">{{ t('projects.cmd_ingest') }}</option>
+                  <option value="dissect">{{ t('projects.cmd_dissect') }}</option>
+                  <option value="topology">{{ t('projects.cmd_topology') }}</option>
+                  <option value="risk">{{ t('projects.cmd_risk') }}</option>
                 </select>
               </div>
               <div class="scan-field">
-                <label>Profile</label>
+                <label>{{ t('projects.profile') }}</label>
                 <select id="proj-scan-profile">
-                  <option value="fast">Fast</option>
-                  <option value="full">Full</option>
+                  <option value="fast">{{ t('projects.profile_fast') }}</option>
+                  <option value="full">{{ t('projects.profile_full') }}</option>
                 </select>
               </div>
-              <button class="btn btn-success" onclick="PROJ.scanSelected()">Scan Selected</button>
+              <button class="btn btn-success" onclick="PROJ.scanSelected()">{{ t('projects.scan_selected') }}</button>
             </div>
 
             <table class="ms-table" id="proj-files-table">
               <thead>
                 <tr>
                   <th style="width:30px;"></th>
-                  <th>Filename</th>
-                  <th>Size</th>
-                  <th>Modified</th>
+                  <th>{{ t('projects.col_filename') }}</th>
+                  <th>{{ t('projects.col_size') }}</th>
+                  <th>{{ t('projects.col_modified') }}</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody id="proj-files-body">
-                <tr><td colspan="5"><div class="ms-empty" style="padding:20px;"><div class="ms-empty-sub">Select a project to view files.</div></div></td></tr>
+                <tr><td colspan="5"><div class="ms-empty" style="padding:20px;"><div class="ms-empty-sub">{{ t('projects.empty_files_select') }}</div></div></td></tr>
               </tbody>
             </table>
           </div>
@@ -927,22 +924,22 @@
           <!-- Reports tab -->
           <div class="proj-tab-panel" id="tab-reports">
             <div class="proj-compare-bar" id="proj-compare-bar">
-              <span>Baseline: <b id="proj-compare-a">--</b> vs <b id="proj-compare-b">--</b></span>
-              <button class="btn btn-primary btn-sm" onclick="PROJ.compareDiff()">View Drift</button>
-              <button class="btn btn-sm" onclick="PROJ.clearCompare()">Clear</button>
+              <span>{{ t('projects.compare_baseline_label') }} <b id="proj-compare-a">--</b> {{ t('projects.compare_vs') }} <b id="proj-compare-b">--</b></span>
+              <button class="btn btn-primary btn-sm" onclick="PROJ.compareDiff()">{{ t('projects.compare_view_drift') }}</button>
+              <button class="btn btn-sm" onclick="PROJ.clearCompare()">{{ t('projects.compare_clear') }}</button>
             </div>
             <table class="ms-table" id="proj-reports-table">
               <thead>
                 <tr>
                   <th style="width:30px;"></th>
-                  <th>Filename</th>
-                  <th>Size</th>
-                  <th>Modified</th>
-                  <th>Actions</th>
+                  <th>{{ t('projects.col_filename') }}</th>
+                  <th>{{ t('projects.col_size') }}</th>
+                  <th>{{ t('projects.col_modified') }}</th>
+                  <th>{{ t('projects.col_actions') }}</th>
                 </tr>
               </thead>
               <tbody id="proj-reports-body">
-                <tr><td colspan="5"><div class="ms-empty" style="padding:20px;"><div class="ms-empty-sub">Select a project to view reports.</div></div></td></tr>
+                <tr><td colspan="5"><div class="ms-empty" style="padding:20px;"><div class="ms-empty-sub">{{ t('projects.empty_reports_select') }}</div></div></td></tr>
               </tbody>
             </table>
           </div>
@@ -952,17 +949,17 @@
             <table class="ms-table" id="proj-history-table">
               <thead>
                 <tr>
-                  <th>Run</th>
-                  <th>Command</th>
-                  <th>Source</th>
-                  <th>Status</th>
-                  <th>Nodes / Edges</th>
-                  <th>Started</th>
+                  <th>{{ t('projects.col_run') }}</th>
+                  <th>{{ t('projects.col_command') }}</th>
+                  <th>{{ t('projects.col_source') }}</th>
+                  <th>{{ t('projects.col_status') }}</th>
+                  <th>{{ t('projects.col_nodes_edges') }}</th>
+                  <th>{{ t('projects.col_started') }}</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody id="proj-history-body">
-                <tr><td colspan="7"><div class="ms-empty" style="padding:20px;"><div class="ms-empty-sub">Select a project to view history.</div></div></td></tr>
+                <tr><td colspan="7"><div class="ms-empty" style="padding:20px;"><div class="ms-empty-sub">{{ t('projects.empty_history_select') }}</div></div></td></tr>
               </tbody>
             </table>
           </div>
@@ -971,8 +968,8 @@
           <div id="proj-no-selection" style="padding:40px 20px;">
             <div class="ms-empty">
               <svg class="ms-empty-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 14h36v24a3 3 0 01-3 3H9a3 3 0 01-3-3V14z"/><path d="M6 14l4-7h14l4 7"/></svg>
-              <div class="ms-empty-title">Select a project from the sidebar</div>
-              <div class="ms-empty-sub">or create a new one to get started.</div>
+              <div class="ms-empty-title">{{ t('projects.no_selection_title') }}</div>
+              <div class="ms-empty-sub">{{ t('projects.no_selection_sub') }}</div>
             </div>
           </div>
 
@@ -1032,8 +1029,12 @@ var PROJ = (function() {
       (d.projects || []).forEach(function(p) {
         var li = document.createElement('li');
         li.dataset.id = p.id;
+        var metaKey = (p.report_count === 1) ? 'projects.sidebar_meta_one' : 'projects.sidebar_meta_many';
+        var metaText = msT(metaKey, '{pcaps} PCAPs · {reports} reports')
+          .replace('{pcaps}', p.pcap_count)
+          .replace('{reports}', p.report_count);
         li.innerHTML = '<span class="proj-name">' + esc(p.name) + '</span>'
-          + '<span class="proj-meta">' + p.pcap_count + ' PCAPs, ' + p.report_count + ' reports</span>';
+          + '<span class="proj-meta">' + metaText + '</span>';
         li.onclick = function() { selectProject(p.id, p.name); };
         if (currentProject && currentProject.id === p.id) li.classList.add('active');
         ul.appendChild(li);
@@ -1112,11 +1113,11 @@ var PROJ = (function() {
       if (d.ok) {
         hideNewForm();
         loadProjects(d.id);
-        msToast('Project created', 'success');
+        msToast(msT('projects.created', 'Project created'), 'success');
       } else {
-        msToast(d.error || 'Failed to create project', true);
+        msToast(d.error || msT('projects.create_failed', 'Failed to create project'), true);
       }
-    }).catch(function(e) { msToast('Error: ' + e.message, true); });
+    }).catch(function(e) { msToast(msT('common.error', 'Error') + ': ' + e.message, true); });
   }
 
   function startRename() {
@@ -1142,9 +1143,9 @@ var PROJ = (function() {
         currentProject.name = name;
         document.getElementById('proj-title').textContent = name;
         loadProjects(currentProject.id);
-        msToast('Project renamed', 'success');
+        msToast(msT('projects.renamed', 'Project renamed'), 'success');
       } else {
-        msToast(d.error || 'Rename failed', true);
+        msToast(d.error || msT('projects.rename_failed', 'Rename failed'), true);
         cancelRename();
       }
     });
@@ -1158,7 +1159,7 @@ var PROJ = (function() {
 
   function deleteProject() {
     if (!currentProject) return;
-    if (!confirm('Delete project "' + currentProject.name + '" and all its files? This cannot be undone.')) return;
+    if (!confirm(msT('projects.confirm_delete', 'Delete project "{name}" and all its files? This cannot be undone.').replace('{name}', currentProject.name))) return;
     fetch('/api/projects/' + currentProject.id + '?confirm=true', { method: 'DELETE' })
       .then(function(r) { return r.json(); })
       .then(function(d) {
@@ -1168,9 +1169,9 @@ var PROJ = (function() {
           document.getElementById('proj-tabs').style.display = 'none';
           document.getElementById('proj-no-selection').style.display = '';
           loadProjects();
-          msToast('Project deleted', 'success');
+          msToast(msT('projects.deleted', 'Project deleted'), 'success');
         } else {
-          msToast(d.error || 'Delete failed', true);
+          msToast(d.error || msT('projects.delete_failed', 'Delete failed'), true);
         }
       });
   }
@@ -1215,44 +1216,46 @@ var PROJ = (function() {
   function renderProjectSummary() {
     if (!currentProject) return;
     setText('proj-context-name', currentProject.name);
-    setText('proj-context-status', projectState.latestScanStatus ? projectState.latestScanStatus.toUpperCase() : 'Waiting');
-    setText('proj-context-report', projectState.latestReportName || 'None');
+    setText('proj-context-status', projectState.latestScanStatus ? projectState.latestScanStatus.toUpperCase() : msT('projects.context_waiting', 'Waiting'));
+    setText('proj-context-report', projectState.latestReportName || msT('projects.context_none', 'None'));
 
     setText('proj-kpi-pcaps', String(projectState.fileCount || 0));
     setText(
       'proj-kpi-pcaps-detail',
       (projectState.fileCount || 0) === 0
-        ? 'No capture files loaded for this project yet.'
-        : 'Capture files ready for intake and scan execution.'
+        ? msT('projects.kpi_pcap_inventory_empty', 'No capture files loaded for this project yet.')
+        : msT('projects.kpi_pcap_ready', 'Capture files ready for intake and scan execution.')
     );
 
     setText('proj-kpi-reports', String(projectState.reportCount || 0));
     setText(
       'proj-kpi-reports-detail',
       projectState.latestReportModified
-        ? 'Latest output updated ' + formatRelativeTime(projectState.latestReportModified) + '.'
-        : 'No reports generated yet.'
+        ? msT('projects.kpi_reports_latest', 'Latest output updated {when}.').replace('{when}', formatRelativeTime(projectState.latestReportModified))
+        : msT('projects.kpi_assessment_outputs_empty', 'No reports generated yet.')
     );
 
     setText('proj-kpi-history', String(projectState.historyCount || 0));
     setText(
       'proj-kpi-history-detail',
       projectState.latestScanStatus
-        ? 'Latest run is ' + projectState.latestScanStatus.toLowerCase() + (projectState.latestScanTime ? ' from ' + formatRelativeTime(projectState.latestScanTime) + '.' : '.')
-        : 'No scan history for this project yet.'
+        ? (projectState.latestScanTime
+            ? msT('projects.kpi_history_latest', 'Latest run is {status} from {when}.').replace('{status}', projectState.latestScanStatus.toLowerCase()).replace('{when}', formatRelativeTime(projectState.latestScanTime))
+            : msT('projects.kpi_history_latest_no_time', 'Latest run is {status}.').replace('{status}', projectState.latestScanStatus.toLowerCase()))
+        : msT('projects.kpi_project_activity_empty', 'No scan history for this project yet.')
     );
 
-    var nextLabel = 'Capture Intake';
-    var nextDetail = 'Upload a PCAP, select a file, and start a scan.';
+    var nextLabel = msT('projects.kpi_open_next_default', 'Capture Intake');
+    var nextDetail = msT('projects.kpi_open_next_detail', 'Upload a PCAP, select a file, and start a scan.');
     if (projectState.latestScanStatus === 'running' || projectState.latestScanStatus === 'pending') {
-      nextLabel = 'Watch History';
-      nextDetail = 'A run is active for this project. Stay on the History tab for execution updates.';
+      nextLabel = msT('projects.next_watch_history_label', 'Watch History');
+      nextDetail = msT('projects.next_watch_history_detail', 'A run is active for this project. Stay on the History tab for execution updates.');
     } else if (projectState.latestReportFilename) {
-      nextLabel = 'Open Latest Report';
-      nextDetail = 'Newest output is ready. <a class="proj-inline-link" href="/api/reports/' + encodeURIComponent(projectState.latestReportFilename) + '/viewer?project_id=' + currentProject.id + '" target="_blank">Open report viewer</a>.';
+      nextLabel = msT('projects.next_open_latest_label', 'Open Latest Report');
+      nextDetail = msT('projects.newest_output_ready', 'Newest output is ready.') + ' <a class="proj-inline-link" href="/api/reports/' + encodeURIComponent(projectState.latestReportFilename) + '/viewer?project_id=' + currentProject.id + '" target="_blank">' + msT('projects.open_report_viewer', 'Open report viewer') + '</a>.';
     } else if ((projectState.fileCount || 0) > 0) {
-      nextLabel = 'Run Selected PCAP';
-      nextDetail = 'Capture intake is ready. Choose a file and launch a project-scoped scan.';
+      nextLabel = msT('projects.next_run_selected_label', 'Run Selected PCAP');
+      nextDetail = msT('projects.next_run_selected_detail', 'Capture intake is ready. Choose a file and launch a project-scoped scan.');
     }
     setText('proj-kpi-next', nextLabel);
     setHtml('proj-kpi-next-detail', nextDetail);
@@ -1281,12 +1284,12 @@ var PROJ = (function() {
       var sel = document.getElementById('proj-pcap-select');
       setProjectState({ fileCount: (d.files || []).length || 0 });
       if (!d.files || d.files.length === 0) {
-        tbody.innerHTML = msEmptyHTML({ icon: 'file', title: 'No PCAP files yet', sub: 'Upload a capture file above to get started.' }, 5);
+        tbody.innerHTML = msEmptyHTML({ icon: 'file', title: msT('projects.empty_pcap_title', 'No PCAP files yet'), sub: msT('projects.empty_pcap_sub', 'Upload a capture file above to get started.') }, 5);
         scanRow.style.display = 'none';
         return;
       }
       scanRow.style.display = '';
-      sel.innerHTML = '<option value="">-- Select --</option>';
+      sel.innerHTML = '<option value="">' + esc(msT('projects.option_select_dash', '-- Select --')) + '</option>';
       tbody.innerHTML = '';
       d.files.forEach(function(f) {
         // Select option
@@ -1305,7 +1308,7 @@ var PROJ = (function() {
           + '<td class="mono">' + esc(f.name) + '</td>'
           + '<td class="dim">' + formatSize(f.size) + '</td>'
           + '<td class="dim">' + formatDate(f.modified) + '</td>'
-          + '<td><button class="btn btn-danger btn-sm" onclick="PROJ.deleteFile(\'' + esc(f.name) + '\')">Delete</button></td>';
+          + '<td><button class="btn btn-danger btn-sm" onclick="PROJ.deleteFile(\'' + esc(f.name) + '\')">' + msT('projects.delete', 'Delete') + '</button></td>';
         tbody.appendChild(tr);
       });
     });
@@ -1321,21 +1324,21 @@ var PROJ = (function() {
 
   function deleteFile(filename) {
     if (!currentProject) return;
-    if (!confirm('Delete ' + filename + '?')) return;
+    if (!confirm(msT('projects.confirm_file_delete', 'Delete {filename}?').replace('{filename}', filename))) return;
     fetch('/api/projects/' + currentProject.id + '/files/' + encodeURIComponent(filename), { method: 'DELETE' })
       .then(function(r) { return r.json(); })
       .then(function() {
         if (selectedPcap === filename) selectedPcap = null;
         loadFiles();
         loadProjects(currentProject.id);
-        msToast('File deleted', 'success');
+        msToast(msT('projects.file_deleted', 'File deleted'), 'success');
       });
   }
 
   function scanSelected() {
     if (!currentProject) return;
     var pcap = document.getElementById('proj-pcap-select').value;
-    if (!pcap) { msToast('Select a PCAP file first', true); return; }
+    if (!pcap) { msToast(msT('projects.select_pcap_first', 'Select a PCAP file first'), true); return; }
     var cmd = document.getElementById('proj-scan-cmd').value;
     var scanProfile = document.getElementById('proj-scan-profile').value;
     fetch('/api/scans/start', {
@@ -1344,12 +1347,12 @@ var PROJ = (function() {
       body: JSON.stringify({ command: cmd, scan_profile: scanProfile, pcap_file: pcap, project_id: currentProject.id }),
     }).then(function(r) { return r.json(); }).then(function(d) {
       if (d.ok) {
-        msToast('Scan started (run ' + d.run_id.substring(0, 8) + ')', 'success');
+        msToast(msT('projects.scan_started_with_id', 'Scan started (run {id})').replace('{id}', d.run_id.substring(0, 8)), 'success');
         setTab('history');
       } else {
-        msToast(d.error || 'Failed to start scan', true);
+        msToast(d.error || msT('projects.scan_start_failed', 'Failed to start scan'), true);
       }
-    }).catch(function(e) { msToast('Error: ' + e.message, true); });
+    }).catch(function(e) { msToast(msT('common.error', 'Error') + ': ' + e.message, true); });
   }
 
   // ── Upload ──
@@ -1376,40 +1379,44 @@ var PROJ = (function() {
     fetch('/api/profile').then(function(r) { return r.json(); }).then(function(d) {
       uploadLimitMb = d.upload_limit_mb || 200;
       var lbl = document.getElementById('upload-limit-label');
-      if (lbl) lbl.textContent = 'Max ' + uploadLimitMb + ' MB';
+      if (lbl) lbl.textContent = msT('projects.upload_max', 'Max {mb} MB').replace('{mb}', uploadLimitMb);
     }).catch(function() {});
   }
 
   function doUpload(file) {
-    if (!currentProject) { msToast('Select a project first', true); return; }
+    if (!currentProject) { msToast(msT('projects.select_project_first', 'Select a project first'), true); return; }
     // Client-side size check
     if (file.size > uploadLimitMb * 1024 * 1024) {
-      msToast('File too large (max ' + uploadLimitMb + ' MB)', true);
+      msToast(msT('projects.file_too_large', 'File too large (max {max} MB)').replace('{max}', uploadLimitMb), true);
       return;
     }
     var status = document.getElementById('proj-upload-status');
-    status.textContent = 'Uploading ' + file.name + '...';
+    status.textContent = msT('projects.uploading', 'Uploading {name}…').replace('{name}', file.name);
     var fd = new FormData();
     fd.append('file', file);
     fetch('/api/projects/' + currentProject.id + '/upload', { method: 'POST', body: fd })
       .then(function(r) { return r.json(); })
       .then(function(d) {
         if (d.ok) {
-          var msg = 'Uploaded: <b>' + esc(d.filename) + '</b> (' + formatSize(d.size) + ')';
+          var msg = msT('projects.upload_success', 'Uploaded: <b>{name}</b> ({size})')
+            .replace('{name}', esc(d.filename))
+            .replace('{size}', formatSize(d.size));
           if (d.trimmed) {
-            msg += '<div class="trim-notice">File trimmed to first '
-              + formatSize(d.trimmed_size) + ' for processing (original: '
-              + formatSize(d.original_size) + '). Full version archived.</div>';
+            var trimMsg = msT('projects.upload_trim_notice', 'File trimmed to first {trimmed} for processing (original: {original}). Full version archived.')
+              .replace('{trimmed}', formatSize(d.trimmed_size))
+              .replace('{original}', formatSize(d.original_size));
+            msg += '<div class="trim-notice">' + trimMsg + '</div>';
           }
           status.innerHTML = msg;
           selectedPcap = d.filename;
           loadFiles();
           loadProjects(currentProject.id);
         } else {
-          status.innerHTML = '<span style="color:var(--color-danger)">Upload failed: ' + esc(d.error) + '</span>';
+          var errMsg = msT('projects.upload_failed', 'Upload failed: {error}').replace('{error}', esc(d.error));
+          status.innerHTML = '<span style="color:var(--color-danger)">' + errMsg + '</span>';
         }
       })
-      .catch(function(e) { status.textContent = 'Upload error: ' + e.message; });
+      .catch(function(e) { status.textContent = msT('projects.upload_error', 'Upload error: {error}').replace('{error}', e.message); });
   }
 
   // ── Reports ──
@@ -1422,7 +1429,7 @@ var PROJ = (function() {
     fetch('/api/projects/' + currentProject.id + '/reports').then(function(r) { return r.json(); }).then(function(d) {
       var tbody = document.getElementById('proj-reports-body');
       if (!d.reports || d.reports.length === 0) {
-        tbody.innerHTML = msEmptyHTML({ icon: 'report', title: 'No reports yet', sub: 'Run a scan to generate one.' }, 5);
+        tbody.innerHTML = msEmptyHTML({ icon: 'report', title: msT('reports.empty_title', 'No reports yet'), sub: msT('reports.empty_run_a_scan', 'Run a scan to generate your first report.') }, 5);
         return;
       }
       tbody.innerHTML = '';
@@ -1434,9 +1441,9 @@ var PROJ = (function() {
           + '<td class="dim">' + formatSize(r.size) + '</td>'
           + '<td class="dim">' + formatDate(r.modified) + '</td>'
           + '<td class="proj-report-actions">'
-          + '<a class="view-link" href="/api/reports/' + encodeURIComponent(r.filename) + '/viewer?project_id=' + currentProject.id + '" target="_blank">View</a>'
-          + '<a class="dl-link" href="/api/reports/' + encodeURIComponent(r.filename) + '?project_id=' + currentProject.id + '">Download</a>'
-          + '<button class="del-btn" onclick="PROJ.deleteReport(\'' + esc(r.filename) + '\')">Delete</button>'
+          + '<a class="view-link" href="/api/reports/' + encodeURIComponent(r.filename) + '/viewer?project_id=' + currentProject.id + '" target="_blank">' + msT('projects.btn_view', 'View') + '</a>'
+          + '<a class="dl-link" href="/api/reports/' + encodeURIComponent(r.filename) + '?project_id=' + currentProject.id + '">' + msT('projects.btn_download', 'Download') + '</a>'
+          + '<button class="del-btn" onclick="PROJ.deleteReport(\'' + esc(r.filename) + '\')">' + msT('projects.delete', 'Delete') + '</button>'
           + '</td>';
         tbody.appendChild(tr);
       });
@@ -1451,13 +1458,13 @@ var PROJ = (function() {
 
   function deleteReport(filename) {
     if (!currentProject) return;
-    if (!confirm('Delete ' + filename + '?')) return;
+    if (!confirm(msT('projects.confirm_report_delete', 'Delete {filename}?').replace('{filename}', filename))) return;
     fetch('/api/reports/' + encodeURIComponent(filename) + '?project_id=' + currentProject.id, { method: 'DELETE' })
       .then(function(r) { return r.json(); })
       .then(function() {
         loadReports();
         loadProjects(currentProject.id);
-        msToast('Report deleted', 'success');
+        msToast(msT('projects.report_deleted', 'Report deleted'), 'success');
       });
   }
 
@@ -1466,7 +1473,7 @@ var PROJ = (function() {
     if (cb.checked) {
       if (!compareA) compareA = fn;
       else if (!compareB) compareB = fn;
-      else { cb.checked = false; msToast('Select only 2 reports for baseline and drift review', true); return; }
+      else { cb.checked = false; msToast(msT('projects.compare_limit', 'Select only 2 reports for baseline and drift review'), true); return; }
     } else {
       if (compareA === fn) compareA = null;
       if (compareB === fn) compareB = null;
@@ -1504,14 +1511,14 @@ var PROJ = (function() {
         latestScanTime: d.scans[0] ? d.scans[0].started_at : ''
       });
       if (!d.scans || d.scans.length === 0) {
-        tbody.innerHTML = msEmptyHTML({ icon: 'scan', title: 'No scan history', sub: 'Start a scan from the Files tab.' }, 7);
+        tbody.innerHTML = msEmptyHTML({ icon: 'scan', title: msT('projects.empty_history_title', 'No scan history'), sub: msT('projects.empty_history_sub', 'Start a scan from the Files tab.') }, 7);
         return;
       }
       tbody.innerHTML = '';
       d.scans.forEach(function(s) {
         var actions = '';
         if (s.status === 'completed' && s.report_filename) {
-          actions = '<a class="btn btn-sm" href="/api/reports/' + encodeURIComponent(s.report_filename) + '/viewer?project_id=' + currentProject.id + '" target="_blank">View</a>';
+          actions = '<a class="btn btn-sm" href="/api/reports/' + encodeURIComponent(s.report_filename) + '/viewer?project_id=' + currentProject.id + '" target="_blank">' + msT('projects.btn_view', 'View') + '</a>';
         }
         var nodeEdge = '--';
         if (s.status === 'completed' && (s.node_count || s.edge_count)) {
@@ -1560,7 +1567,7 @@ var PROJ = (function() {
       })
       .catch(function(e) {
         loading.style.display = 'none';
-        msToast('Failed to load overview: ' + e.message, true);
+        msToast(msT('projects.overview_load_failed', 'Failed to load overview: {error}').replace('{error}', e.message), true);
       });
   }
 
@@ -1579,17 +1586,26 @@ var PROJ = (function() {
 
     setText('ov-kpi-assets', String(d.totals.assets));
     var macAssets = (d.assets || []).filter(function(a) { return a.key_type === 'mac'; }).length;
-    setText('ov-kpi-assets-detail', macAssets + ' MAC-keyed · ' + (d.totals.assets - macAssets) + ' IP-only');
+    setText('ov-kpi-assets-detail',
+      msT('projects.kpi_assets_split', '{mac} MAC-keyed · {ip} IP-only')
+        .replace('{mac}', macAssets)
+        .replace('{ip}', d.totals.assets - macAssets));
 
     setText('ov-kpi-findings', String(d.totals.findings));
-    setText('ov-kpi-findings-detail', d.totals.finding_occurrences + ' occurrences · ' + critHigh + ' critical/high');
+    setText('ov-kpi-findings-detail',
+      msT('projects.kpi_findings_split', '{occurrences} occurrences · {critHigh} critical/high')
+        .replace('{occurrences}', d.totals.finding_occurrences)
+        .replace('{critHigh}', critHigh));
     var fcard = document.getElementById('ov-kpi-findings-card');
     fcard.classList.toggle('danger', critHigh > 0);
     fcard.classList.toggle('healthy', critHigh === 0 && d.totals.findings > 0);
 
     setText('ov-kpi-protocols', String(d.totals.protocols));
     var attackCount = (d.attack_coverage || []).length;
-    setText('ov-kpi-protocols-detail', attackCount ? attackCount + ' ATT&CK techniques mapped' : 'no ATT&CK techniques mapped');
+    setText('ov-kpi-protocols-detail',
+      attackCount
+        ? msT('projects.kpi_attack_mapped', '{count} ATT&CK techniques mapped').replace('{count}', attackCount)
+        : msT('projects.kpi_attack_none', 'no ATT&CK techniques mapped'));
 
     renderSeverityBar(d.severity_counts || {});
     renderFindingsTable(d.findings || []);
@@ -1597,35 +1613,45 @@ var PROJ = (function() {
     renderProtocols(d.protocols || []);
     renderAttackCoverage(d.attack_coverage || []);
 
-    setText('ov-findings-meta', d.totals.findings + ' distinct · ' + d.totals.finding_occurrences + ' total occurrences');
-    setText('ov-asset-meta-header', d.totals.assets + ' total · MAC-first identity');
-    setText('ov-proto-meta', d.totals.protocols + ' protocols');
-    setText('ov-attack-meta', attackCount + ' techniques');
+    setText('ov-findings-meta',
+      msT('projects.findings_meta', '{distinct} distinct · {total} total occurrences')
+        .replace('{distinct}', d.totals.findings)
+        .replace('{total}', d.totals.finding_occurrences));
+    setText('ov-asset-meta-header',
+      msT('projects.assets_meta_header', '{count} total · MAC-first identity').replace('{count}', d.totals.assets));
+    setText('ov-proto-meta',
+      msT('projects.protocols_meta', '{count} protocols').replace('{count}', d.totals.protocols));
+    setText('ov-attack-meta',
+      msT('projects.attack_meta', '{count} techniques').replace('{count}', attackCount));
   }
 
   function renderContextBar(d) {
     var bar = document.getElementById('ov-context-bar');
     var parts = [];
     var w = d.window || {};
+    var reportsLabel = msT('projects.context_reports_count', '<b>{count}</b> reports').replace('{count}', d.report_count);
     if (w.earliest_report && w.latest_report) {
       var spanDays = computeSpanDays(w.earliest_report, w.latest_report);
-      parts.push('<span><b>' + d.report_count + '</b> reports</span>');
-      parts.push('<span>across <b>' + spanDays + '</b></span>');
+      parts.push('<span>' + reportsLabel + '</span>');
+      parts.push('<span>' + msT('projects.context_across_span', 'across <b>{span}</b>').replace('{span}', spanDays) + '</span>');
       parts.push('<span class="dim">' + formatShortDate(w.earliest_report) + ' → ' + formatShortDate(w.latest_report) + '</span>');
     } else {
-      parts.push('<span><b>' + d.report_count + '</b> reports</span>');
+      parts.push('<span>' + reportsLabel + '</span>');
     }
     var profParts = [];
     var prof = d.scan_profiles || {};
     Object.keys(prof).forEach(function(k) { profParts.push('<b>' + prof[k] + '</b> ' + esc(k)); });
-    if (profParts.length) parts.push('<span>profile · ' + profParts.join(' / ') + '</span>');
+    if (profParts.length) {
+      parts.push('<span>' + msT('projects.context_profile', 'profile · {parts}').replace('{parts}', profParts.join(' / ')) + '</span>');
+    }
     bar.innerHTML = parts.join('<span class="sep"></span>');
   }
 
   function formatScanProfiles(prof) {
-    if (!prof) return 'across this project';
+    var fallback = msT('projects.profiles_across_project', 'across this project');
+    if (!prof) return fallback;
     var keys = Object.keys(prof);
-    if (!keys.length) return 'across this project';
+    if (!keys.length) return fallback;
     return keys.map(function(k) { return prof[k] + ' ' + k; }).join(' · ');
   }
 
@@ -1633,10 +1659,10 @@ var PROJ = (function() {
     try {
       var ms = new Date(end).getTime() - new Date(start).getTime();
       var days = Math.max(1, Math.round(ms / 86400000));
-      if (days === 1) return '1 day';
-      if (days < 14) return days + ' days';
-      if (days < 60) return Math.round(days / 7) + ' weeks';
-      return Math.round(days / 30) + ' months';
+      if (days === 1) return msT('projects.span_one_day', '1 day');
+      if (days < 14) return msT('projects.span_days', '{n} days').replace('{n}', days);
+      if (days < 60) return msT('projects.span_weeks', '{n} weeks').replace('{n}', Math.round(days / 7));
+      return msT('projects.span_months', '{n} months').replace('{n}', Math.round(days / 30));
     } catch (e) { return ''; }
   }
 
@@ -1647,14 +1673,15 @@ var PROJ = (function() {
 
   function renderSeverityBar(counts) {
     var total = SEVERITY_ORDER.reduce(function(s, k) { return s + (counts[k] || 0); }, 0);
-    setText('ov-sev-total', total + ' occurrences');
+    setText('ov-sev-total', msT('projects.severity_total', '{total} occurrences').replace('{total}', total));
     var bar = document.getElementById('ov-sev-bar');
     var legend = document.getElementById('ov-sev-legend');
     bar.innerHTML = '';
     legend.innerHTML = '';
     if (total === 0) {
-      bar.innerHTML = '<span style="flex:1;background:var(--accent-green);opacity:0.35;color:var(--text-dim);">No findings recorded</span>';
-      legend.innerHTML = '<span class="dim">Empty severity profile — nothing to triage.</span>';
+      bar.innerHTML = '<span style="flex:1;background:var(--accent-green);opacity:0.35;color:var(--text-dim);">'
+        + esc(msT('projects.severity_empty_seg', 'No findings recorded')) + '</span>';
+      legend.innerHTML = '<span class="dim">' + esc(msT('projects.severity_empty_legend', 'Empty severity profile — nothing to triage.')) + '</span>';
       return;
     }
     SEVERITY_ORDER.forEach(function(sev) {
@@ -1663,7 +1690,8 @@ var PROJ = (function() {
         var seg = document.createElement('span');
         seg.className = 'ov-sev-' + sev;
         seg.style.flex = String(n);
-        seg.title = sev + ': ' + n + ' occurrence' + (n === 1 ? '' : 's');
+        var tipKey = (n === 1) ? 'projects.severity_tooltip_one' : 'projects.severity_tooltip_many';
+        seg.title = msT(tipKey, '{sev}: {n} occurrences').replace('{sev}', sev).replace('{n}', n);
         var pct = Math.round((n / total) * 100);
         // Hide label inside very thin segments (collapse threshold ~6%)
         if (pct < 6) seg.classList.add('compact');
@@ -1679,18 +1707,21 @@ var PROJ = (function() {
   function renderFindingsTable(findings) {
     var tbody = document.getElementById('ov-findings-body');
     if (!findings.length) {
-      tbody.innerHTML = '<tr><td colspan="6"><div class="ms-empty" style="padding:24px;"><div class="ms-empty-sub">No findings across these reports.</div></div></td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6"><div class="ms-empty" style="padding:24px;"><div class="ms-empty-sub">'
+        + esc(msT('projects.findings_empty_table', 'No findings across these reports.')) + '</div></div></td></tr>';
       return;
     }
     tbody.innerHTML = '';
     findings.forEach(function(f) {
       var nodes = (f.affected_nodes || []).slice(0, 3).join(', ');
-      if ((f.affected_nodes || []).length > 3) nodes += ' <span class="dim">+' + (f.affected_nodes.length - 3) + ' more</span>';
+      if ((f.affected_nodes || []).length > 3) {
+        nodes += ' <span class="dim">' + esc(msT('projects.findings_more', '+{n} more').replace('{n}', f.affected_nodes.length - 3)) + '</span>';
+      }
       var src = f.source && f.source !== 'engine'
         ? '<span class="ov-finding-src">' + esc(f.source) + '</span>'
         : '';
       var viewBtn = f.last_seen_report
-        ? '<a class="btn btn-sm" href="/api/reports/' + encodeURIComponent(f.last_seen_report) + '/viewer?project_id=' + currentProject.id + '" target="_blank">Open</a>'
+        ? '<a class="btn btn-sm" href="/api/reports/' + encodeURIComponent(f.last_seen_report) + '/viewer?project_id=' + currentProject.id + '" target="_blank">' + msT('projects.btn_open', 'Open') + '</a>'
         : '';
       var desc = (f.description || '').replace(/\s+/g, ' ').trim();
       var pct = overviewState.reportCount ? Math.round((f.occurrences / overviewState.reportCount) * 100) : 0;
@@ -1718,12 +1749,15 @@ var PROJ = (function() {
         return hay.indexOf(filter) !== -1;
       });
     }
-    var countLabel = '<b>' + filtered.length + '</b> of <b>' + assets.length + '</b> assets';
-    if (filter) countLabel += ' · <span style="color:var(--accent);">filtered</span>';
+    var countLabel = msT('projects.assets_count_label', '<b>{shown}</b> of <b>{total}</b> assets')
+      .replace('{shown}', filtered.length)
+      .replace('{total}', assets.length);
+    if (filter) countLabel += ' · <span style="color:var(--accent);">' + esc(msT('projects.assets_count_filtered', 'filtered')) + '</span>';
     document.getElementById('ov-asset-count').innerHTML = countLabel;
     var tbody = document.getElementById('ov-assets-body');
     if (!filtered.length) {
-      tbody.innerHTML = '<tr><td colspan="8"><div class="ms-empty" style="padding:24px;"><div class="ms-empty-sub">No assets match the filter.</div></div></td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8"><div class="ms-empty" style="padding:24px;"><div class="ms-empty-sub">'
+        + esc(msT('projects.assets_filter_empty', 'No assets match the filter.')) + '</div></div></td></tr>';
       return;
     }
     tbody.innerHTML = '';
@@ -1734,11 +1768,11 @@ var PROJ = (function() {
       if ((a.protocols || []).length > 4) protos += ' <span class="dim">+' + (a.protocols.length - 4) + '</span>';
       var purdue = a.purdue_level == null ? '<span class="dim">—</span>' : ('L' + a.purdue_level);
       var viewBtn = a.last_seen_report
-        ? '<a class="btn btn-sm" href="/api/reports/' + encodeURIComponent(a.last_seen_report) + '/viewer?project_id=' + currentProject.id + '" target="_blank">Open</a>'
+        ? '<a class="btn btn-sm" href="/api/reports/' + encodeURIComponent(a.last_seen_report) + '/viewer?project_id=' + currentProject.id + '" target="_blank">' + esc(msT('projects.btn_open', 'Open')) + '</a>'
         : '';
       var keyLabel = a.key_type === 'mac'
         ? '<span class="mono" style="font-size:0.8em;">' + esc(a.key) + '</span>'
-        : '<span class="mono" style="font-size:0.8em;">' + esc(a.key) + '</span> <span class="dim" style="font-size:0.7em;">ip</span>';
+        : '<span class="mono" style="font-size:0.8em;">' + esc(a.key) + '</span> <span class="dim" style="font-size:0.7em;">' + esc(msT('projects.assets_ip_label', 'ip')) + '</span>';
       var tr = document.createElement('tr');
       tr.innerHTML =
         '<td>' + keyLabel + '</td>'
@@ -1753,7 +1787,8 @@ var PROJ = (function() {
     });
     if (filtered.length > 200) {
       var note = document.createElement('tr');
-      note.innerHTML = '<td colspan="8" class="dim" style="text-align:center;font-size:0.78em;padding:10px;">Showing first 200 of ' + filtered.length + ' — refine the filter to narrow further.</td>';
+      var truncMsg = msT('projects.assets_truncate', 'Showing first 200 of {total} — refine the filter to narrow further.').replace('{total}', filtered.length);
+      note.innerHTML = '<td colspan="8" class="dim" style="text-align:center;font-size:0.78em;padding:10px;">' + esc(truncMsg) + '</td>';
       tbody.appendChild(note);
     }
   }
@@ -1767,14 +1802,18 @@ var PROJ = (function() {
     var el = document.getElementById('ov-protocols');
     el.innerHTML = '';
     if (!protos.length) {
-      el.innerHTML = '<span class="dim">No protocols recorded.</span>';
+      el.innerHTML = '<span class="dim">' + esc(msT('projects.protocols_empty', 'No protocols recorded.')) + '</span>';
       return;
     }
     protos.forEach(function(p) {
       var chip = document.createElement('span');
       chip.className = 'ov-chip';
       chip.innerHTML = esc(p.name) + ' <span class="count">' + p.report_count + '/' + overviewState.reportCount + '</span>';
-      chip.title = p.name + ' — seen in ' + p.report_count + ' of ' + overviewState.reportCount + ' reports (' + p.packet_count + ' packets total)';
+      chip.title = msT('projects.protocol_tooltip', '{name} — seen in {seen} of {total} reports ({packets} packets total)')
+        .replace('{name}', p.name)
+        .replace('{seen}', p.report_count)
+        .replace('{total}', overviewState.reportCount)
+        .replace('{packets}', p.packet_count);
       el.appendChild(chip);
     });
   }
@@ -1824,19 +1863,20 @@ var PROJ = (function() {
   }
 
   function formatRelativeTime(iso) {
-    if (!iso) return 'recently';
+    var recently = msT('projects.relative_recently', 'recently');
+    if (!iso) return recently;
     try {
       var deltaMs = Date.now() - new Date(iso).getTime();
-      if (!isFinite(deltaMs)) return 'recently';
+      if (!isFinite(deltaMs)) return recently;
       var mins = Math.max(0, Math.floor(deltaMs / 60000));
-      if (mins < 1) return 'just now';
-      if (mins < 60) return mins + 'm ago';
+      if (mins < 1) return msT('projects.relative_just_now', 'just now');
+      if (mins < 60) return msT('projects.relative_min', '{n}m ago').replace('{n}', mins);
       var hours = Math.floor(mins / 60);
-      if (hours < 24) return hours + 'h ago';
+      if (hours < 24) return msT('projects.relative_hour', '{n}h ago').replace('{n}', hours);
       var days = Math.floor(hours / 24);
-      return days + 'd ago';
+      return msT('projects.relative_day', '{n}d ago').replace('{n}', days);
     } catch (e) {
-      return 'recently';
+      return recently;
     }
   }
 

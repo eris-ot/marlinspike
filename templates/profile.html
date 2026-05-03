@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}MarlinSpike — Profile{% endblock %}
+{% block title %}MarlinSpike — {{ t('profile.title') }}{% endblock %}
 
 {% block head %}
 <style>
@@ -101,55 +101,55 @@
 
   <!-- Stats row -->
   <div class="profile-stats" id="profile-stats">
-    <div class="stat-card"><div class="stat-label">Scans</div><div class="stat-value" id="stat-scans">—</div></div>
-    <div class="stat-card"><div class="stat-label">Projects</div><div class="stat-value" id="stat-projects">—</div></div>
-    <div class="stat-card"><div class="stat-label">Upload Limit</div><div class="stat-value" id="stat-limit">—</div><div class="stat-sub">MB per file</div></div>
-    <div class="stat-card"><div class="stat-label">Member Since</div><div class="stat-value" id="stat-joined" style="font-size:0.85em;">—</div></div>
+    <div class="stat-card"><div class="stat-label">{{ t('profile.stat_scans') }}</div><div class="stat-value" id="stat-scans">—</div></div>
+    <div class="stat-card"><div class="stat-label">{{ t('profile.stat_projects') }}</div><div class="stat-value" id="stat-projects">—</div></div>
+    <div class="stat-card"><div class="stat-label">{{ t('profile.stat_limit') }}</div><div class="stat-value" id="stat-limit">—</div><div class="stat-sub">{{ t('profile.stat_mb_per_file') }}</div></div>
+    <div class="stat-card"><div class="stat-label">{{ t('profile.member_since') }}</div><div class="stat-value" id="stat-joined" style="font-size:0.85em;">—</div></div>
   </div>
 
   <!-- Profile info -->
   <div class="panel">
     <div class="panel-header">
-      <h2>Profile</h2>
-      <button class="btn btn-primary" onclick="PRF.save()">Save</button>
+      <h2>{{ t('profile.title') }}</h2>
+      <button class="btn btn-primary" onclick="PRF.save()">{{ t('profile.save') }}</button>
     </div>
     <div class="panel-body" style="display:flex;flex-direction:column;gap:14px;">
       <div class="field-row">
         <div class="field-group">
-          <label>Full Name</label>
+          <label>{{ t('profile.full_name') }}</label>
           <input type="text" id="prf-name" class="ms-input" placeholder="Jane Smith">
         </div>
         <div class="field-group">
-          <label>Company</label>
+          <label>{{ t('profile.company') }}</label>
           <input type="text" id="prf-company" class="ms-input" placeholder="Acme Corp">
         </div>
       </div>
       <div class="field-row">
         <div class="field-group">
-          <label>Email</label>
+          <label>{{ t('profile.email') }}</label>
           <input type="email" id="prf-email" class="ms-input" placeholder="jane@example.com">
         </div>
         <div class="field-group">
-          <label>Phone</label>
+          <label>{{ t('profile.phone') }}</label>
           <input type="text" id="prf-phone" class="ms-input" placeholder="+1 555 000 0000">
         </div>
       </div>
       <div class="field-row">
         <div class="field-group" style="max-width:200px;">
-          <label>Birthday</label>
+          <label>{{ t('profile.birthday') }}</label>
           <input type="date" id="prf-birthday" class="ms-input">
         </div>
       </div>
       <div class="field-row">
         <div class="field-group">
-          <label>Address</label>
+          <label>{{ t('profile.address') }}</label>
           <textarea id="prf-address" class="ms-input"></textarea>
         </div>
       </div>
 
       <!-- Read-only account info -->
       <div style="margin-top:4px;">
-        <div class="stat-label" style="margin-bottom:8px;">Account</div>
+        <div class="stat-label" style="margin-bottom:8px;">{{ t('profile.account') }}</div>
         <div class="profile-ro" id="profile-ro"></div>
       </div>
     </div>
@@ -157,18 +157,18 @@
 
   <!-- Change password -->
   <div class="panel">
-    <div class="panel-header"><h2>Change Password</h2></div>
+    <div class="panel-header"><h2>{{ t('profile.change_password') }}</h2></div>
     <div class="panel-body">
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
         <div class="field-group" style="min-width:160px;max-width:220px;">
-          <label>Current Password</label>
+          <label>{{ t('profile.current_password') }}</label>
           <input type="password" id="prf-cur-pass" class="ms-input">
         </div>
         <div class="field-group" style="min-width:160px;max-width:220px;">
-          <label>New Password</label>
+          <label>{{ t('profile.new_password') }}</label>
           <input type="password" id="prf-new-pass" class="ms-input">
         </div>
-        <button class="btn btn-primary" onclick="PRF.changePassword()">Update</button>
+        <button class="btn btn-primary" onclick="PRF.changePassword()">{{ t('profile.update') }}</button>
       </div>
     </div>
   </div>
@@ -199,15 +199,15 @@ var PRF = (function() {
       var ro = document.getElementById('profile-ro');
       ro.innerHTML = '';
       [
-        ['Username', d.username],
-        ['Role', d.role],
+        [msT('profile.username', 'Username'), d.username],
+        [msT('profile.role', 'Role'), d.role],
       ].forEach(function(pair) {
         var el = document.createElement('div');
         el.className = 'profile-ro-item';
         el.innerHTML = '<div class="profile-ro-label">' + esc(pair[0]) + '</div><div class="profile-ro-value">' + esc(pair[1]) + '</div>';
         ro.appendChild(el);
       });
-    }).catch(function(e) { msToast('Failed to load profile', true); });
+    }).catch(function(e) { msToast(msT('profile.load_failed', 'Failed to load profile'), true); });
   }
 
   function save() {
@@ -224,25 +224,25 @@ var PRF = (function() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     }).then(function(r) { return r.json(); }).then(function(d) {
-      if (d.ok) msToast('Profile saved', 'success');
-      else msToast(d.error || 'Failed', true);
+      if (d.ok) msToast(msT('profile.saved', 'Profile saved'), 'success');
+      else msToast(d.error || msT('profile.save_failed', 'Failed to save profile'), true);
     });
   }
 
   function changePassword() {
     var c = document.getElementById('prf-cur-pass').value;
     var n = document.getElementById('prf-new-pass').value;
-    if (!c || !n) { msToast('Fill in both fields', true); return; }
+    if (!c || !n) { msToast(msT('profile.password_fill_both', 'Fill in both fields'), true); return; }
     fetch('/api/account/password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ current_password: c, new_password: n }),
     }).then(function(r) { return r.json(); }).then(function(d) {
       if (d.ok) {
-        msToast('Password changed', 'success');
+        msToast(msT('profile.password_changed', 'Password changed'), 'success');
         document.getElementById('prf-cur-pass').value = '';
         document.getElementById('prf-new-pass').value = '';
-      } else msToast(d.error || 'Failed', true);
+      } else msToast(d.error || msT('profile.save_failed', 'Failed'), true);
     });
   }
 

@@ -26,6 +26,7 @@ from urllib.parse import urlparse
 import yaml
 from flask import (
     Flask,
+    g,
     jsonify,
     redirect,
     render_template,
@@ -51,6 +52,15 @@ from _auth import (
     use_reset_token,
     validate_reset_token,
     verify_user,
+)
+from _i18n import (
+    DEFAULT_LOCALE,
+    LOCALE_LABELS,
+    SUPPORTED_LOCALES,
+    load_translations,
+    normalise_locale,
+    resolve_locale,
+    t as _translate,
 )
 from _models import AuditLog, PasswordResetToken, Project, ScanHistory, User, db
 
@@ -2322,11 +2332,37 @@ def create_app():
         os.makedirs(d, exist_ok=True)
         return d
 
-    # Expose feature flags to templates
+    # ── i18n ──────────────────────────────────────────────────
+    load_translations()
+
+    @app.before_request
+    def resolve_request_locale():
+        accept = request.headers.get("Accept-Language")
+        g.locale = resolve_locale(session.get("locale"), accept)
+
+    def _t(key, **kwargs):
+        return _translate(key, locale=getattr(g, "locale", DEFAULT_LOCALE), **kwargs)
+
+    app.jinja_env.globals["t"] = _t
+
+    @app.route("/i18n/set/<locale>", methods=["GET", "POST"])
+    def i18n_set(locale):
+        picked = normalise_locale(locale)
+        session["locale"] = picked
+        nxt = request.args.get("next") or request.referrer or url_for("dashboard")
+        # Same-host redirect only.
+        if urlparse(nxt).netloc and urlparse(nxt).netloc != request.host:
+            nxt = url_for("dashboard")
+        return redirect(nxt)
+
+    # Expose feature flags + locale state to templates
     @app.context_processor
     def inject_features():
         return {
             "app_version": APP_VERSION,
+            "locale": getattr(g, "locale", DEFAULT_LOCALE),
+            "supported_locales": SUPPORTED_LOCALES,
+            "locale_labels": LOCALE_LABELS,
         }
 
     # ── CSRF origin check ─────────────────────────────────────
@@ -2361,7 +2397,7 @@ def create_app():
             audit("auth.login_failed", status="failure",
                   target_type="user", target_id=username,
                   ip_address=request.remote_addr)
-            return render_template("login.html", error="Invalid credentials")
+            return render_template("login.html", error=_t("login.invalid_credentials"))
         log.info("Login: %s from %s", username, request.remote_addr)
         session["user"] = user.username
         session["user_id"] = user.id

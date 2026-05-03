@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}MarlinSpike — Scans{% endblock %}
+{% block title %}MarlinSpike — {{ t('scans.title') }}{% endblock %}
 
 {% block head %}
 <style>
@@ -58,30 +58,30 @@
 
   <div class="panel">
     <div class="panel-header">
-      <h2>Scan History</h2>
+      <h2>{{ t('scans.history') }}</h2>
       <div class="page-toolbar">
         <select id="project-filter" onchange="SH.onProjectChange()">
-          <option value="">Loading...</option>
+          <option value="">{{ t('common.loading') }}</option>
         </select>
-        <button class="btn btn-sm" onclick="SH.loadHistory()">Refresh</button>
+        <button class="btn btn-sm" onclick="SH.loadHistory()">{{ t('common.refresh') }}</button>
       </div>
     </div>
     <div class="panel-body">
       <table class="ms-table" id="history-table">
         <thead>
           <tr>
-            <th>Run</th>
-            <th>User</th>
-            <th>Command</th>
-            <th>Source</th>
-            <th>Status</th>
-            <th title="Discovered nodes / edges">Nodes / Edges</th>
-            <th>Started</th>
+            <th>{{ t('scans.column_run') }}</th>
+            <th>{{ t('scans.column_user') }}</th>
+            <th>{{ t('scans.column_command') }}</th>
+            <th>{{ t('scans.column_source') }}</th>
+            <th>{{ t('common.status') }}</th>
+            <th title="{{ t('scans.nodes_edges_hint') }}">{{ t('scans.column_nodes_edges') }}</th>
+            <th>{{ t('scans.column_started') }}</th>
             <th></th>
           </tr>
         </thead>
         <tbody id="history-body">
-          <tr><td colspan="8"><div class="ms-loading"><div class="ms-spinner"></div> Loading scan history&hellip;</div></td></tr>
+          <tr><td colspan="8"><div class="ms-loading"><div class="ms-spinner"></div> {{ t('scans.loading') }}</div></td></tr>
         </tbody>
       </table>
     </div>
@@ -106,7 +106,7 @@ var SH = (function() {
   function loadProjects(callback) {
     fetch('/api/projects').then(function(r) { return r.json(); }).then(function(d) {
       var sel = document.getElementById('project-filter');
-      sel.innerHTML = '<option value="">All Projects</option>';
+      sel.innerHTML = '<option value="">' + msT('reports.filter_all_projects', 'All Projects') + '</option>';
       (d.projects || []).forEach(function(p) {
         var opt = document.createElement('option');
         opt.value = p.id;
@@ -131,7 +131,7 @@ var SH = (function() {
     fetch(url).then(function(r) { return r.json(); }).then(function(d) {
       var tbody = document.getElementById('history-body');
       if (!d.scans || d.scans.length === 0) {
-        tbody.innerHTML = msEmptyHTML({ icon: 'scan', title: 'No scan history found', sub: 'Start your first scan from the Dashboard.', action: 'Go to Dashboard', href: '/dashboard' }, 8);
+        tbody.innerHTML = msEmptyHTML({ icon: 'scan', title: msT('scans.empty_title'), sub: msT('scans.empty_sub'), action: msT('scans.empty_action'), href: '/dashboard' }, 8);
         return;
       }
       tbody.innerHTML = '';
@@ -139,20 +139,20 @@ var SH = (function() {
         var tr = document.createElement('tr');
         var actions = '';
         if (s.status === 'completed' && s.report_filename) {
-          actions = '<a class="btn btn-sm" href="/api/reports/' + encodeURIComponent(s.report_filename) + '/viewer" target="_blank">View Report</a>';
+          actions = '<a class="btn btn-sm" href="/api/reports/' + encodeURIComponent(s.report_filename) + '/viewer" target="_blank">' + msT('scans.view_report', 'View Report') + '</a>';
         } else if ((s.status === 'failed' || s.status === 'interrupted') && s.pcap_source && !s.pcap_source.startsWith('live:')) {
-          actions = '<button class="btn btn-sm" onclick="SH.retryScan(\'' + esc(s.pcap_source) + '\',\'' + esc(s.command) + '\',\'' + esc(s.scan_profile || 'full') + '\')">Retry</button>';
+          actions = '<button class="btn btn-sm" onclick="SH.retryScan(\'' + esc(s.pcap_source) + '\',\'' + esc(s.command) + '\',\'' + esc(s.scan_profile || 'full') + '\')">' + msT('scans.retry', 'Retry') + '</button>';
         }
         var hasError = s.error_tail && (s.status === 'failed' || s.status === 'stopped' || s.status === 'interrupted');
         if (hasError) {
-          actions += ' <button class="btn btn-sm btn-danger" onclick="SH.toggleError(this)" style="font-size:0.75em;padding:2px 6px;">Details</button>';
+          actions += ' <button class="btn btn-sm btn-danger" onclick="SH.toggleError(this)" style="font-size:0.75em;padding:2px 6px;">' + msT('scans.details', 'Details') + '</button>';
         }
         var nodeEdge = '--';
         if (s.status === 'completed' && (s.node_count || s.edge_count)) {
           nodeEdge = (s.node_count || 0) + ' / ' + (s.edge_count || 0);
         }
         tr.innerHTML =
-          '<td><span class="mono run-id-copy" title="Click to copy full ID" onclick="SH.copyId(this, \'' + esc(s.run_id) + '\')" style="font-size:0.8em;">' + esc(s.run_id.substring(0, 8)) + '</span></td>'
+          '<td><span class="mono run-id-copy" title="' + msT('scans.copy_id_hint', 'Click to copy full ID') + '" onclick="SH.copyId(this, \'' + esc(s.run_id) + '\')" style="font-size:0.8em;">' + esc(s.run_id.substring(0, 8)) + '</span></td>'
           + '<td>' + esc(s.user) + '</td>'
           + '<td>' + esc(displayCommand(s.command, s.scan_profile)) + '</td>'
           + '<td class="mono dim" style="font-size:0.8em;max-width:200px;overflow:hidden;text-overflow:ellipsis;">' + esc(s.pcap_source || '--') + '</td>'
@@ -177,7 +177,7 @@ var SH = (function() {
     if (errorRow && errorRow.classList.contains('history-error-row')) {
       var showing = errorRow.style.display !== 'none';
       errorRow.style.display = showing ? 'none' : '';
-      btn.textContent = showing ? 'Details' : 'Hide';
+      btn.textContent = showing ? msT('scans.details', 'Details') : msT('scans.hide', 'Hide');
     }
   }
 
@@ -196,12 +196,12 @@ var SH = (function() {
       body: JSON.stringify(body),
     }).then(function(r) { return r.json(); }).then(function(d) {
       if (d.ok) {
-        msToast('Scan retried — check Dashboard for progress', 'success');
+        msToast(msT('scans.retry_started', 'Scan retried — check Dashboard for progress'), 'success');
         loadHistory();
       } else {
-        msToast(d.error || 'Failed to retry scan', true);
+        msToast(d.error || msT('scans.retry_failed', 'Failed to retry scan'), true);
       }
-    }).catch(function(e) { msToast('Error: ' + e.message, true); });
+    }).catch(function(e) { msToast(msT('common.error', 'Error') + ': ' + e.message, true); });
   }
 
   // Helpers

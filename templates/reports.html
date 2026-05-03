@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}MarlinSpike — Reports{% endblock %}
+{% block title %}MarlinSpike — {{ t('reports.title') }}{% endblock %}
 
 {% block head %}
 <style>
@@ -58,32 +58,32 @@
 
   <div class="panel">
     <div class="panel-header">
-      <h2>All Reports <span class="info-hint">i<span class="info-tip">Select two reports using the checkboxes to compare them as a <b>Baseline Drift</b> analysis — identifies new, removed, and changed assets between captures.</span></span></h2>
+      <h2>{{ t('reports.all_reports') }} <span class="info-hint">i<span class="info-tip">{{ t('reports.compare_hint') }}</span></span></h2>
       <div class="page-toolbar">
         <select id="project-filter" onchange="RP.onProjectChange()">
-          <option value="">Loading...</option>
+          <option value="">{{ t('common.loading') }}</option>
         </select>
-        <button class="btn btn-sm" onclick="RP.loadReports()">Refresh</button>
+        <button class="btn btn-sm" onclick="RP.loadReports()">{{ t('common.refresh') }}</button>
       </div>
     </div>
     <div class="panel-body">
       <div class="compare-bar" id="compare-bar">
-        <span>Baseline: <b id="compare-a">&mdash;</b> vs <b id="compare-b">&mdash;</b></span>
-        <button class="btn btn-primary btn-sm" onclick="RP.compareDiff()">View Drift</button>
-        <button class="btn btn-sm" onclick="RP.clearCompare()">Clear</button>
+        <span>{{ t('reports.baseline') }}: <b id="compare-a">&mdash;</b> {{ t('reports.vs') }} <b id="compare-b">&mdash;</b></span>
+        <button class="btn btn-primary btn-sm" onclick="RP.compareDiff()">{{ t('reports.view_drift') }}</button>
+        <button class="btn btn-sm" onclick="RP.clearCompare()">{{ t('reports.clear') }}</button>
       </div>
       <table class="ms-table" id="reports-table">
         <thead>
           <tr>
             <th style="width:30px;"></th>
-            <th>Filename</th>
-            <th>Size</th>
-            <th>Modified</th>
-            <th>Actions</th>
+            <th>{{ t('reports.column_filename') }}</th>
+            <th>{{ t('common.size') }}</th>
+            <th>{{ t('reports.column_modified') }}</th>
+            <th>{{ t('common.actions') }}</th>
           </tr>
         </thead>
         <tbody id="reports-body">
-          <tr><td colspan="5"><div class="ms-loading"><div class="ms-spinner"></div> Loading reports&hellip;</div></td></tr>
+          <tr><td colspan="5"><div class="ms-loading"><div class="ms-spinner"></div> {{ t('reports.loading') }}</div></td></tr>
         </tbody>
       </table>
     </div>
@@ -109,7 +109,7 @@ var RP = (function() {
   function loadProjects(callback) {
     fetch('/api/projects').then(function(r) { return r.json(); }).then(function(d) {
       var sel = document.getElementById('project-filter');
-      sel.innerHTML = '<option value="">All Projects</option>';
+      sel.innerHTML = '<option value="">' + msT('reports.filter_all_projects', 'All Projects') + '</option>';
       (d.projects || []).forEach(function(p) {
         var opt = document.createElement('option');
         opt.value = p.id;
@@ -132,7 +132,7 @@ var RP = (function() {
     fetch(url).then(function(r) { return r.json(); }).then(function(d) {
       var tbody = document.getElementById('reports-body');
       if (!d.reports || d.reports.length === 0) {
-        tbody.innerHTML = msEmptyHTML({ icon: 'report', title: 'No reports found', sub: 'Run a scan to generate your first report.', action: 'Go to Dashboard', href: '/dashboard' }, 5);
+        tbody.innerHTML = msEmptyHTML({ icon: 'report', title: msT('reports.empty_title'), sub: msT('reports.empty_run_a_scan'), action: msT('reports.empty_action'), href: '/dashboard' }, 5);
         return;
       }
       tbody.innerHTML = '';
@@ -144,9 +144,9 @@ var RP = (function() {
           + '<td class="dim">' + formatSize(r.size) + '</td>'
           + '<td class="dim">' + formatDate(r.modified) + '</td>'
           + '<td class="report-actions">'
-          + '<a class="view-link" href="/api/reports/' + encodeURIComponent(r.filename) + '/viewer' + (currentProjectId ? '?project_id=' + currentProjectId : '') + '" target="_blank">View</a>'
-          + '<a class="dl-link" href="/api/reports/' + encodeURIComponent(r.filename) + (currentProjectId ? '?project_id=' + currentProjectId : '') + '">Download</a>'
-          + '<button class="del-btn" onclick="RP.deleteReport(\'' + esc(r.filename) + '\')">Delete</button>'
+          + '<a class="view-link" href="/api/reports/' + encodeURIComponent(r.filename) + '/viewer' + (currentProjectId ? '?project_id=' + currentProjectId : '') + '" target="_blank">' + msT('reports.view', 'View') + '</a>'
+          + '<a class="dl-link" href="/api/reports/' + encodeURIComponent(r.filename) + (currentProjectId ? '?project_id=' + currentProjectId : '') + '">' + msT('common.download', 'Download') + '</a>'
+          + '<button class="del-btn" onclick="RP.deleteReport(\'' + esc(r.filename) + '\')">' + msT('common.delete', 'Delete') + '</button>'
           + '</td>';
         tbody.appendChild(tr);
       });
@@ -154,12 +154,13 @@ var RP = (function() {
   }
 
   function deleteReport(filename) {
-    if (!confirm('Delete ' + filename + '?')) return;
+    var prompt = msT('reports.confirm_delete', 'Delete {filename}?').replace('{filename}', filename);
+    if (!confirm(prompt)) return;
     var url = '/api/reports/' + encodeURIComponent(filename);
     if (currentProjectId) url += '?project_id=' + currentProjectId;
     fetch(url, { method: 'DELETE' })
       .then(function(r) { return r.json(); })
-      .then(function() { loadReports(); msToast('Report deleted', 'success'); });
+      .then(function() { loadReports(); msToast(msT('reports.deleted', 'Report deleted'), 'success'); });
   }
 
   function toggleCompare(cb) {
@@ -167,7 +168,7 @@ var RP = (function() {
     if (cb.checked) {
       if (!compareA) compareA = fn;
       else if (!compareB) compareB = fn;
-      else { cb.checked = false; msToast('Select only 2 reports for baseline and drift review', true); return; }
+      else { cb.checked = false; msToast(msT('reports.compare_limit', 'Select only 2 reports for baseline and drift review'), true); return; }
     } else {
       if (compareA === fn) compareA = null;
       if (compareB === fn) compareB = null;

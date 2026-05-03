@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ locale }}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MarlinSpike — Login</title>
+<title>{{ t('login.title') }}</title>
 <style>
 @font-face {
   font-family: 'Inter';
@@ -212,25 +212,33 @@ body {
     <div class="brand-icon">MS</div>
     <h1><span>MarlinSpike</span></h1>
   </div>
-  <div class="login-sub">passive OT topology mapping</div>
+  <div class="login-sub">{{ t('login.tagline') }}</div>
   {% if error %}
   <div class="login-error">{{ error }}</div>
   {% endif %}
   <form method="POST" action="/login">
     <div class="login-field">
-      <label>Username</label>
+      <label>{{ t('login.username') }}</label>
       <input type="text" name="username" autocomplete="username" autofocus required>
     </div>
     <div class="login-field">
-      <label>Password</label>
+      <label>{{ t('login.password') }}</label>
       <input type="password" name="password" autocomplete="current-password" required>
     </div>
-    <button type="submit" class="login-btn">Sign In</button>
+    <button type="submit" class="login-btn">{{ t('login.submit') }}</button>
   </form>
 </div>
 <div class="login-footer">
-  <a href="/">Home</a>
-  <a href="/about">About</a>
+  <a href="/">{{ t('login.home') }}</a>
+  <a href="/about">{{ t('login.about') }}</a>
+  <span style="opacity:0.4; margin: 0 6px;">·</span>
+  {% for lc in supported_locales %}
+    {% if lc != locale %}
+    <a href="/i18n/set/{{ lc }}?next=/login">{{ locale_labels[lc] }}</a>
+    {% else %}
+    <span style="color: var(--text); margin: 0 8px;">{{ locale_labels[lc] }}</span>
+    {% endif %}
+  {% endfor %}
 </div>
 </body>
 </html>

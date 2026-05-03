@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}MarlinSpike — Dashboard{% endblock %}
+{% block title %}MarlinSpike — {{ t('dashboard.title') }}{% endblock %}
 
 {% block head %}
 <style>
@@ -560,60 +560,57 @@
 
   <section class="workspace-hero">
     <div class="workspace-copy">
-      <div class="workspace-eyebrow"><span class="dot"></span> Analyst Workspace</div>
-      <h1 class="workspace-title"><span>MarlinSpike</span> keeps capture intake, live execution, and assessment outputs in one operating view.</h1>
-      <p class="workspace-subtitle">
-        Use this page as the working surface for project-scoped scanning, recent output review, and active-run follow-through.
-        The goal is fast orientation first, then smooth movement into topology and report analysis.
-      </p>
+      <div class="workspace-eyebrow"><span class="dot"></span> {{ t('dashboard.eyebrow') }}</div>
+      <h1 class="workspace-title"><span>{{ t('dashboard.workspace_title_lead') }}</span> {{ t('dashboard.workspace_title_rest') }}</h1>
+      <p class="workspace-subtitle">{{ t('dashboard.workspace_subtitle') }}</p>
       <div class="workspace-context">
-        <div class="context-pill">Project <b id="ws-context-project">Loading...</b></div>
-        <div class="context-pill">Source <b id="ws-context-source">PCAP File</b></div>
-        <div class="context-pill">Recent activity <b id="ws-context-activity">Loading...</b></div>
+        <div class="context-pill">{{ t('dashboard.context_project') }} <b id="ws-context-project">{{ t('common.loading') }}</b></div>
+        <div class="context-pill">{{ t('dashboard.context_source') }} <b id="ws-context-source">{{ t('dashboard.source_pcap_file') }}</b></div>
+        <div class="context-pill">{{ t('dashboard.context_activity') }} <b id="ws-context-activity">{{ t('common.loading') }}</b></div>
       </div>
     </div>
     <div class="workspace-actions">
-      <a class="btn btn-primary" href="#scan-workspace">Run Scan</a>
-      <a class="btn" href="#reports-section">Recent Reports</a>
-      <a class="btn" href="#history-section">Scan History</a>
-      <a class="btn" href="/projects">Projects</a>
+      <a class="btn btn-primary" href="#scan-workspace">{{ t('dashboard.cta_run_scan') }}</a>
+      <a class="btn" href="#reports-section">{{ t('dashboard.cta_recent_reports') }}</a>
+      <a class="btn" href="#history-section">{{ t('dashboard.cta_scan_history') }}</a>
+      <a class="btn" href="/projects">{{ t('dashboard.cta_projects') }}</a>
     </div>
   </section>
 
   <section class="workspace-kpis" aria-label="Workspace overview">
     <div class="workspace-kpi">
-      <div class="workspace-kpi-label">Project Focus</div>
-      <div class="workspace-kpi-value" id="ws-project-name">Loading...</div>
-      <div class="workspace-kpi-detail" id="ws-project-detail">Preparing workspace context...</div>
+      <div class="workspace-kpi-label">{{ t('dashboard.kpi_project_focus') }}</div>
+      <div class="workspace-kpi-value" id="ws-project-name">{{ t('common.loading') }}</div>
+      <div class="workspace-kpi-detail" id="ws-project-detail">{{ t('dashboard.kpi_project_focus_detail') }}</div>
     </div>
     <div class="workspace-kpi">
-      <div class="workspace-kpi-label">Capture Inventory</div>
+      <div class="workspace-kpi-label">{{ t('dashboard.kpi_capture_inventory') }}</div>
       <div class="workspace-kpi-value" id="ws-file-count">--</div>
-      <div class="workspace-kpi-detail" id="ws-file-detail">PCAPs ready in the selected project.</div>
+      <div class="workspace-kpi-detail" id="ws-file-detail">{{ t('dashboard.kpi_capture_inventory_detail') }}</div>
     </div>
     <div class="workspace-kpi">
-      <div class="workspace-kpi-label">Report Outputs</div>
+      <div class="workspace-kpi-label">{{ t('dashboard.kpi_report_outputs') }}</div>
       <div class="workspace-kpi-value" id="ws-report-count">--</div>
-      <div class="workspace-kpi-detail" id="ws-report-detail">Recent assessment artifacts available for review.</div>
+      <div class="workspace-kpi-detail" id="ws-report-detail">{{ t('dashboard.kpi_report_outputs_detail') }}</div>
     </div>
     <div class="workspace-kpi">
-      <div class="workspace-kpi-label">Recent Scans</div>
+      <div class="workspace-kpi-label">{{ t('dashboard.kpi_recent_scans') }}</div>
       <div class="workspace-kpi-value" id="ws-scan-count">--</div>
-      <div class="workspace-kpi-detail" id="ws-scan-detail">Latest execution state is loading.</div>
+      <div class="workspace-kpi-detail" id="ws-scan-detail">{{ t('dashboard.kpi_recent_scans_detail') }}</div>
     </div>
     <div class="workspace-kpi">
-      <div class="workspace-kpi-label">Attached Runs</div>
+      <div class="workspace-kpi-label">{{ t('dashboard.kpi_attached_runs') }}</div>
       <div class="workspace-kpi-value" id="ws-run-count">0</div>
-      <div class="workspace-kpi-detail" id="ws-run-detail">No active run panels attached.</div>
+      <div class="workspace-kpi-detail" id="ws-run-detail">{{ t('dashboard.kpi_attached_runs_detail') }}</div>
     </div>
   </section>
 
   <nav class="workspace-rail" aria-label="Workspace sections">
-    <a class="workspace-link" href="#scan-workspace">Capture Intake</a>
-    <a class="workspace-link" href="#reports-section">Assessment Outputs</a>
-    <a class="workspace-link" href="#history-section">Execution History</a>
-    <a class="workspace-link" href="/reports">Report Library</a>
-    <a class="workspace-link" href="/scans">Full Scan Ledger</a>
+    <a class="workspace-link" href="#scan-workspace">{{ t('dashboard.rail_capture_intake') }}</a>
+    <a class="workspace-link" href="#reports-section">{{ t('dashboard.rail_assessment_outputs') }}</a>
+    <a class="workspace-link" href="#history-section">{{ t('dashboard.rail_execution_history') }}</a>
+    <a class="workspace-link" href="/reports">{{ t('dashboard.rail_report_library') }}</a>
+    <a class="workspace-link" href="/scans">{{ t('dashboard.rail_full_ledger') }}</a>
   </nav>
 
   <div class="workspace-grid">
@@ -622,62 +619,62 @@
   <div class="panel workspace-span-2" id="scan-workspace">
     <div class="panel-header">
       <div class="panel-title-wrap">
-        <h2>Scan Workspace</h2>
-        <div class="panel-subtitle">Choose capture source, execution mode, and project scope before launching a run.</div>
+        <h2>{{ t('dashboard.scan_workspace') }}</h2>
+        <div class="panel-subtitle">{{ t('dashboard.scan_workspace_subtitle') }}</div>
       </div>
-      <button class="btn btn-success" id="btn-start" onclick="MS.startScan()">Start Scan</button>
+      <button class="btn btn-success" id="btn-start" onclick="MS.startScan()">{{ t('dashboard.start_scan') }}</button>
     </div>
     <div class="panel-body">
       <div class="scan-source-tabs">
-        <div class="scan-source-tab active" onclick="MS.setSource('file')">PCAP File</div>
-        <div class="scan-source-tab" onclick="MS.setSource('library')">Sample Library</div>
-        <div class="scan-source-tab" onclick="MS.setSource('upload')">Upload</div>
+        <div class="scan-source-tab active" onclick="MS.setSource('file')">{{ t('dashboard.source_tab_file') }}</div>
+        <div class="scan-source-tab" onclick="MS.setSource('library')">{{ t('dashboard.source_tab_library') }}</div>
+        <div class="scan-source-tab" onclick="MS.setSource('upload')">{{ t('dashboard.source_tab_upload') }}</div>
       </div>
 
       <!-- Command selector (shared across file + upload sources) -->
       <div class="scan-controls" id="scan-command-row" style="margin: 14px 0 12px; gap: 16px;">
         <div class="scan-field">
-          <label>Project</label>
+          <label>{{ t('dashboard.field_project') }}</label>
           <select id="scan-project" onchange="MS.onProjectChange()">
-            <option value="">Loading...</option>
+            <option value="">{{ t('common.loading') }}</option>
           </select>
         </div>
         <div class="scan-field" id="new-project-field" style="display:none;">
-          <label>New Project Name</label>
+          <label>{{ t('dashboard.field_new_project') }}</label>
           <div style="display:flex;gap:6px;">
-            <input type="text" id="new-project-name" placeholder="Project name..." style="min-width:160px;"
+            <input type="text" id="new-project-name" placeholder="{{ t('dashboard.field_new_project_placeholder') }}" style="min-width:160px;"
               onkeydown="if(event.key==='Enter')MS.createNewProject();if(event.key==='Escape')MS.cancelNewProject();">
-            <button class="btn btn-primary btn-sm" onclick="MS.createNewProject()" style="white-space:nowrap;">Create</button>
-            <button class="btn btn-sm" onclick="MS.cancelNewProject()">Cancel</button>
+            <button class="btn btn-primary btn-sm" onclick="MS.createNewProject()" style="white-space:nowrap;">{{ t('dashboard.create') }}</button>
+            <button class="btn btn-sm" onclick="MS.cancelNewProject()">{{ t('dashboard.cancel') }}</button>
           </div>
         </div>
         <div class="scan-field">
-          <label>Command <span class="info-hint">i<span class="info-tip"><b>Full Chain</b> runs all stages (ingest, dissect, topology, risk). Individual stages can be re-run separately to refine results without re-ingesting the PCAP.</span></span></label>
+          <label>{{ t('dashboard.field_command') }} <span class="info-hint">i<span class="info-tip">{{ t('dashboard.command_hint') }}</span></span></label>
           <select id="scan-command">
-            <option value="chain">Full Chain</option>
-            <option value="ingest">Ingest Only</option>
-            <option value="dissect">Dissect Only</option>
-            <option value="topology">Topology Only</option>
-            <option value="risk">Risk Only</option>
+            <option value="chain">{{ t('dashboard.cmd_chain') }}</option>
+            <option value="ingest">{{ t('dashboard.cmd_ingest') }}</option>
+            <option value="dissect">{{ t('dashboard.cmd_dissect') }}</option>
+            <option value="topology">{{ t('dashboard.cmd_topology') }}</option>
+            <option value="risk">{{ t('dashboard.cmd_risk') }}</option>
           </select>
         </div>
         <div class="scan-field">
-          <label>Profile <span class="info-hint">i<span class="info-tip"><b>Fast</b> skips deep packet inspection for quicker results. <b>Full</b> enables all DPI stages including protocol-level field extraction, OT command analysis, and malware IOC scanning.</span></span></label>
+          <label>{{ t('dashboard.field_profile') }} <span class="info-hint">i<span class="info-tip">{{ t('dashboard.profile_hint') }}</span></span></label>
           <select id="scan-profile">
-            <option value="fast">Fast</option>
-            <option value="full">Full</option>
+            <option value="fast">{{ t('dashboard.profile_fast') }}</option>
+            <option value="full">{{ t('dashboard.profile_full') }}</option>
           </select>
         </div>
         <div class="scan-field">
-          <label for="capture-filter">Capture filter (BPF) <span class="info-hint">i<span class="info-tip">Berkeley Packet Filter expression applied during ingestion. Use to focus analysis on specific hosts, subnets, or protocols. Example: <code style="font-size:0.9em;color:var(--accent);">host 10.0.0.1 and port 502</code></span></span></label>
-          <input type="text" id="capture-filter" placeholder="e.g. host 10.0.0.1 or port 502">
+          <label for="capture-filter">{{ t('dashboard.field_bpf') }} <span class="info-hint">i<span class="info-tip">{{ t('dashboard.bpf_hint') }} <code style="font-size:0.9em;color:var(--accent);">host 10.0.0.1 and port 502</code></span></span></label>
+          <input type="text" id="capture-filter" placeholder="{{ t('dashboard.bpf_placeholder') }}">
         </div>
         <div class="scan-field">
           <label>&nbsp;</label>
           <label for="skip-ephemeral" style="display:flex;align-items:center;gap:6px;margin:0;cursor:pointer;padding:7px 0;font-size:0.9em;text-transform:none;font-weight:normal;color:var(--text);">
             <input type="checkbox" id="skip-ephemeral" style="width:auto;min-width:auto;margin:0;" checked>
-            Skip ephemeral ports
-            <span class="info-hint">i<span class="info-tip">Excludes connections on ports 49152+ from the topology map. These are typically OS-assigned client ports that add noise. Disable for C2 beaconing or data exfiltration analysis where high ports may be significant.</span></span>
+            {{ t('dashboard.skip_ephemeral') }}
+            <span class="info-hint">i<span class="info-tip">{{ t('dashboard.skip_ephemeral_hint') }}</span></span>
           </label>
         </div>
       </div>
@@ -686,9 +683,9 @@
       <div class="scan-source-panel active" id="src-file">
         <div class="scan-controls" style="flex-direction:column;align-items:stretch;gap:8px;">
           <div class="scan-field">
-            <label>Select PCAP</label>
+            <label>{{ t('dashboard.field_select_pcap') }}</label>
             <select id="pcap-select">
-              <option value="">-- Loading... --</option>
+              <option value="">{{ t('common.loading') }}</option>
             </select>
           </div>
         </div>
@@ -697,7 +694,7 @@
       <!-- Sample Library -->
       <div class="scan-source-panel" id="src-library" style="flex-direction:column;">
         <div class="preset-library" id="preset-library">
-          <div style="text-align:center;padding:16px;color:var(--text-dim);">Loading sample library...</div>
+          <div style="text-align:center;padding:16px;color:var(--text-dim);">{{ t('dashboard.loading_sample_library') }}</div>
         </div>
       </div>
 
@@ -706,8 +703,8 @@
         <div style="width:100%;">
           <div class="upload-zone" id="upload-zone" onclick="document.getElementById('upload-input').click()">
             <span style="font-size:1.1em;margin-right:6px;">&#128193;</span>
-            Drop PCAP file here or click to browse
-            <span style="font-size:0.82em;color:var(--text-muted);margin-left:8px;">Max 200 MB</span>
+            {{ t('dashboard.upload_drop_hint') }}
+            <span style="font-size:0.82em;color:var(--text-muted);margin-left:8px;">{{ t('dashboard.upload_max', mb=200) }}</span>
           </div>
           <input type="file" id="upload-input" accept=".pcap,.pcapng,.cap">
           <div id="upload-status" style="margin-top:8px;font-size:0.85em;color:var(--text-dim);"></div>
@@ -724,30 +721,30 @@
   <div class="panel" id="reports-section">
     <div class="panel-header">
       <div class="panel-title-wrap">
-        <h2>Recent Reports</h2>
-        <div class="panel-subtitle">Open, baseline-compare, or remove the latest generated assessment outputs for the active project.</div>
+        <h2>{{ t('dashboard.recent_reports') }}</h2>
+        <div class="panel-subtitle">{{ t('dashboard.recent_reports_subtitle') }}</div>
       </div>
-      <button class="btn btn-sm" onclick="MS.loadReports()">Refresh</button>
+      <button class="btn btn-sm" onclick="MS.loadReports()">{{ t('common.refresh') }}</button>
     </div>
     <div class="panel-body">
       <div class="compare-bar" id="compare-bar">
-        <span>Baseline: <b id="compare-a">—</b> vs <b id="compare-b">—</b></span>
-        <button class="btn btn-primary btn-sm" onclick="MS.compareDiff()">View Drift</button>
-        <button class="btn btn-sm" onclick="MS.clearCompare()">Clear</button>
+        <span>{{ t('reports.baseline') }}: <b id="compare-a">—</b> {{ t('reports.vs') }} <b id="compare-b">—</b></span>
+        <button class="btn btn-primary btn-sm" onclick="MS.compareDiff()">{{ t('reports.view_drift') }}</button>
+        <button class="btn btn-sm" onclick="MS.clearCompare()">{{ t('reports.clear') }}</button>
       </div>
       <div class="dashboard-table-wrap">
         <table class="ms-table" id="reports-table">
           <thead>
             <tr>
               <th style="width:30px;"></th>
-              <th>Filename</th>
-              <th>Size</th>
-              <th>Modified</th>
-              <th>Actions</th>
+              <th>{{ t('reports.column_filename') }}</th>
+              <th>{{ t('common.size') }}</th>
+              <th>{{ t('reports.column_modified') }}</th>
+              <th>{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody id="reports-body">
-            <tr><td colspan="5"><div class="ms-loading"><div class="ms-spinner"></div> Loading reports&hellip;</div></td></tr>
+            <tr><td colspan="5"><div class="ms-loading"><div class="ms-spinner"></div> {{ t('reports.loading') }}</div></td></tr>
           </tbody>
         </table>
       </div>
@@ -758,8 +755,8 @@
   <div class="panel" id="history-section">
     <div class="panel-header">
       <div class="panel-title-wrap">
-        <h2>Recent Scan History</h2>
-        <div class="panel-subtitle">Track recent execution state, re-attach to live work, and retry failed file-based runs.</div>
+        <h2>{{ t('dashboard.recent_scans') }}</h2>
+        <div class="panel-subtitle">{{ t('dashboard.recent_scans_subtitle') }}</div>
       </div>
     </div>
     <div class="panel-body">
@@ -767,18 +764,18 @@
         <table class="ms-table" id="history-table">
           <thead>
             <tr>
-              <th>Run</th>
-              <th>User</th>
-              <th>Command</th>
-              <th>Source</th>
-              <th>Status</th>
-              <th title="Discovered nodes / edges">Nodes / Edges</th>
-              <th>Started</th>
+              <th>{{ t('scans.column_run') }}</th>
+              <th>{{ t('scans.column_user') }}</th>
+              <th>{{ t('scans.column_command') }}</th>
+              <th>{{ t('scans.column_source') }}</th>
+              <th>{{ t('common.status') }}</th>
+              <th title="{{ t('scans.nodes_edges_hint') }}">{{ t('scans.column_nodes_edges') }}</th>
+              <th>{{ t('scans.column_started') }}</th>
               <th></th>
             </tr>
           </thead>
           <tbody id="history-body">
-            <tr><td colspan="8"><div class="ms-loading"><div class="ms-spinner"></div> Loading scan history&hellip;</div></td></tr>
+            <tr><td colspan="8"><div class="ms-loading"><div class="ms-spinner"></div> {{ t('scans.loading') }}</div></td></tr>
           </tbody>
         </table>
       </div>
@@ -802,7 +799,7 @@ var MS = (function() {
   var compareA = null, compareB = null;
   var currentProjectId = null;
   var workspaceState = {
-    projectName: 'Loading...',
+    projectName: msT('common.loading', 'Loading…'),
     projectCount: 0,
     fileCount: 0,
     reportCount: 0,
@@ -810,7 +807,7 @@ var MS = (function() {
     scanCount: 0,
     latestScanStatus: '',
     latestScanTime: '',
-    sourceLabel: 'PCAP File'
+    sourceLabel: msT('dashboard.source_pcap_file', 'PCAP File')
   };
 
   function init() {
@@ -833,39 +830,46 @@ var MS = (function() {
   }
 
   function renderWorkspaceState() {
-    setText('ws-project-name', workspaceState.projectName || 'No project selected');
+    setText('ws-project-name', workspaceState.projectName || msT('dashboard.no_project_selected', 'No project selected'));
+    var projCount = workspaceState.projectCount || 0;
     setText(
       'ws-project-detail',
-      (workspaceState.projectCount || 0) + ' project' + ((workspaceState.projectCount || 0) === 1 ? '' : 's') + ' available in this workspace.'
+      projCount === 1
+        ? msT('dashboard.workspace_projects_one', '1 project available in this workspace.')
+        : msT('dashboard.workspace_projects_many', '{n} projects available in this workspace.').replace('{n}', projCount)
     );
     setText('ws-file-count', String(workspaceState.fileCount || 0));
     setText(
       'ws-file-detail',
       (workspaceState.fileCount || 0) === 0
-        ? 'No PCAPs loaded for the selected project yet.'
-        : 'PCAPs ready for intake in the active project.'
+        ? msT('dashboard.workspace_files_empty', 'No PCAPs loaded for the selected project yet.')
+        : msT('dashboard.workspace_files_ready', 'PCAPs ready for intake in the active project.')
     );
     setText('ws-report-count', String(workspaceState.reportCount || 0));
     setText(
       'ws-report-detail',
       workspaceState.reportModified
-        ? 'Latest output updated ' + formatRelativeTime(workspaceState.reportModified) + '. Open the viewer when you are ready to work it.'
-        : 'No reports generated for the selected project yet.'
+        ? msT('dashboard.workspace_reports_detail', 'Latest output updated {when}. Open the viewer when you are ready to work it.').replace('{when}', formatRelativeTime(workspaceState.reportModified))
+        : msT('dashboard.workspace_reports_empty', 'No reports generated for the selected project yet.')
     );
     setText('ws-scan-count', String(workspaceState.scanCount || 0));
     setText(
       'ws-scan-detail',
       workspaceState.latestScanStatus
-        ? 'Latest run is ' + workspaceState.latestScanStatus.toLowerCase() + (workspaceState.latestScanTime ? ' from ' + formatRelativeTime(workspaceState.latestScanTime) + '.' : '.')
-        : 'No recent scan activity loaded yet.'
+        ? (workspaceState.latestScanTime
+            ? msT('dashboard.workspace_scans_detail', 'Latest run is {status} from {when}.').replace('{status}', workspaceState.latestScanStatus.toLowerCase()).replace('{when}', formatRelativeTime(workspaceState.latestScanTime))
+            : msT('dashboard.workspace_scans_detail_no_time', 'Latest run is {status}.').replace('{status}', workspaceState.latestScanStatus.toLowerCase()))
+        : msT('dashboard.workspace_scans_empty', 'No recent scan activity loaded yet.')
     );
-    setText('ws-context-project', workspaceState.projectName || 'No project');
-    setText('ws-context-source', workspaceState.sourceLabel || 'PCAP File');
+    setText('ws-context-project', workspaceState.projectName || msT('dashboard.no_project', 'No project'));
+    setText('ws-context-source', workspaceState.sourceLabel || msT('dashboard.source_pcap_file', 'PCAP File'));
     setText(
       'ws-context-activity',
       workspaceState.reportModified
-        ? 'Report ' + formatRelativeTime(workspaceState.reportModified)
-        : (workspaceState.latestScanTime ? 'Scan ' + formatRelativeTime(workspaceState.latestScanTime) : 'No recent activity')
+        ? msT('dashboard.report_relative', 'Report {when}').replace('{when}', formatRelativeTime(workspaceState.reportModified))
+        : (workspaceState.latestScanTime
+            ? msT('dashboard.scan_relative', 'Scan {when}').replace('{when}', formatRelativeTime(workspaceState.latestScanTime))
+            : msT('dashboard.no_recent_activity', 'No recent activity'))
     );
   }
 
@@ -875,8 +879,10 @@ var MS = (function() {
     setText(
       'ws-run-detail',
       count === 0
-        ? 'No active run panels attached.'
-        : count + ' live run' + (count === 1 ? '' : 's') + ' currently attached for follow-through.'
+        ? msT('dashboard.run_summary_empty', 'No active run panels attached.')
+        : (count === 1
+            ? msT('dashboard.run_summary_one', '1 live run currently attached for follow-through.')
+            : msT('dashboard.run_summary_many', '{n} live runs currently attached for follow-through.').replace('{n}', count))
     );
   }
 
@@ -899,7 +905,7 @@ var MS = (function() {
       // Add sentinel
       var sentinel = document.createElement('option');
       sentinel.value = '__new__';
-      sentinel.textContent = '+ Create new project...';
+      sentinel.textContent = msT('dashboard.create_new_project', '+ Create new project…');
       sel.appendChild(sentinel);
       // Select first (Default)
       if (d.projects && d.projects.length > 0) {
@@ -950,9 +956,9 @@ var MS = (function() {
           loadReports();
           loadHistory();
         });
-        msToast('Project created', 'success');
+        msToast(msT('dashboard.project_created', 'Project created'), 'success');
       } else {
-        msToast(d.error || 'Failed', true);
+        msToast(d.error || msT('dashboard.project_create_failed', 'Failed to create project'), true);
       }
     });
   }
@@ -998,7 +1004,7 @@ var MS = (function() {
   function doUpload(file) {
     // Client-side size check
     if (file.size > 200 * 1024 * 1024) {
-      msToast('File too large (max 200 MB)', true);
+      msToast(msT('dashboard.file_too_large', 'File too large (max {max} MB)').replace('{max}', 200), true);
       return;
     }
     var status = document.getElementById('upload-status');
@@ -1159,12 +1165,12 @@ var MS = (function() {
     if (captureFilter) body.capture_filter = captureFilter;
     if (source === 'file') {
       body.pcap_file = document.getElementById('pcap-select').value;
-      if (!body.pcap_file) { msToast('Select a PCAP file', true); return; }
+      if (!body.pcap_file) { msToast(msT('dashboard.select_pcap_required', 'Select a PCAP file'), true); return; }
     } else if (source === 'library') {
-      if (!selectedPreset) { msToast('Select a sample PCAP from the library', true); return; }
+      if (!selectedPreset) { msToast(msT('dashboard.select_sample_required', 'Select a sample PCAP from the library'), true); return; }
       body.pcap_file = 'preset:' + selectedPreset;
     } else if (source === 'upload') {
-      if (!uploadedFile) { msToast('Upload a PCAP file first', true); return; }
+      if (!uploadedFile) { msToast(msT('dashboard.upload_pcap_required', 'Upload a PCAP file first'), true); return; }
       body.pcap_file = uploadedFile;
     }
 
@@ -1175,18 +1181,18 @@ var MS = (function() {
     }).then(function(r) { return r.json(); }).then(function(d) {
       if (d.ok) {
         attachRun(d.run_id);
-        msToast('Scan started', 'success');
+        msToast(msT('dashboard.scan_started', 'Scan started'), 'success');
       } else {
-        msToast(d.error || 'Failed to start scan', true);
+        msToast(d.error || msT('dashboard.scan_start_failed', 'Failed to start scan'), true);
       }
-    }).catch(function(e) { msToast('Error: ' + e.message, true); });
+    }).catch(function(e) { msToast(msT('common.error', 'Error') + ': ' + e.message, true); });
   }
 
   function stopScan(runId) {
     if (!runId) return;
     fetch('/api/runs/' + runId + '/stop', { method: 'POST' })
       .then(function(r) { return r.json(); })
-      .then(function() { msToast('Scan stopped', 'warning'); loadHistory(); });
+      .then(function() { msToast(msT('dashboard.scan_stopped', 'Scan stopped'), 'warning'); loadHistory(); });
   }
 
   function detachRun(runId) {
@@ -1204,7 +1210,7 @@ var MS = (function() {
     createRunPanel(runId);
     startPolling(runId);
     renderRunSummary();
-    msToast('Attached to run ' + runId.substring(0, 8));
+    msToast(msT('dashboard.attached_to_run', 'Attached to run {id}').replace('{id}', runId.substring(0, 8)));
   }
 
   function createRunPanel(runId) {
@@ -1219,8 +1225,8 @@ var MS = (function() {
       + '<h2>Scan <span class="mono" style="font-size:0.8em;color:var(--text-dim);">' + esc(runId.substring(0, 8)) + '</span></h2>'
       + '<div style="display:flex;gap:8px;align-items:center;">'
       + '<span class="badge badge-running" id="run-badge-' + runId + '">RUNNING</span>'
-      + '<button class="btn btn-danger btn-sm" id="run-stop-' + runId + '" onclick="MS.stopScan(\'' + esc(runId) + '\')">Stop</button>'
-      + '<button class="btn btn-sm" onclick="MS.detachRun(\'' + esc(runId) + '\')" title="Detach">&#10005;</button>'
+      + '<button class="btn btn-danger btn-sm" id="run-stop-' + runId + '" onclick="MS.stopScan(\'' + esc(runId) + '\')">' + msT('dashboard.run_stop', 'Stop') + '</button>'
+      + '<button class="btn btn-sm" onclick="MS.detachRun(\'' + esc(runId) + '\')" title="' + msT('dashboard.run_detach', 'Detach') + '">&#10005;</button>'
       + '</div></div>'
       + '<div class="panel-body">'
       + '<div class="run-progress-bar" id="run-bar-' + runId + '"></div>'
@@ -1228,7 +1234,7 @@ var MS = (function() {
       + '<span class="run-progress-label" id="run-label-' + runId + '">Starting...</span>'
       + '<span class="run-elapsed" id="run-elapsed-' + runId + '">0:00</span>'
       + '</div>'
-      + (IS_ADMIN ? '<button class="run-log-toggle" id="run-log-toggle-' + runId + '" onclick="MS.toggleLog(\'' + esc(runId) + '\')">Show log</button>' : '')
+      + (IS_ADMIN ? '<button class="run-log-toggle" id="run-log-toggle-' + runId + '" onclick="MS.toggleLog(\'' + esc(runId) + '\')">' + msT('dashboard.run_show_log', 'Show log') + '</button>' : '')
       + '<div class="live-output collapsed" id="run-output-' + runId + '"></div>'
       + '<div style="margin-top:8px;font-size:0.82em;color:var(--text-dim);" id="run-info-' + runId + '"></div>'
       + '<div style="margin-top:8px;">'
@@ -1392,7 +1398,7 @@ var MS = (function() {
         reportModified: (d.reports && d.reports.length) ? d.reports[0].modified : ''
       });
       if (!d.reports || d.reports.length === 0) {
-        tbody.innerHTML = msEmptyHTML({ icon: 'report', title: 'No reports yet', sub: 'Upload a PCAP and run a scan to generate your first topology report.' }, 5);
+        tbody.innerHTML = msEmptyHTML({ icon: 'report', title: msT('reports.empty_title', 'No reports yet'), sub: msT('reports.empty_sub', 'Upload a PCAP and run a scan to generate your first report.') }, 5);
         return;
       }
       tbody.innerHTML = '';
@@ -1404,27 +1410,28 @@ var MS = (function() {
           + '<td class="dim">' + formatSize(r.size) + '</td>'
           + '<td class="dim">' + formatDate(r.modified) + '</td>'
           + '<td class="report-actions">'
-          + '<a class="view-link" href="/api/reports/' + encodeURIComponent(r.filename) + '/viewer' + (currentProjectId ? '?project_id=' + currentProjectId : '') + '" target="_blank">View</a>'
-          + '<a class="dl-link" href="/api/reports/' + encodeURIComponent(r.filename) + (currentProjectId ? '?project_id=' + currentProjectId : '') + '">Download</a>'
-          + '<button class="del-btn" onclick="MS.deleteReport(\'' + esc(r.filename) + '\')">Delete</button>'
+          + '<a class="view-link" href="/api/reports/' + encodeURIComponent(r.filename) + '/viewer' + (currentProjectId ? '?project_id=' + currentProjectId : '') + '" target="_blank">' + msT('reports.view', 'View') + '</a>'
+          + '<a class="dl-link" href="/api/reports/' + encodeURIComponent(r.filename) + (currentProjectId ? '?project_id=' + currentProjectId : '') + '">' + msT('common.download', 'Download') + '</a>'
+          + '<button class="del-btn" onclick="MS.deleteReport(\'' + esc(r.filename) + '\')">' + msT('common.delete', 'Delete') + '</button>'
           + '</td>';
         tbody.appendChild(tr);
       });
       if (d.total > 10) {
         var tr = document.createElement('tr');
-        tr.innerHTML = '<td colspan="5" style="text-align:center;padding:12px;"><a href="/reports" style="color:var(--accent);font-size:0.88em;font-weight:500;">View all ' + d.total + ' reports &rarr;</a></td>';
+        tr.innerHTML = '<td colspan="5" style="text-align:center;padding:12px;"><a href="/reports" style="color:var(--accent);font-size:0.88em;font-weight:500;">' + msT('dashboard.view_all_reports', 'View all reports').replace('{n}', d.total) + ' &rarr;</a></td>';
         tbody.appendChild(tr);
       }
     });
   }
 
   function deleteReport(filename) {
-    if (!confirm('Delete ' + filename + '?')) return;
+    var prompt = msT('reports.confirm_delete', 'Delete {filename}?').replace('{filename}', filename);
+    if (!confirm(prompt)) return;
     var url = '/api/reports/' + encodeURIComponent(filename);
     if (currentProjectId) url += '?project_id=' + currentProjectId;
     fetch(url, { method: 'DELETE' })
       .then(function(r) { return r.json(); })
-      .then(function() { loadReports(); msToast('Report deleted', 'success'); });
+      .then(function() { loadReports(); msToast(msT('reports.deleted', 'Report deleted'), 'success'); });
   }
 
   // ── Compare ──
@@ -1435,7 +1442,7 @@ var MS = (function() {
       else if (!compareB) compareB = fn;
       else {
         cb.checked = false;
-        msToast('Select only 2 reports for baseline and drift review', true);
+        msToast(msT('reports.compare_limit', 'Select only 2 reports for baseline and drift review'), true);
         return;
       }
     } else {
@@ -1482,7 +1489,7 @@ var MS = (function() {
         latestScanTime: (d.scans && d.scans.length) ? d.scans[0].started_at : ''
       });
       if (!d.scans || d.scans.length === 0) {
-        tbody.innerHTML = msEmptyHTML({ icon: 'scan', title: 'No scan history yet', sub: 'Start a scan from the workspace above.' }, 8);
+        tbody.innerHTML = msEmptyHTML({ icon: 'scan', title: msT('scans.empty_title', 'No scan history yet'), sub: msT('dashboard.scans_empty_sub', 'Start a scan from the workspace above.') }, 8);
         return;
       }
       tbody.innerHTML = '';
@@ -1491,16 +1498,16 @@ var MS = (function() {
         // Actions column
         var actions = '';
         if (s.status === 'running') {
-          actions = '<button class="btn btn-sm btn-success" onclick="MS.attachRun(\'' + esc(s.run_id) + '\')">Attach</button>';
+          actions = '<button class="btn btn-sm btn-success" onclick="MS.attachRun(\'' + esc(s.run_id) + '\')">' + msT('dashboard.run_attach', 'Attach') + '</button>';
         } else if (s.status === 'completed' && s.report_filename) {
-          actions = '<a class="btn btn-sm" href="/api/reports/' + encodeURIComponent(s.report_filename) + '/viewer" target="_blank">View Report</a>';
+          actions = '<a class="btn btn-sm" href="/api/reports/' + encodeURIComponent(s.report_filename) + '/viewer" target="_blank">' + msT('scans.view_report', 'View Report') + '</a>';
         } else if ((s.status === 'failed' || s.status === 'interrupted') && s.pcap_source && !s.pcap_source.startsWith('live:')) {
-          actions = '<button class="btn btn-sm" onclick="MS.retryScan(\'' + esc(s.pcap_source) + '\',\'' + esc(s.command) + '\',\'' + esc(s.scan_profile || 'full') + '\')">Retry</button>';
+          actions = '<button class="btn btn-sm" onclick="MS.retryScan(\'' + esc(s.pcap_source) + '\',\'' + esc(s.command) + '\',\'' + esc(s.scan_profile || 'full') + '\')">' + msT('dashboard.run_retry', 'Retry') + '</button>';
         }
         // Error expand toggle
         var hasError = s.error_tail && (s.status === 'failed' || s.status === 'stopped' || s.status === 'interrupted');
         if (hasError) {
-          actions += ' <button class="btn btn-sm btn-danger" onclick="MS.toggleError(this)" style="font-size:0.75em;padding:2px 6px;">Details</button>';
+          actions += ' <button class="btn btn-sm btn-danger" onclick="MS.toggleError(this)" style="font-size:0.75em;padding:2px 6px;">' + msT('dashboard.run_details', 'Details') + '</button>';
         }
         // Nodes/Edges display
         var nodeEdge = '--';
@@ -1508,7 +1515,7 @@ var MS = (function() {
           nodeEdge = (s.node_count || 0) + ' / ' + (s.edge_count || 0);
         }
         tr.innerHTML =
-          '<td><span class="mono run-id-copy" title="Click to copy full ID" onclick="MS.copyId(this, \'' + esc(s.run_id) + '\')" style="font-size:0.8em;">' + esc(s.run_id.substring(0, 8)) + '</span></td>'
+          '<td><span class="mono run-id-copy" title="' + msT('scans.copy_id_hint', 'Click to copy full ID') + '" onclick="MS.copyId(this, \'' + esc(s.run_id) + '\')" style="font-size:0.8em;">' + esc(s.run_id.substring(0, 8)) + '</span></td>'
           + '<td>' + esc(s.user) + '</td>'
           + '<td>' + esc(displayCommand(s.command, s.scan_profile)) + '</td>'
           + '<td class="mono dim" style="font-size:0.8em;max-width:200px;overflow:hidden;text-overflow:ellipsis;">' + esc(s.pcap_source || '--') + '</td>'
@@ -1528,7 +1535,7 @@ var MS = (function() {
       });
       if (d.scans.length >= 10) {
         var tr = document.createElement('tr');
-        tr.innerHTML = '<td colspan="8" style="text-align:center;padding:12px;"><a href="/scans" style="color:var(--accent);font-size:0.88em;font-weight:500;">View all scans &rarr;</a></td>';
+        tr.innerHTML = '<td colspan="8" style="text-align:center;padding:12px;"><a href="/scans" style="color:var(--accent);font-size:0.88em;font-weight:500;">' + msT('dashboard.view_all_scans', 'View all scans') + ' &rarr;</a></td>';
         tbody.appendChild(tr);
       }
     });
@@ -1539,7 +1546,7 @@ var MS = (function() {
     if (errorRow && errorRow.classList.contains('history-error-row')) {
       var showing = errorRow.style.display !== 'none';
       errorRow.style.display = showing ? 'none' : '';
-      btn.textContent = showing ? 'Details' : 'Hide';
+      btn.textContent = showing ? msT('dashboard.run_details', 'Details') : msT('dashboard.run_hide', 'Hide');
     }
   }
 
@@ -1555,7 +1562,7 @@ var MS = (function() {
     var btn = document.getElementById('run-log-toggle-' + runId);
     if (!output || !btn) return;
     var collapsed = output.classList.toggle('collapsed');
-    btn.textContent = collapsed ? 'Show log' : 'Hide log';
+    btn.textContent = collapsed ? msT('dashboard.run_show_log', 'Show log') : msT('dashboard.run_hide_log', 'Hide log');
     if (!collapsed) output.scrollTop = output.scrollHeight;
   }
 
@@ -1569,11 +1576,11 @@ var MS = (function() {
     }).then(function(r) { return r.json(); }).then(function(d) {
       if (d.ok) {
         attachRun(d.run_id);
-        msToast('Scan retried', 'success');
+        msToast(msT('scans.retry_started', 'Scan retried'), 'success');
       } else {
-        msToast(d.error || 'Failed to retry scan', true);
+        msToast(d.error || msT('scans.retry_failed', 'Failed to retry scan'), true);
       }
-    }).catch(function(e) { msToast('Error: ' + e.message, true); });
+    }).catch(function(e) { msToast(msT('common.error', 'Error') + ': ' + e.message, true); });
   }
 
   // ── Helpers ──
@@ -1623,16 +1630,17 @@ var MS = (function() {
 
   function getSelectedProjectName() {
     var sel = document.getElementById('scan-project');
-    if (!sel || sel.selectedIndex < 0) return 'No project selected';
+    var fallback = msT('dashboard.no_project_selected', 'No project selected');
+    if (!sel || sel.selectedIndex < 0) return fallback;
     var opt = sel.options[sel.selectedIndex];
-    if (!opt || !opt.textContent) return 'No project selected';
+    if (!opt || !opt.textContent) return fallback;
     return opt.textContent.replace(/\s+\(\d+\s+PCAPs?\)\s*$/, '');
   }
 
   function formatSourceLabel(src) {
-    if (src === 'library') return 'Sample Library';
-    if (src === 'upload') return 'Upload';
-    return 'PCAP File';
+    if (src === 'library') return msT('dashboard.source_tab_library', 'Sample Library');
+    if (src === 'upload') return msT('dashboard.source_tab_upload', 'Upload');
+    return msT('dashboard.source_pcap_file', 'PCAP File');
   }
 
   // ── Init ──
