@@ -65,7 +65,24 @@ from marlinspike.i18n import (
     resolve_locale,
     t as _translate,
 )
-from marlinspike.models import AuditLog, AssetTag, FindingNote, PasswordResetToken, Project, ScanHistory, User, db
+from marlinspike.iocs import (
+    VALID_IOC_TYPES,
+    VALID_SEVERITIES,
+    parse_ioc_paste,
+    scan_ioc_list_against_reports,
+)
+from marlinspike.models import (
+    AssetTag,
+    AuditLog,
+    FindingNote,
+    IocEntry,
+    IocList,
+    PasswordResetToken,
+    Project,
+    ScanHistory,
+    User,
+    db,
+)
 
 APP_VERSION = "3.0.0"
 
@@ -4985,6 +5002,267 @@ def create_app():
                 for e in entries
             ],
         })
+
+    # ── IOC Threat Hunting ─────────────────────────────────────
+
+    def _ioc_entry_to_dict(e: IocEntry) -> dict:
+        return {
+            "id": e.id,
+            "ioc_type": e.ioc_type,
+            "value": e.value,
+            "label": e.label,
+            "severity": e.severity,
+        }
+
+    def _ioc_list_to_dict(lst: IocList, include_entries: bool = False) -> dict:
+        d = {
+            "id": lst.id,
+            "project_id": lst.project_id,
+            "name": lst.name,
+            "description": lst.description,
+            "source": lst.source,
+            "created_at": lst.created_at.isoformat() if lst.created_at else None,
+            "updated_at": lst.updated_at.isoformat() if lst.updated_at else None,
+            "created_by": lst.created_by,
+            "entry_count": IocEntry.query.filter_by(list_id=lst.id).count(),
+        }
+        if include_entries:
+            d["entries"] = [_ioc_entry_to_dict(e) for e in lst.entries]
+        return d
+
+    def _get_ioc_list_or_404(pid: int, list_id: int):
+        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        if not proj:
+            return None, None
+        lst = IocList.query.filter_by(id=list_id, project_id=pid).first()
+        return proj, lst
+
+    @app.route("/api/projects/<int:pid>/iocs")
+    @login_required
+    def api_ioc_lists(pid):
+        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        if not proj:
+            return jsonify({"error": "Project not found"}), 404
+        lists = IocList.query.filter_by(project_id=pid).order_by(IocList.created_at).all()
+        return jsonify({"lists": [_ioc_list_to_dict(lst) for lst in lists]})
+
+    @app.route("/api/projects/<int:pid>/iocs", methods=["POST"])
+    @login_required
+    def api_ioc_lists_create(pid):
+        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        if not proj:
+            return jsonify({"error": "Project not found"}), 404
+
+        body = request.get_json(silent=True) or {}
+        name = (body.get("name") or "").strip()
+        if not name:
+            return jsonify({"error": "name required"}), 400
+        if len(name) > 120:
+            return jsonify({"error": "name too long (max 120)"}), 400
+
+        if IocList.query.filter_by(project_id=pid, name=name).first():
+            return jsonify({"error": "IOC list name already exists in this project"}), 409
+
+        raw_entries = body.get("entries") or []
+        errors: list[dict] = []
+        validated: list[dict] = []
+        for idx, e in enumerate(raw_entries):
+            if not isinstance(e, dict):
+                errors.append({"index": idx, "reason": "entry must be an object"})
+                continue
+            ioc_type = (e.get("ioc_type") or "").strip().lower()
+            value = (e.get("value") or "").strip()
+            if ioc_type not in VALID_IOC_TYPES:
+                errors.append({"index": idx, "reason": f"invalid ioc_type '{ioc_type}'"})
+                continue
+            if not value:
+                errors.append({"index": idx, "reason": "value required"})
+                continue
+            sev = (e.get("severity") or "").strip().lower() or None
+            if sev and sev not in VALID_SEVERITIES:
+                errors.append({"index": idx, "reason": f"invalid severity '{sev}'"})
+                continue
+            validated.append({
+                "ioc_type": ioc_type,
+                "value": value,
+                "label": (e.get("label") or "").strip() or None,
+                "severity": sev,
+            })
+
+        lst = IocList(
+            project_id=pid,
+            name=name,
+            description=(body.get("description") or "").strip() or None,
+            source=(body.get("source") or "").strip() or None,
+            created_by=session.get("user_id"),
+        )
+        db.session.add(lst)
+        db.session.flush()
+
+        for e in validated:
+            db.session.add(IocEntry(list_id=lst.id, **e))
+
+        db.session.commit()
+        return jsonify({"ok": True, "list": _ioc_list_to_dict(lst, include_entries=True), "errors": errors}), 201
+
+    @app.route("/api/projects/<int:pid>/iocs/<int:list_id>")
+    @login_required
+    def api_ioc_list_get(pid, list_id):
+        proj, lst = _get_ioc_list_or_404(pid, list_id)
+        if proj is None:
+            return jsonify({"error": "Project not found"}), 404
+        if lst is None:
+            return jsonify({"error": "IOC list not found"}), 404
+        return jsonify({"list": _ioc_list_to_dict(lst, include_entries=True)})
+
+    @app.route("/api/projects/<int:pid>/iocs/<int:list_id>", methods=["PUT"])
+    @login_required
+    def api_ioc_list_replace(pid, list_id):
+        proj, lst = _get_ioc_list_or_404(pid, list_id)
+        if proj is None:
+            return jsonify({"error": "Project not found"}), 404
+        if lst is None:
+            return jsonify({"error": "IOC list not found"}), 404
+
+        body = request.get_json(silent=True) or {}
+
+        if "name" in body:
+            name = (body["name"] or "").strip()
+            if not name:
+                return jsonify({"error": "name required"}), 400
+            if len(name) > 120:
+                return jsonify({"error": "name too long (max 120)"}), 400
+            dup = IocList.query.filter_by(project_id=pid, name=name).first()
+            if dup and dup.id != list_id:
+                return jsonify({"error": "IOC list name already exists in this project"}), 409
+            lst.name = name
+
+        if "description" in body:
+            lst.description = (body["description"] or "").strip() or None
+        if "source" in body:
+            lst.source = (body["source"] or "").strip() or None
+
+        # Full replace of entries
+        raw_entries = body.get("entries")
+        errors: list[dict] = []
+        if raw_entries is not None:
+            IocEntry.query.filter_by(list_id=lst.id).delete()
+            for idx, e in enumerate(raw_entries):
+                if not isinstance(e, dict):
+                    errors.append({"index": idx, "reason": "entry must be an object"})
+                    continue
+                ioc_type = (e.get("ioc_type") or "").strip().lower()
+                value = (e.get("value") or "").strip()
+                if ioc_type not in VALID_IOC_TYPES:
+                    errors.append({"index": idx, "reason": f"invalid ioc_type '{ioc_type}'"})
+                    continue
+                if not value:
+                    errors.append({"index": idx, "reason": "value required"})
+                    continue
+                sev = (e.get("severity") or "").strip().lower() or None
+                if sev and sev not in VALID_SEVERITIES:
+                    errors.append({"index": idx, "reason": f"invalid severity '{sev}'"})
+                    continue
+                db.session.add(IocEntry(
+                    list_id=lst.id,
+                    ioc_type=ioc_type,
+                    value=value,
+                    label=(e.get("label") or "").strip() or None,
+                    severity=sev,
+                ))
+
+        db.session.commit()
+        return jsonify({"ok": True, "list": _ioc_list_to_dict(lst, include_entries=True), "errors": errors})
+
+    @app.route("/api/projects/<int:pid>/iocs/<int:list_id>", methods=["DELETE"])
+    @login_required
+    def api_ioc_list_delete(pid, list_id):
+        proj, lst = _get_ioc_list_or_404(pid, list_id)
+        if proj is None:
+            return jsonify({"error": "Project not found"}), 404
+        if lst is None:
+            return jsonify({"error": "IOC list not found"}), 404
+        db.session.delete(lst)  # cascade deletes entries via relationship
+        db.session.commit()
+        return jsonify({"ok": True})
+
+    @app.route("/api/projects/<int:pid>/iocs/<int:list_id>/import", methods=["POST"])
+    @login_required
+    def api_ioc_list_import(pid, list_id):
+        proj, lst = _get_ioc_list_or_404(pid, list_id)
+        if proj is None:
+            return jsonify({"error": "Project not found"}), 404
+        if lst is None:
+            return jsonify({"error": "IOC list not found"}), 404
+
+        body = request.get_json(silent=True) or {}
+        text = body.get("text") or ""
+        default_type = (body.get("default_type") or "ip").strip().lower()
+        if default_type not in VALID_IOC_TYPES:
+            return jsonify({"error": f"invalid default_type '{default_type}'"}), 400
+
+        parsed = parse_ioc_paste(text, default_type=default_type)
+        added = 0
+        skipped = 0
+
+        for e in parsed["entries"]:
+            existing = IocEntry.query.filter_by(
+                list_id=lst.id,
+                ioc_type=e["ioc_type"],
+                value=e["value"],
+            ).first()
+            if existing:
+                skipped += 1
+                continue
+            db.session.add(IocEntry(
+                list_id=lst.id,
+                ioc_type=e["ioc_type"],
+                value=e["value"],
+            ))
+            added += 1
+
+        db.session.commit()
+        return jsonify({"added": added, "skipped": skipped, "errors": parsed["errors"]})
+
+    @app.route("/api/projects/<int:pid>/iocs/<int:list_id>/scan", methods=["POST"])
+    @login_required
+    def api_ioc_list_scan(pid, list_id):
+        proj, lst = _get_ioc_list_or_404(pid, list_id)
+        if proj is None:
+            return jsonify({"error": "Project not found"}), 404
+        if lst is None:
+            return jsonify({"error": "IOC list not found"}), 404
+
+        entries = [
+            {
+                "id": e.id,
+                "ioc_type": e.ioc_type,
+                "value": e.value,
+                "label": e.label,
+                "severity": e.severity,
+            }
+            for e in IocEntry.query.filter_by(list_id=lst.id).all()
+        ]
+
+        # Collect all report paths for this project
+        rdir = os.path.join(config.REPORTS_DIR, str(session["user_id"]), str(pid))
+        report_paths: list[str] = []
+        if os.path.isdir(rdir):
+            for fn in sorted(os.listdir(rdir)):
+                if _is_primary_report_filename(fn):
+                    report_paths.append(os.path.join(rdir, fn))
+
+        result = scan_ioc_list_against_reports(
+            entries=entries,
+            report_paths=report_paths,
+            loader=_load_report_with_extensions,
+        )
+        result["list"] = {
+            "id": lst.id,
+            "name": lst.name,
+            "entry_count": len(entries),
+        }
+        return jsonify(result)
 
     return app
 

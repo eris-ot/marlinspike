@@ -142,3 +142,35 @@ class AuditLog(db.Model):
     created_at = db.Column(
         db.DateTime, default=lambda: datetime.now(timezone.utc)
     )
+
+
+# ── IOC Threat Hunting ──────────────────────────────────────────
+
+class IocList(db.Model):
+    __tablename__ = "ioc_lists"
+
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("projects.id"), nullable=False, index=True)
+    name = db.Column(db.String(120), nullable=False)
+    description = db.Column(db.Text)
+    source = db.Column(db.String(64))  # 'manual' | 'csv' | 'misp' | 'stix'
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_by = db.Column(db.Integer, db.ForeignKey("users.id"))
+
+    entries = db.relationship("IocEntry", backref="ioc_list", cascade="all, delete-orphan")
+
+    __table_args__ = (db.UniqueConstraint("project_id", "name", name="uq_ioc_list_name"),)
+
+
+class IocEntry(db.Model):
+    __tablename__ = "ioc_entries"
+
+    id = db.Column(db.Integer, primary_key=True)
+    list_id = db.Column(db.Integer, db.ForeignKey("ioc_lists.id"), nullable=False, index=True)
+    ioc_type = db.Column(db.String(16), nullable=False, index=True)  # 'ip'|'mac'|'oui'|'domain'|'sha256'|'md5'
+    value = db.Column(db.String(255), nullable=False, index=True)
+    label = db.Column(db.String(120))
+    severity = db.Column(db.String(20))
+
+    __table_args__ = (db.UniqueConstraint("list_id", "ioc_type", "value", name="uq_ioc_entry"),)
