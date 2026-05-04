@@ -555,6 +555,7 @@ body {
     <a href="/reports" class="{% if request.path == '/reports' %}active{% endif %}">{{ t('nav.reports') }}</a>
     <a href="/scans" class="{% if request.path == '/scans' %}active{% endif %}">{{ t('nav.scans') }}</a>
     <a href="/projects" class="{% if request.path == '/projects' %}active{% endif %}">{{ t('nav.projects') }}</a>
+    <a href="/iocs" class="{% if request.path == '/iocs' %}active{% endif %}">{{ t('nav.iocs') }}</a>
     <a href="/capabilities" class="{% if request.path == '/capabilities' %}active{% endif %}">{{ t('nav.capabilities') }}</a>
     {% if session.get('role') == 'admin' %}
     <a href="/users" class="{% if request.path == '/users' %}active{% endif %}">{{ t('nav.users') }}</a>

@@ -341,6 +341,192 @@ body {
   font-family: var(--font-mono);
 }
 
+.ms-timeline {
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px 10px 6px;
+  border: 1px solid var(--border-dim);
+  border-radius: 6px;
+  background: rgba(24, 38, 58, 0.32);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ms-timeline-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.78em;
+  color: var(--text-dim);
+}
+
+.ms-timeline-title {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 0.74em;
+}
+
+.ms-timeline-meta {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 0.78em;
+  color: var(--text-muted);
+}
+
+.ms-timeline-canvas {
+  position: relative;
+  height: 36px;
+  background: rgba(15, 24, 39, 0.55);
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: crosshair;
+  user-select: none;
+}
+
+.ms-timeline-bars {
+  display: flex;
+  align-items: flex-end;
+  height: 100%;
+  width: 100%;
+}
+
+.ms-timeline-bar {
+  flex: 1 1 0;
+  min-width: 1px;
+  background: linear-gradient(180deg, var(--accent-cyan), rgba(50, 184, 198, 0.4));
+  margin: 0 0.5px;
+  pointer-events: none;
+  transition: opacity 0.12s;
+}
+
+.ms-timeline-bar.dim {
+  opacity: 0.28;
+}
+
+.ms-timeline-selection {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(91, 138, 240, 0.18);
+  border-left: 1px solid var(--accent);
+  border-right: 1px solid var(--accent);
+  pointer-events: none;
+}
+
+.ms-timeline-axis {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 0.7em;
+  color: var(--text-muted);
+  padding: 0 1px;
+}
+
+.ms-asset-ctx {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background: rgba(15, 24, 39, 0.45);
+  border: 1px solid var(--border-dim);
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+.ms-asset-ctx-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ms-asset-ctx-row label {
+  font-size: 0.74em;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.ms-input {
+  width: 100%;
+  padding: 5px 8px;
+  font-family: var(--font-ui);
+  font-size: 0.86em;
+  background: rgba(10, 18, 29, 0.7);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.ms-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+textarea.ms-input {
+  resize: vertical;
+  font-family: var(--font-ui);
+  min-height: 36px;
+}
+
+.ms-asset-ctx-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.ms-asset-ctx-status {
+  font-size: 0.78em;
+  color: var(--text-dim);
+  margin-left: auto;
+}
+
+.ms-finding-ctx-bump {
+  display: inline-block;
+  font-size: 0.68em;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(212, 148, 58, 0.15);
+  color: var(--accent-amber);
+  border: 1px solid rgba(212, 148, 58, 0.32);
+  margin-left: 6px;
+}
+
+.ms-finding-ctx-drop {
+  background: rgba(50, 184, 198, 0.12);
+  color: var(--accent-cyan);
+  border-color: rgba(50, 184, 198, 0.28);
+}
+
+.ms-finding-note {
+  margin-top: 6px;
+  padding: 6px 8px;
+  background: rgba(91, 138, 240, 0.08);
+  border-left: 2px solid var(--accent);
+  border-radius: 3px;
+  font-size: 0.84em;
+  color: var(--text-dim);
+}
+
+.ms-finding-note-status {
+  display: inline-block;
+  font-size: 0.7em;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 1px 6px;
+  margin-right: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.ms-finding-note-status.status-resolved { color: var(--accent-green); border: 1px solid rgba(58, 173, 107, 0.4); }
+.ms-finding-note-status.status-investigating { color: var(--accent-amber); border: 1px solid rgba(212, 148, 58, 0.4); }
+.ms-finding-note-status.status-false_positive { color: var(--text-muted); border: 1px solid var(--border); }
+.ms-finding-note-status.status-open { color: var(--accent-cyan); border: 1px solid rgba(50, 184, 198, 0.4); }
+
 #ms-left-rail {
   overflow-y: auto;
   border-right: 1px solid var(--border);
@@ -1723,6 +1909,18 @@ body {
       </div>
     </div>
     <div class="ms-toolbar-status" id="ms-toolbar-status"></div>
+    <div class="ms-timeline" id="ms-timeline" style="display:none">
+      <div class="ms-timeline-head">
+        <span class="ms-timeline-title">{{ t('viewer.timeline.title') }}</span>
+        <span class="ms-timeline-meta" id="ms-timeline-meta"></span>
+        <button class="ms-btn" id="ms-timeline-reset" onclick="MS.resetTimeWindow()" style="display:none">{{ t('viewer.timeline.reset') }}</button>
+      </div>
+      <div class="ms-timeline-canvas" id="ms-timeline-canvas">
+        <div class="ms-timeline-bars" id="ms-timeline-bars"></div>
+        <div class="ms-timeline-selection" id="ms-timeline-selection" style="display:none"></div>
+      </div>
+      <div class="ms-timeline-axis" id="ms-timeline-axis"></div>
+    </div>
   </div>
 
   <div id="ms-left-rail">
@@ -2568,7 +2766,9 @@ var MS = (function() {
     '5': '#ec4899'
   };
 
-  var filterState = { query: '', focus: 'all' };
+  var filterState = { query: '', focus: 'all', timeWindow: null };
+  var timelineData = null;
+  var timelineSelectingFrom = null;
   var riskOverlay = false;
   var reportOpen = false;
   var macTableRendered = false;
@@ -3258,7 +3458,7 @@ var MS = (function() {
   }
 
   function renderTrafficWorkbench() {
-    var conversations = toArray(REPORT.conversations);
+    var conversations = timeFilteredConversations();
     var captureInfo = REPORT.capture_info || {};
 
     if (!conversations.length) {
@@ -3314,11 +3514,18 @@ var MS = (function() {
     var convTable = '<div class="ms-stage-table-wrap"><table class="ms-stage-table"><thead><tr>'
       + '<th>' + esc(tjs('viewer.traffic.col.source')) + '</th><th>' + esc(tjs('viewer.traffic.col.destination_arrow')) + '</th><th>' + esc(tjs('viewer.traffic.col.protocol')) + '</th><th>' + esc(tjs('viewer.traffic.col.port')) + '</th>'
       + '<th style="text-align:right">' + esc(tjs('viewer.traffic.col.packets')) + '</th><th style="text-align:right">' + esc(tjs('viewer.traffic.col.bytes')) + '</th><th style="text-align:right">' + esc(tjs('viewer.traffic.col.duration')) + '</th>'
+      + '<th>' + esc(tjs('viewer.traffic.col.extract')) + '</th>'
       + '</tr></thead><tbody>';
     topConvs.forEach(function(conv) {
       var src = String(conv.src_ip || conv.src_mac || 'Unknown');
       var dst = String(conv.dst_ip || conv.dst_mac || 'Unknown');
       var dur = trafficConvDuration(conv);
+      var extractArgs = JSON.stringify({
+        src: conv.src_ip || conv.src_mac || null,
+        dst: conv.dst_ip || conv.dst_mac || null,
+        port: conv.port || null,
+        protocol: conv.protocol || null
+      }).replace(/'/g, '&#39;');
       convTable += '<tr>'
         + '<td><button class="ms-stage-row-btn" onclick="MS.selectNodeByIp(\'' + escjs(src) + '\', true)"><span class="ms-inline-code">' + esc(src) + '</span></button></td>'
         + '<td><button class="ms-stage-row-btn" onclick="MS.selectNodeByIp(\'' + escjs(dst) + '\', true)"><span class="ms-inline-code">' + esc(dst) + '</span></button></td>'
@@ -3327,6 +3534,7 @@ var MS = (function() {
         + '<td style="text-align:right;font-family:var(--font-mono)">' + esc((Number(conv.packet_count) || 0).toLocaleString()) + '</td>'
         + '<td style="text-align:right;font-family:var(--font-mono)">' + esc(fmtBytes(conv.bytes_total)) + '</td>'
         + '<td style="text-align:right;font-family:var(--font-mono)">' + esc(dur > 0 ? fmtDurationSeconds(dur) : '—') + '</td>'
+        + '<td><button class="ms-mini-btn" onclick=\'MS.extractSubPcap(' + extractArgs + ')\' title="' + esc(tjs('viewer.traffic.extract_title')) + '">' + esc(tjs('viewer.traffic.extract_btn')) + '</button></td>'
         + '</tr>';
     });
     convTable += '</tbody></table></div>';
@@ -3570,7 +3778,7 @@ var MS = (function() {
   ];
 
   function dissectorFamilyHits() {
-    var conversations = toArray(REPORT.conversations);
+    var conversations = timeFilteredConversations();
     var perFamily = {};
     DISSECTOR_FAMILIES.forEach(function(family) {
       perFamily[family.id] = { family: family, conversations: [], breakdown: {}, totalBytes: 0, totalPackets: 0 };
@@ -3600,7 +3808,7 @@ var MS = (function() {
   }
 
   function renderProtocolsWorkbench() {
-    var conversations = toArray(REPORT.conversations);
+    var conversations = timeFilteredConversations();
     if (!conversations.length) {
       return '<div class="ms-stage-shell"><div class="ms-stage-stack">'
         + stageSection(tjs('viewer.mode.protocols'), '<div class="ms-stage-note">' + esc(tjs('viewer.proto.empty_no_conversations')) + '</div>', tjs('viewer.traffic.zero_conversations'))
@@ -3663,9 +3871,17 @@ var MS = (function() {
         pairsTable = '<div class="ms-stage-table-wrap"><table class="ms-stage-table"><thead><tr>'
           + '<th>' + esc(tjs('viewer.traffic.col.source')) + '</th><th>' + esc(tjs('viewer.traffic.col.destination_arrow')) + '</th><th>' + esc(tjs('viewer.proto.col.ports')) + '</th>'
           + '<th style="text-align:right">' + esc(tjs('viewer.proto.col.conversations')) + '</th><th style="text-align:right">' + esc(tjs('viewer.traffic.col.packets')) + '</th><th style="text-align:right">' + esc(tjs('viewer.traffic.col.bytes')) + '</th>'
+          + '<th>' + esc(tjs('viewer.traffic.col.extract')) + '</th>'
           + '</tr></thead><tbody>';
         topPairs.forEach(function(p) {
           var ports = Object.keys(p.ports).slice(0, 4).join(', ') || '—';
+          var firstPort = Object.keys(p.ports)[0] || null;
+          var extractArgs = JSON.stringify({
+            src: p.src,
+            dst: p.dst,
+            port: firstPort,
+            protocol: family.id
+          }).replace(/'/g, '&#39;');
           pairsTable += '<tr>'
             + '<td><button class="ms-stage-row-btn" onclick="MS.selectNodeByIp(\'' + escjs(p.src) + '\', true)"><span class="ms-inline-code">' + esc(p.src) + '</span></button></td>'
             + '<td><button class="ms-stage-row-btn" onclick="MS.selectNodeByIp(\'' + escjs(p.dst) + '\', true)"><span class="ms-inline-code">' + esc(p.dst) + '</span></button></td>'
@@ -3673,6 +3889,7 @@ var MS = (function() {
             + '<td style="text-align:right;font-family:var(--font-mono)">' + esc(p.conversations.toLocaleString()) + '</td>'
             + '<td style="text-align:right;font-family:var(--font-mono)">' + esc(p.packets.toLocaleString()) + '</td>'
             + '<td style="text-align:right;font-family:var(--font-mono)">' + esc(fmtBytes(p.bytes)) + '</td>'
+            + '<td><button class="ms-mini-btn" onclick=\'MS.extractSubPcap(' + extractArgs + ')\' title="' + esc(tjs('viewer.traffic.extract_title')) + '">' + esc(tjs('viewer.traffic.extract_btn')) + '</button></td>'
             + '</tr>';
         });
         pairsTable += '</tbody></table></div>';
@@ -4036,8 +4253,235 @@ var MS = (function() {
     if (selectedNode) {
       parts.push('<span class="ms-status-pill">' + esc(tjs('viewer.toolbar.status.selected')) + ' <strong>' + esc(selectedNode._ip) + '</strong></span>');
     }
+    if (filterState.timeWindow) {
+      var w = filterState.timeWindow;
+      var spanS = w.end - w.start;
+      var label = spanS < 60 ? spanS.toFixed(0) + 's' : spanS < 3600 ? (spanS/60).toFixed(1) + 'm' : (spanS/3600).toFixed(2) + 'h';
+      parts.push('<span class="ms-status-pill">' + esc(tjs('viewer.toolbar.status.window')) + ' <strong>' + esc(label) + '</strong></span>');
+    }
     parts.push('<span>' + tjs('viewer.toolbar.status.hint') + '</span>');
     document.getElementById('ms-toolbar-status').innerHTML = parts.join('');
+  }
+
+  // ── Asset context (Bet 2 UI) ───────────────────────────────
+  // Local mutable copy of the asset_tags map; we update it as the user saves edits.
+  var assetTagsByKey = (VIEWER_CONTEXT.asset_tags_by_key || {});
+  var findingNotesBySig = (VIEWER_CONTEXT.finding_notes_by_sig || {});
+  var projectId = (VIEWER_CONTEXT.project_id != null ? VIEWER_CONTEXT.project_id : null);
+
+  function assetTagFor(node) {
+    if (!node) return null;
+    // Match server-side dedup: MAC first, IP fallback.
+    if (node.mac && assetTagsByKey[node.mac]) return assetTagsByKey[node.mac];
+    var ip = node._ip || node.ip;
+    if (ip && assetTagsByKey[ip]) return assetTagsByKey[ip];
+    return null;
+  }
+
+  function assetKeyForNode(node) {
+    if (!node) return null;
+    return node.mac || node._ip || node.ip || null;
+  }
+
+  function renderAssetContextEditor(node) {
+    if (projectId == null) return '';  // viewer not opened with project_id; skip editor.
+    var key = assetKeyForNode(node);
+    if (!key) return '';
+    var tag = assetTagFor(node) || {};
+    var crit = String(tag.criticality || '');
+    function critOpt(value, label) {
+      var sel = (crit === value) ? ' selected' : '';
+      return '<option value="' + esc(value) + '"' + sel + '>' + esc(label) + '</option>';
+    }
+    var html = '<div class="ms-section-label">' + esc(tjs('viewer.asset_ctx.title')) + '</div>';
+    html += '<div class="ms-asset-ctx" data-asset-key="' + esc(key) + '">';
+    html += '<div class="ms-asset-ctx-row"><label>' + esc(tjs('viewer.asset_ctx.criticality')) + '</label>'
+      + '<select class="ms-input" data-field="criticality">'
+      + critOpt('', tjs('viewer.asset_ctx.crit_unset'))
+      + critOpt('low', tjs('viewer.asset_ctx.crit_low'))
+      + critOpt('medium', tjs('viewer.asset_ctx.crit_medium'))
+      + critOpt('high', tjs('viewer.asset_ctx.crit_high'))
+      + critOpt('critical', tjs('viewer.asset_ctx.crit_critical'))
+      + '</select></div>';
+    html += '<div class="ms-asset-ctx-row"><label>' + esc(tjs('viewer.asset_ctx.owner')) + '</label>'
+      + '<input class="ms-input" data-field="owner" value="' + esc(tag.owner || '') + '" placeholder="' + esc(tjs('viewer.asset_ctx.owner_ph')) + '"></div>';
+    html += '<div class="ms-asset-ctx-row"><label>' + esc(tjs('viewer.asset_ctx.zone')) + '</label>'
+      + '<input class="ms-input" data-field="zone" value="' + esc(tag.zone || '') + '" placeholder="' + esc(tjs('viewer.asset_ctx.zone_ph')) + '"></div>';
+    html += '<div class="ms-asset-ctx-row"><label>' + esc(tjs('viewer.asset_ctx.business_function')) + '</label>'
+      + '<input class="ms-input" data-field="business_function" value="' + esc(tag.business_function || '') + '" placeholder="' + esc(tjs('viewer.asset_ctx.bf_ph')) + '"></div>';
+    html += '<div class="ms-asset-ctx-row"><label>' + esc(tjs('viewer.asset_ctx.notes')) + '</label>'
+      + '<textarea class="ms-input" data-field="free_text" rows="2" placeholder="' + esc(tjs('viewer.asset_ctx.notes_ph')) + '">' + esc(tag.free_text || '') + '</textarea></div>';
+    html += '<div class="ms-asset-ctx-actions">'
+      + '<button class="ms-mini-btn" onclick="MS.saveAssetContext()">' + esc(tjs('viewer.asset_ctx.save')) + '</button>'
+      + (tag.id ? '<button class="ms-mini-btn" onclick="MS.deleteAssetContext()">' + esc(tjs('viewer.asset_ctx.delete')) + '</button>' : '')
+      + '<span class="ms-asset-ctx-status" id="ms-asset-ctx-status"></span>'
+      + '</div>';
+    html += '</div>';
+    return html;
+  }
+
+  function readAssetContextEditor() {
+    var root = document.querySelector('.ms-asset-ctx');
+    if (!root) return null;
+    var key = root.getAttribute('data-asset-key');
+    var fields = ['criticality', 'owner', 'zone', 'business_function', 'free_text'];
+    var payload = {};
+    fields.forEach(function(f) {
+      var el = root.querySelector('[data-field="' + f + '"]');
+      if (el) {
+        var v = String(el.value || '').trim();
+        payload[f] = v === '' ? null : v;
+      }
+    });
+    return { key: key, payload: payload };
+  }
+
+  function setAssetCtxStatus(msg, tone) {
+    var el = document.getElementById('ms-asset-ctx-status');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.style.color = tone === 'error' ? 'var(--color-danger)' : tone === 'success' ? 'var(--accent-green)' : 'var(--text-dim)';
+  }
+
+  function saveAssetContext() {
+    if (projectId == null) return;
+    var data = readAssetContextEditor();
+    if (!data || !data.key) return;
+    setAssetCtxStatus(tjs('viewer.asset_ctx.saving'));
+    fetch('/api/projects/' + projectId + '/asset-tags/' + encodeURIComponent(data.key), {
+      method: 'PUT',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data.payload),
+    }).then(function(r) {
+      if (!r.ok) return r.text().then(function(t) { throw new Error(r.status + ' ' + t.slice(0, 200)); });
+      return r.json();
+    }).then(function(j) {
+      assetTagsByKey[data.key] = j.asset_tag || j;
+      setAssetCtxStatus(tjs('viewer.asset_ctx.saved'), 'success');
+      // Re-render the sidebar so the delete-button and contextual badges reflect saved state.
+      renderSidebar();
+    }).catch(function(e) {
+      setAssetCtxStatus(tjs('viewer.asset_ctx.save_failed') + ' ' + (e.message || ''), 'error');
+    });
+  }
+
+  function deleteAssetContext() {
+    if (projectId == null) return;
+    var data = readAssetContextEditor();
+    if (!data || !data.key) return;
+    if (!confirm(tjs('viewer.asset_ctx.delete_confirm'))) return;
+    setAssetCtxStatus(tjs('viewer.asset_ctx.deleting'));
+    fetch('/api/projects/' + projectId + '/asset-tags/' + encodeURIComponent(data.key), {
+      method: 'DELETE',
+      credentials: 'same-origin',
+    }).then(function(r) {
+      if (!r.ok && r.status !== 204) throw new Error(r.status + '');
+      delete assetTagsByKey[data.key];
+      setAssetCtxStatus('', '');
+      renderSidebar();
+    }).catch(function(e) {
+      setAssetCtxStatus(tjs('viewer.asset_ctx.delete_failed') + ' ' + (e.message || ''), 'error');
+    });
+  }
+
+  function findingNoteFor(finding) {
+    if (finding && finding.note) return finding.note;
+    return null;
+  }
+
+  function contextualSeverity(finding) {
+    return (finding && finding.contextual_severity) || (finding && finding.severity) || 'INFO';
+  }
+
+  // ── Finding note rendering + edit ─────────────────────────
+  function renderContextualBadge(finding) {
+    if (!finding) return '';
+    var base = String(finding.severity || '').toUpperCase();
+    var ctx = String(finding.contextual_severity || base).toUpperCase();
+    var reason = finding.contextual_severity_reason;
+    if (!reason || reason === 'unchanged' || ctx === base) return '';
+    var bumpedUp = String(reason).indexOf('bumped') === 0;
+    var cls = bumpedUp ? '' : 'ms-finding-ctx-drop';
+    var label = bumpedUp ? tjs('viewer.finding.ctx.bumped', { sev: ctx })
+                         : tjs('viewer.finding.ctx.reduced', { sev: ctx });
+    return '<span class="ms-finding-ctx-bump ' + cls + '" title="' + esc(reason) + '">' + esc(label) + '</span>';
+  }
+
+  function findingSignatureLocal(finding) {
+    if (finding && finding.signature) return finding.signature;
+    if (finding && finding.note && finding.note.id) return finding.note.signature || null;
+    return null;  // client cannot compute server signature; we rely on what server already attached
+  }
+
+  function renderFindingNote(finding) {
+    var note = findingNoteFor(finding);
+    if (!note) return '';
+    var status = String(note.status || 'open');
+    var body = note.body || '';
+    return '<div class="ms-finding-note">'
+      + '<span class="ms-finding-note-status status-' + esc(status) + '">' + esc(tjs('viewer.note.status.' + status)) + '</span>'
+      + (body ? esc(body) : '<em>' + esc(tjs('viewer.note.empty')) + '</em>')
+      + '</div>';
+  }
+
+  function findingNoteEditorButton(finding) {
+    if (projectId == null) return '';
+    if (!finding || !finding.signature) return '';  // server didn't tag → can't edit
+    return '<button class="ms-mini-btn" onclick="MS.openFindingNoteDialog(\'' + escjs(finding.signature) + '\')" style="margin-top:4px">' + esc(tjs('viewer.note.edit')) + '</button>';
+  }
+
+  function openFindingNoteDialog(sig) {
+    if (projectId == null || !sig) return;
+    var existing = findingNotesBySig[sig];
+    var status = (existing && existing.status) || 'open';
+    var body = (existing && existing.body) || '';
+    var newStatus = prompt(tjs('viewer.note.prompt_status') + ' (open / investigating / resolved / false_positive)', status);
+    if (newStatus === null) return;
+    newStatus = String(newStatus || '').trim().toLowerCase();
+    var allowed = ['open', 'investigating', 'resolved', 'false_positive'];
+    if (allowed.indexOf(newStatus) === -1) {
+      alert(tjs('viewer.note.bad_status'));
+      return;
+    }
+    var newBody = prompt(tjs('viewer.note.prompt_body'), body);
+    if (newBody === null) return;
+    saveFindingNote(sig, newStatus, newBody);
+  }
+
+  function saveFindingNote(sig, status, body) {
+    if (projectId == null || !sig) return;
+    fetch('/api/projects/' + projectId + '/notes/' + encodeURIComponent(sig), {
+      method: 'PUT',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        report_filename: REPORT_FILENAME,
+        status: status,
+        body: body,
+      }),
+    }).then(function(r) {
+      if (!r.ok) return r.text().then(function(t) { throw new Error(r.status + ' ' + t.slice(0, 200)); });
+      return r.json();
+    }).then(function() {
+      window.location.reload();
+    }).catch(function(e) {
+      alert(tjs('viewer.note.save_failed') + ' ' + (e.message || ''));
+    });
+  }
+
+  function deleteFindingNote(sig) {
+    if (projectId == null || !sig) return;
+    if (!confirm(tjs('viewer.note.delete_confirm'))) return;
+    fetch('/api/projects/' + projectId + '/notes/' + encodeURIComponent(sig), {
+      method: 'DELETE',
+      credentials: 'same-origin',
+    }).then(function(r) {
+      if (!r.ok && r.status !== 204) throw new Error(r.status + '');
+      window.location.reload();
+    }).catch(function(e) {
+      alert(tjs('viewer.note.delete_failed') + ' ' + (e.message || ''));
+    });
   }
 
   function renderSelectionPanel() {
@@ -4080,6 +4524,8 @@ var MS = (function() {
       html += '<div class="ms-field"><span class="label">' + esc(field[0]) + '</span><span class="value">' + esc(field[1]) + '</span></div>';
     });
     html += '</div>';
+
+    html += renderAssetContextEditor(n);
 
     if (n.system_desc) {
       html += '<div class="ms-section-label">' + esc(tjs('viewer.sel.description')) + '</div><div class="ms-service-item">' + esc(n.system_desc) + '</div>';
@@ -4138,7 +4584,8 @@ var MS = (function() {
     if (risks.length) {
       html += '<div class="ms-section-label">' + esc(tjs('viewer.sel.linked_findings')) + '</div>';
       risks.slice(0, 4).forEach(function(r) {
-        html += '<div class="ms-risk-item sev-' + esc(r.severity) + '"><div class="ms-risk-sev">' + esc(r.severity) + ' — ' + esc(r.category) + '</div><div>' + esc(r.description) + '</div></div>';
+        var ctxSev = contextualSeverity(r);
+        html += '<div class="ms-risk-item sev-' + esc(ctxSev) + '"><div class="ms-risk-sev">' + esc(ctxSev) + ' — ' + esc(r.category_label || r.category) + renderContextualBadge(r) + '</div><div>' + esc(r.description) + '</div>' + renderFindingNote(r) + findingNoteEditorButton(r) + '</div>';
       });
     }
 
@@ -4205,8 +4652,9 @@ var MS = (function() {
       risks.slice(0, 5).forEach(function(r) {
         var targetIp = toArray(r.affected_nodes)[0] || '';
         var clickable = targetIp && nodeByIp[targetIp];
-        html += '<div class="ms-risk-item sev-' + esc(r.severity) + '"' + (clickable ? ' style="cursor:pointer"' : '') + (clickable ? ' onclick="MS.selectNodeByIp(\'' + escjs(targetIp) + '\', true)"' : '') + '>';
-        html += '<div class="ms-risk-sev">' + esc(r.severity) + ' — ' + esc(r.category_label || r.category) + '</div>';
+        var ctxSev = contextualSeverity(r);
+        html += '<div class="ms-risk-item sev-' + esc(ctxSev) + '"' + (clickable ? ' style="cursor:pointer"' : '') + (clickable ? ' onclick="MS.selectNodeByIp(\'' + escjs(targetIp) + '\', true)"' : '') + '>';
+        html += '<div class="ms-risk-sev">' + esc(ctxSev) + ' — ' + esc(r.category_label || r.category) + renderContextualBadge(r) + '</div>';
         html += '<div>' + esc(r.description) + '</div>';
         if (r.remediation) {
           html += '<div style="margin-top:5px;color:var(--text-muted)">' + esc(r.remediation) + '</div>';
@@ -4214,6 +4662,8 @@ var MS = (function() {
         if (toArray(r.affected_nodes).length) {
           html += '<div style="margin-top:4px;color:var(--text-dim);font-family:var(--font-mono)">' + r.affected_nodes.map(esc).join(', ') + '</div>';
         }
+        html += renderFindingNote(r);
+        html += findingNoteEditorButton(r);
         html += '</div>';
       });
     }
@@ -5291,11 +5741,202 @@ var MS = (function() {
     });
   }
 
+  // ── Timeline + time-window filter ──────────────────────────
+  function fmtEpoch(s) {
+    var d = new Date(Number(s) * 1000);
+    if (isNaN(d.getTime())) return '—';
+    var hh = String(d.getUTCHours()).padStart(2, '0');
+    var mm = String(d.getUTCMinutes()).padStart(2, '0');
+    var ss = String(d.getUTCSeconds()).padStart(2, '0');
+    return d.getUTCFullYear() + '-' + String(d.getUTCMonth()+1).padStart(2,'0') + '-' + String(d.getUTCDate()).padStart(2,'0') + ' ' + hh + ':' + mm + ':' + ss + 'Z';
+  }
+
+  function loadTimeline() {
+    var url = '/api/reports/' + encodeURIComponent(REPORT_FILENAME) + '/timeline';
+    var qs = (typeof window !== 'undefined' && window.location && window.location.search) ? window.location.search : '';
+    if (qs) url += qs;
+    return fetch(url, { credentials: 'same-origin' })
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .catch(function() { return null; });
+  }
+
+  function renderTimeline(data) {
+    var el = document.getElementById('ms-timeline');
+    if (!el) return;
+    if (!data || !data.buckets || !data.buckets.length) {
+      el.style.display = 'none';
+      return;
+    }
+    timelineData = data;
+    el.style.display = '';
+
+    var maxPackets = 0;
+    data.buckets.forEach(function(b) { if (b.packets > maxPackets) maxPackets = b.packets; });
+    if (maxPackets <= 0) maxPackets = 1;
+
+    var bars = document.getElementById('ms-timeline-bars');
+    var html = '';
+    for (var i = 0; i < data.buckets.length; i++) {
+      var b = data.buckets[i];
+      var h = Math.max(2, Math.round((b.packets / maxPackets) * 100));
+      html += '<div class="ms-timeline-bar" data-idx="' + i + '" style="height:' + h + '%" title="' + esc(fmtEpoch(b.t)) + ' · ' + esc(b.packets.toLocaleString()) + ' pkts · ' + esc(b.conv_count) + ' conv"></div>';
+    }
+    bars.innerHTML = html;
+
+    var axis = document.getElementById('ms-timeline-axis');
+    axis.innerHTML = '<span>' + esc(fmtEpoch(data.first_seen)) + '</span><span>' + esc(fmtEpoch(data.last_seen)) + '</span>';
+
+    var meta = document.getElementById('ms-timeline-meta');
+    var span = data.last_seen - data.first_seen;
+    var spanText = span < 60 ? span.toFixed(0) + 's' : span < 3600 ? (span/60).toFixed(1) + 'm' : (span/3600).toFixed(2) + 'h';
+    meta.textContent = data.buckets.length + ' buckets · ' + spanText + ' span · ' + (data.bucket_seconds||1) + 's per bar';
+
+    bindTimelineDrag();
+    applyTimelineSelectionStyle();
+  }
+
+  function bindTimelineDrag() {
+    var canvas = document.getElementById('ms-timeline-canvas');
+    if (!canvas || canvas._bound) return;
+    canvas._bound = true;
+
+    function epochAt(clientX) {
+      if (!timelineData) return null;
+      var rect = canvas.getBoundingClientRect();
+      var pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      return timelineData.first_seen + pct * (timelineData.last_seen - timelineData.first_seen);
+    }
+
+    canvas.addEventListener('mousedown', function(e) {
+      if (!timelineData) return;
+      timelineSelectingFrom = epochAt(e.clientX);
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', function(e) {
+      if (timelineSelectingFrom === null) return;
+      var to = epochAt(e.clientX);
+      if (to === null) return;
+      var lo = Math.min(timelineSelectingFrom, to);
+      var hi = Math.max(timelineSelectingFrom, to);
+      filterState.timeWindow = { start: lo, end: hi };
+      applyTimelineSelectionStyle();
+    });
+    document.addEventListener('mouseup', function() {
+      if (timelineSelectingFrom === null) return;
+      timelineSelectingFrom = null;
+      // If the drag was a click (zero width), clear the selection.
+      if (filterState.timeWindow && (filterState.timeWindow.end - filterState.timeWindow.start) < (timelineData.bucket_seconds || 1) * 0.5) {
+        filterState.timeWindow = null;
+      }
+      applyTimelineSelectionStyle();
+      onTimeWindowChanged();
+    });
+  }
+
+  function applyTimelineSelectionStyle() {
+    var sel = document.getElementById('ms-timeline-selection');
+    var resetBtn = document.getElementById('ms-timeline-reset');
+    if (!sel || !timelineData) return;
+    if (!filterState.timeWindow) {
+      sel.style.display = 'none';
+      if (resetBtn) resetBtn.style.display = 'none';
+      // Un-dim all bars.
+      var bars = document.querySelectorAll('.ms-timeline-bar');
+      for (var i = 0; i < bars.length; i++) bars[i].classList.remove('dim');
+      return;
+    }
+    var span = timelineData.last_seen - timelineData.first_seen;
+    if (span <= 0) return;
+    var lo = Math.max(0, (filterState.timeWindow.start - timelineData.first_seen) / span);
+    var hi = Math.min(1, (filterState.timeWindow.end - timelineData.first_seen) / span);
+    sel.style.display = '';
+    sel.style.left = (lo * 100) + '%';
+    sel.style.width = ((hi - lo) * 100) + '%';
+    if (resetBtn) resetBtn.style.display = '';
+    // Dim bars outside the window.
+    var bars = document.querySelectorAll('.ms-timeline-bar');
+    for (var j = 0; j < bars.length; j++) {
+      var bIdx = parseInt(bars[j].getAttribute('data-idx'), 10);
+      var b = timelineData.buckets[bIdx];
+      if (!b) continue;
+      var bMid = b.t + (timelineData.bucket_seconds || 1) / 2;
+      bars[j].classList.toggle('dim', bMid < filterState.timeWindow.start || bMid > filterState.timeWindow.end);
+    }
+  }
+
+  function resetTimeWindow() {
+    filterState.timeWindow = null;
+    applyTimelineSelectionStyle();
+    onTimeWindowChanged();
+  }
+
+  function onTimeWindowChanged() {
+    // Re-render the active workbench pane so it picks up the new time filter.
+    renderWorkbenchStage();
+    renderToolbarStatus();
+  }
+
+  function conversationInTimeWindow(conv) {
+    if (!filterState.timeWindow) return true;
+    var first = Number(conv.first_seen);
+    var last = Number(conv.last_seen);
+    if (!isFinite(first) && !isFinite(last)) return true;  // no timestamps → don't drop
+    var lo = filterState.timeWindow.start;
+    var hi = filterState.timeWindow.end;
+    var convLo = isFinite(first) ? first : last;
+    var convHi = isFinite(last) ? last : first;
+    return convHi >= lo && convLo <= hi;
+  }
+
+  function timeFilteredConversations() {
+    var all = toArray(REPORT.conversations);
+    if (!filterState.timeWindow) return all;
+    return all.filter(conversationInTimeWindow);
+  }
+
+  // ── Sub-PCAP extract ───────────────────────────────────────
+  function extractSubPcap(args) {
+    args = args || {};
+    if (filterState.timeWindow) {
+      if (args.time_start == null) args.time_start = filterState.timeWindow.start;
+      if (args.time_end == null) args.time_end = filterState.timeWindow.end;
+    }
+    var url = '/api/reports/' + encodeURIComponent(REPORT_FILENAME) + '/extract';
+    var qs = (typeof window !== 'undefined' && window.location && window.location.search) ? window.location.search : '';
+    if (qs) url += qs;
+    var body = JSON.stringify(args);
+    fetch(url, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: body,
+    }).then(function(r) {
+      if (!r.ok) {
+        return r.text().then(function(t) { throw new Error('extract failed: ' + r.status + ' ' + t.slice(0, 200)); });
+      }
+      return r.blob().then(function(blob) {
+        var name = (args.src || 'unknown') + '_to_' + (args.dst || 'unknown') + (args.port ? '_p' + args.port : '') + '.pcap';
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() {
+          URL.revokeObjectURL(a.href);
+          document.body.removeChild(a);
+        }, 200);
+      });
+    }).catch(function(e) {
+      alert(tjs('viewer.extract.failed') + ' ' + (e && e.message ? e.message : ''));
+    });
+  }
+
   function start() {
     initData();
     renderHeader();
     renderSidebar();
     bindControls();
+    loadTimeline().then(renderTimeline);
     if (nodes.length === 0) {
       document.getElementById('ms-empty').style.display = 'block';
       document.getElementById('ms-svg-container').style.display = 'none';
@@ -5320,6 +5961,13 @@ var MS = (function() {
     setWorkbenchMode: setWorkbenchMode,
     clearFilters: clearFilters,
     applySearchTerm: applySearchTerm,
+    resetTimeWindow: resetTimeWindow,
+    extractSubPcap: extractSubPcap,
+    saveAssetContext: saveAssetContext,
+    deleteAssetContext: deleteAssetContext,
+    saveFindingNote: saveFindingNote,
+    deleteFindingNote: deleteFindingNote,
+    openFindingNoteDialog: openFindingNoteDialog,
     start: start
   };
 })();

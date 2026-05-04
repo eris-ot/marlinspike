@@ -2180,6 +2180,7 @@ def _apply_contextual_severity(
         item["contextual_severity_reason"] = reason
         item["note"] = note
         item["asset_tags"] = node_tag_map
+        item["signature"] = sig
         result.append(item)
     return result
 
@@ -2494,6 +2495,9 @@ def _build_viewer_context(report: dict, project_id: int = None, report_filename:
         "asset_evidence": asset_evidence,
         "module_views": module_views,
         "module_views_by_location": module_views_by_location,
+        "project_id": project_id,
+        "asset_tags_by_key": _ctx_asset_tags_by_key,
+        "finding_notes_by_sig": _ctx_notes_by_sig,
     }
 
 
@@ -2899,6 +2903,11 @@ def create_app():
     @login_required
     def projects_page():
         return render_template("projects.html")
+
+    @app.route("/iocs")
+    @login_required
+    def iocs_page():
+        return render_template("iocs.html")
 
     @app.route("/capabilities")
     @login_required

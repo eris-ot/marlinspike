@@ -1,0 +1,414 @@
+{% extends "base.html" %}
+{% block title %}MarlinSpike — {{ t('iocs.title') }}{% endblock %}
+
+{% block head %}
+<style>
+.iocs-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .iocs-layout { grid-template-columns: 1fr; }
+}
+.iocs-list-panel,
+.iocs-detail-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 16px;
+}
+.iocs-list-panel h3,
+.iocs-detail-panel h3 {
+  margin: 0 0 12px;
+  font-size: 0.9em;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+.iocs-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-dim);
+  border-radius: 4px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.iocs-list-item:hover { background: rgba(91, 138, 240, 0.08); }
+.iocs-list-item.active { border-color: var(--accent); background: rgba(91, 138, 240, 0.12); }
+.iocs-list-item-name { font-weight: 600; }
+.iocs-list-item-meta { font-size: 0.78em; color: var(--text-muted); font-family: var(--font-mono); }
+.iocs-create {
+  margin-top: 16px;
+  padding: 10px;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+}
+.iocs-create input,
+.iocs-create textarea,
+.iocs-import textarea {
+  width: 100%;
+  padding: 6px 8px;
+  margin-bottom: 8px;
+  background: rgba(10, 18, 29, 0.7);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 0.86em;
+}
+.iocs-import textarea {
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+  min-height: 90px;
+}
+.iocs-detail-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.iocs-stat {
+  background: var(--panel-alt);
+  padding: 8px 10px;
+  border-radius: 4px;
+  border-left: 2px solid var(--accent-cyan);
+}
+.iocs-stat .label { font-size: 0.72em; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.06em; }
+.iocs-stat .value { font-family: var(--font-mono); font-size: 1.05em; color: var(--text); }
+.iocs-entries-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 14px;
+}
+.iocs-entries-table th,
+.iocs-entries-table td {
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-dim);
+  font-size: 0.84em;
+}
+.iocs-entries-table th { color: var(--text-dim); font-weight: 600; text-transform: uppercase; font-size: 0.72em; letter-spacing: 0.06em; }
+.iocs-entries-table td.mono { font-family: var(--font-mono); }
+.iocs-type-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.72em;
+  text-transform: uppercase;
+  background: rgba(50, 184, 198, 0.12);
+  color: var(--accent-cyan);
+  border: 1px solid rgba(50, 184, 198, 0.28);
+}
+.iocs-sev-low { color: var(--accent-green); }
+.iocs-sev-medium { color: var(--accent-amber); }
+.iocs-sev-high { color: var(--accent-amber); font-weight: 600; }
+.iocs-sev-critical { color: var(--color-danger); font-weight: 700; }
+.iocs-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.iocs-import {
+  background: var(--panel-alt);
+  border: 1px solid var(--border-dim);
+  border-radius: 4px;
+  padding: 10px;
+  margin-bottom: 14px;
+}
+.iocs-scan-results {
+  background: var(--panel-alt);
+  border: 1px solid var(--border-dim);
+  border-radius: 4px;
+  padding: 10px;
+}
+.iocs-hit-row {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-dim);
+}
+.iocs-hit-row:last-child { border-bottom: none; }
+.iocs-hit-meta { font-size: 0.78em; color: var(--text-dim); font-family: var(--font-mono); }
+.iocs-empty {
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 20px;
+  text-align: center;
+}
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="ms-content">
+  <div class="panel">
+    <div class="panel-header">
+      <h2>{{ t('iocs.title') }}</h2>
+      <div class="page-toolbar">
+        <select id="ioc-project-filter" onchange="IOC.onProjectChange()">
+          <option value="">{{ t('common.loading') }}</option>
+        </select>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="iocs-layout">
+        <div class="iocs-list-panel">
+          <h3>{{ t('iocs.lists') }}</h3>
+          <div id="ioc-lists">
+            <div class="iocs-empty">{{ t('iocs.lists_loading') }}</div>
+          </div>
+          <div class="iocs-create">
+            <input type="text" id="ioc-new-name" placeholder="{{ t('iocs.new_name_ph') }}">
+            <input type="text" id="ioc-new-desc" placeholder="{{ t('iocs.new_desc_ph') }}">
+            <button class="btn btn-sm" onclick="IOC.createList()">{{ t('iocs.create_list') }}</button>
+          </div>
+        </div>
+
+        <div class="iocs-detail-panel">
+          <div id="ioc-detail">
+            <div class="iocs-empty">{{ t('iocs.pick_list_hint') }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+var IOC = (function() {
+  'use strict';
+
+  var pid = null;
+  var lists = [];
+  var activeListId = null;
+  var activeList = null;
+
+  function tjs(key) { return (typeof t === 'function') ? t(key) : key; }
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function fetchJson(url, init) {
+    return fetch(url, Object.assign({ credentials: 'same-origin' }, init || {}))
+      .then(function(r) {
+        if (!r.ok) return r.text().then(function(t) { throw new Error(r.status + ' ' + t.slice(0, 200)); });
+        if (r.status === 204) return null;
+        return r.json();
+      });
+  }
+
+  function loadProjects() {
+    return fetchJson('/api/projects').then(function(j) {
+      var sel = document.getElementById('ioc-project-filter');
+      var ps = (j && j.projects) ? j.projects : [];
+      sel.innerHTML = ps.map(function(p) {
+        return '<option value="' + p.id + '">' + esc(p.name) + '</option>';
+      }).join('');
+      if (ps.length) { pid = ps[0].id; sel.value = pid; }
+    });
+  }
+
+  function onProjectChange() {
+    var sel = document.getElementById('ioc-project-filter');
+    pid = parseInt(sel.value, 10) || null;
+    activeListId = null; activeList = null;
+    renderDetail();
+    loadLists();
+  }
+
+  function loadLists() {
+    if (pid == null) return;
+    fetchJson('/api/projects/' + pid + '/iocs').then(function(j) {
+      lists = (j && j.lists) ? j.lists : [];
+      renderLists();
+    });
+  }
+
+  function renderLists() {
+    var el = document.getElementById('ioc-lists');
+    if (!lists.length) {
+      el.innerHTML = '<div class="iocs-empty">{{ t('iocs.no_lists') }}</div>';
+      return;
+    }
+    el.innerHTML = lists.map(function(l) {
+      var active = (l.id === activeListId) ? ' active' : '';
+      return '<div class="iocs-list-item' + active + '" onclick="IOC.openList(' + l.id + ')">'
+        + '<div><div class="iocs-list-item-name">' + esc(l.name) + '</div>'
+        + (l.description ? '<div class="iocs-list-item-meta">' + esc(l.description) + '</div>' : '')
+        + '</div>'
+        + '<span class="iocs-list-item-meta">' + (l.entry_count || 0) + '</span>'
+        + '</div>';
+    }).join('');
+  }
+
+  function openList(listId) {
+    activeListId = listId;
+    fetchJson('/api/projects/' + pid + '/iocs/' + listId).then(function(j) {
+      activeList = j;
+      renderLists();
+      renderDetail();
+    });
+  }
+
+  function renderDetail() {
+    var el = document.getElementById('ioc-detail');
+    if (!activeList) {
+      el.innerHTML = '<div class="iocs-empty">{{ t('iocs.pick_list_hint') }}</div>';
+      return;
+    }
+    var entries = activeList.entries || [];
+    var html = '<h3>' + esc(activeList.name) + '</h3>';
+    if (activeList.description) html += '<p style="color:var(--text-dim);font-size:0.9em">' + esc(activeList.description) + '</p>';
+    html += '<div class="iocs-detail-meta">'
+      + '<div class="iocs-stat"><div class="label">{{ t('iocs.stat_entries') }}</div><div class="value">' + entries.length + '</div></div>'
+      + '<div class="iocs-stat"><div class="label">{{ t('iocs.stat_types') }}</div><div class="value">' + Object.keys(byType(entries)).length + '</div></div>'
+      + '</div>';
+
+    html += '<div class="iocs-import">'
+      + '<div style="font-size:0.82em;color:var(--text-dim);margin-bottom:4px">{{ t('iocs.bulk_import_hint') }}</div>'
+      + '<textarea id="ioc-paste" placeholder="' + esc('{{ t('iocs.bulk_paste_ph') }}') + '"></textarea>'
+      + '<button class="btn btn-sm" onclick="IOC.bulkImport()">{{ t('iocs.bulk_import') }}</button>'
+      + '</div>';
+
+    if (entries.length) {
+      html += '<table class="iocs-entries-table"><thead><tr>'
+        + '<th>{{ t('iocs.col_type') }}</th>'
+        + '<th>{{ t('iocs.col_value') }}</th>'
+        + '<th>{{ t('iocs.col_label') }}</th>'
+        + '<th>{{ t('iocs.col_severity') }}</th>'
+        + '</tr></thead><tbody>';
+      entries.slice(0, 200).forEach(function(e) {
+        html += '<tr><td><span class="iocs-type-chip">' + esc(e.ioc_type) + '</span></td>'
+          + '<td class="mono">' + esc(e.value) + '</td>'
+          + '<td>' + esc(e.label || '') + '</td>'
+          + '<td class="iocs-sev-' + esc(e.severity || '') + '">' + esc(e.severity || '') + '</td></tr>';
+      });
+      if (entries.length > 200) {
+        html += '<tr><td colspan="4" style="text-align:center;color:var(--text-muted)">' + esc('{{ t('iocs.entries_truncated', count=200) }}'.replace('{count}', '200')) + '</td></tr>';
+      }
+      html += '</tbody></table>';
+    }
+
+    html += '<div class="iocs-actions">'
+      + '<button class="btn btn-sm" onclick="IOC.runScan()">{{ t('iocs.run_scan') }}</button>'
+      + '<button class="btn btn-sm btn-danger" onclick="IOC.deleteList()">{{ t('iocs.delete_list') }}</button>'
+      + '</div>';
+
+    html += '<div id="ioc-scan-results"></div>';
+    el.innerHTML = html;
+  }
+
+  function byType(entries) {
+    var m = {};
+    entries.forEach(function(e) { m[e.ioc_type] = (m[e.ioc_type] || 0) + 1; });
+    return m;
+  }
+
+  function createList() {
+    if (pid == null) return;
+    var name = (document.getElementById('ioc-new-name').value || '').trim();
+    if (!name) { alert('{{ t('iocs.name_required') }}'); return; }
+    var desc = document.getElementById('ioc-new-desc').value || '';
+    fetchJson('/api/projects/' + pid + '/iocs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name, description: desc, entries: [] })
+    }).then(function(j) {
+      document.getElementById('ioc-new-name').value = '';
+      document.getElementById('ioc-new-desc').value = '';
+      loadLists();
+      if (j && j.list && j.list.id) openList(j.list.id);
+    }).catch(function(e) { alert('{{ t('iocs.create_failed') }} ' + e.message); });
+  }
+
+  function bulkImport() {
+    if (!activeListId) return;
+    var text = document.getElementById('ioc-paste').value || '';
+    if (!text.trim()) return;
+    fetchJson('/api/projects/' + pid + '/iocs/' + activeListId + '/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text, default_type: 'ip' })
+    }).then(function(j) {
+      var errs = (j.errors && j.errors.length) ? '\n{{ t('iocs.import_errors') }} ' + j.errors.length : '';
+      alert(('{{ t('iocs.import_summary') }}').replace('{added}', j.added || 0).replace('{skipped}', j.skipped || 0) + errs);
+      document.getElementById('ioc-paste').value = '';
+      openList(activeListId);
+    }).catch(function(e) { alert('{{ t('iocs.import_failed') }} ' + e.message); });
+  }
+
+  function runScan() {
+    if (!activeListId) return;
+    var resEl = document.getElementById('ioc-scan-results');
+    resEl.innerHTML = '<div style="padding:10px;color:var(--text-dim)">{{ t('iocs.scanning') }}</div>';
+    fetchJson('/api/projects/' + pid + '/iocs/' + activeListId + '/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}'
+    }).then(function(j) {
+      var html = '<div class="iocs-scan-results"><h3>{{ t('iocs.scan_results') }}</h3>';
+      var s = j.summary || {};
+      html += '<div class="iocs-detail-meta">'
+        + '<div class="iocs-stat"><div class="label">{{ t('iocs.scan_total_hits') }}</div><div class="value">' + (s.total_hits || 0) + '</div></div>'
+        + '<div class="iocs-stat"><div class="label">{{ t('iocs.scan_reports') }}</div><div class="value">' + (j.scanned_reports || 0) + '</div></div>'
+        + '</div>';
+      if (!(j.hits || []).length) {
+        html += '<div class="iocs-empty">{{ t('iocs.no_hits') }}</div>';
+      } else {
+        html += '<div>';
+        j.hits.slice(0, 200).forEach(function(h) {
+          html += '<div class="iocs-hit-row">'
+            + '<strong>' + esc(h.ioc.value) + '</strong> '
+            + '<span class="iocs-type-chip">' + esc(h.ioc.ioc_type) + '</span>'
+            + (h.ioc.label ? ' — ' + esc(h.ioc.label) : '')
+            + '<div class="iocs-hit-meta">' + esc(h.report) + ' · ' + (h.matches || []).length + ' match(es): '
+            + (h.matches || []).slice(0, 3).map(function(m) { return esc(m.location); }).join(', ')
+            + '</div></div>';
+        });
+        if (j.truncated) html += '<div class="iocs-empty">{{ t('iocs.scan_truncated') }}</div>';
+        html += '</div>';
+      }
+      html += '</div>';
+      resEl.innerHTML = html;
+    }).catch(function(e) {
+      resEl.innerHTML = '<div style="padding:10px;color:var(--color-danger)">{{ t('iocs.scan_failed') }} ' + esc(e.message) + '</div>';
+    });
+  }
+
+  function deleteList() {
+    if (!activeListId) return;
+    if (!confirm('{{ t('iocs.delete_confirm') }}')) return;
+    fetch('/api/projects/' + pid + '/iocs/' + activeListId, {
+      method: 'DELETE',
+      credentials: 'same-origin',
+    }).then(function() {
+      activeListId = null; activeList = null;
+      loadLists(); renderDetail();
+    });
+  }
+
+  function init() {
+    loadProjects().then(loadLists);
+  }
+
+  return {
+    onProjectChange: onProjectChange,
+    openList: openList,
+    createList: createList,
+    bulkImport: bulkImport,
+    runScan: runScan,
+    deleteList: deleteList,
+    init: init,
+  };
+})();
+
+document.addEventListener('DOMContentLoaded', IOC.init);
+</script>
+{% endblock %}
