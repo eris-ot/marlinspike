@@ -1043,5 +1043,6 @@
   "iocs.import_errors": "Errors:",
   "iocs.import_failed": "Import failed:",
   "iocs.create_failed": "Create failed:",
-  "iocs.name_required": "List name is required."
+  "iocs.name_required": "List name is required.",
+  "iocs.importing": "Importing…"
 }

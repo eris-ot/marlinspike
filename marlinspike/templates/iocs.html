@@ -262,7 +262,8 @@ var IOC = (function() {
   function openList(listId) {
     activeListId = listId;
     fetchJson('/api/projects/' + pid + '/iocs/' + listId).then(function(j) {
-      activeList = j;
+      // GET response is {"list": {...}}, unwrap.
+      activeList = (j && j.list) ? j.list : j;
       renderLists();
       renderDetail();
     });
@@ -286,6 +287,7 @@ var IOC = (function() {
       + '<div style="font-size:0.82em;color:var(--text-dim);margin-bottom:4px">' + tjs('iocs.bulk_import_hint') + '</div>'
       + '<textarea id="ioc-paste" placeholder="' + esc(tjs('iocs.bulk_paste_ph')) + '"></textarea>'
       + '<button class="btn btn-sm" onclick="IOC.bulkImport()">' + tjs('iocs.bulk_import') + '</button>'
+      + '<span id="ioc-import-status" style="margin-left:10px;font-size:0.82em"></span>'
       + '</div>';
 
     if (entries.length) {
@@ -325,7 +327,11 @@ var IOC = (function() {
   function createList() {
     if (pid == null) return;
     var name = (document.getElementById('ioc-new-name').value || '').trim();
-    if (!name) { alert(tjs('iocs.name_required')); return; }
+    var nameEl = document.getElementById('ioc-new-name');
+    if (!name) {
+      if (nameEl) { nameEl.style.borderColor = 'var(--color-danger)'; setTimeout(function(){ nameEl.style.borderColor = ''; }, 1500); }
+      return;
+    }
     var desc = document.getElementById('ioc-new-desc').value || '';
     fetchJson('/api/projects/' + pid + '/iocs', {
       method: 'POST',
@@ -336,23 +342,45 @@ var IOC = (function() {
       document.getElementById('ioc-new-desc').value = '';
       loadLists();
       if (j && j.list && j.list.id) openList(j.list.id);
-    }).catch(function(e) { alert('' + tjs('iocs.create_failed') + ' ' + e.message); });
+    }).catch(function(e) {
+      // Inline transient banner instead of blocking alert.
+      var banner = document.createElement('div');
+      banner.style.cssText = 'margin-top:8px;padding:6px 8px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.32);border-radius:4px;color:var(--color-danger);font-size:0.82em';
+      banner.textContent = tjs('iocs.create_failed') + ' ' + e.message;
+      var host = document.querySelector('.iocs-create');
+      if (host) { host.appendChild(banner); setTimeout(function(){ banner.remove(); }, 5000); }
+    });
+  }
+
+  function setImportStatus(msg, tone) {
+    var el = document.getElementById('ioc-import-status');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.style.color = tone === 'error' ? 'var(--color-danger)' : tone === 'success' ? 'var(--accent-green)' : 'var(--text-dim)';
   }
 
   function bulkImport() {
     if (!activeListId) return;
     var text = document.getElementById('ioc-paste').value || '';
     if (!text.trim()) return;
+    setImportStatus(tjs('iocs.importing'));
     fetchJson('/api/projects/' + pid + '/iocs/' + activeListId + '/import', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: text, default_type: 'ip' })
     }).then(function(j) {
-      var errs = (j.errors && j.errors.length) ? '\n' + tjs('iocs.import_errors') + ' ' + j.errors.length : '';
-      alert((tjs('iocs.import_summary')).replace('{added}', j.added || 0).replace('{skipped}', j.skipped || 0) + errs);
+      var errs = (j.errors && j.errors.length) ? ' · ' + tjs('iocs.import_errors') + ' ' + j.errors.length : '';
+      setImportStatus(
+        tjs('iocs.import_summary')
+          .replace('{added}', j.added || 0)
+          .replace('{skipped}', j.skipped || 0) + errs,
+        'success'
+      );
       document.getElementById('ioc-paste').value = '';
       openList(activeListId);
-    }).catch(function(e) { alert('' + tjs('iocs.import_failed') + ' ' + e.message); });
+    }).catch(function(e) {
+      setImportStatus(tjs('iocs.import_failed') + ' ' + e.message, 'error');
+    });
   }
 
   function runScan() {

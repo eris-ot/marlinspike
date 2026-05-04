@@ -1043,5 +1043,6 @@
   "iocs.import_errors": "Erreurs :",
   "iocs.import_failed": "Échec de l'import :",
   "iocs.create_failed": "Échec de création :",
-  "iocs.name_required": "Le nom de la liste est obligatoire."
+  "iocs.name_required": "Le nom de la liste est obligatoire.",
+  "iocs.importing": "Import en cours…"
 }
