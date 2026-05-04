@@ -187,8 +187,19 @@ var IOC = (function() {
   var lists = [];
   var activeListId = null;
   var activeList = null;
+  var I18N = {{ i18n_dict() | tojson }};
 
-  function tjs(key) { return (typeof t === 'function') ? t(key) : key; }
+  function tjs(key, params) {
+    var raw = I18N[key];
+    if (raw == null) raw = key;
+    if (params) {
+      Object.keys(params).forEach(function(k) {
+        raw = raw.replace(new RegExp('\\{' + k + '\\}', 'g'), String(params[k]));
+      });
+    }
+    return raw;
+  }
+
   function esc(s) {
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -234,7 +245,7 @@ var IOC = (function() {
   function renderLists() {
     var el = document.getElementById('ioc-lists');
     if (!lists.length) {
-      el.innerHTML = '<div class="iocs-empty">{{ t('iocs.no_lists') }}</div>';
+      el.innerHTML = '<div class="iocs-empty">' + tjs('iocs.no_lists') + '</div>';
       return;
     }
     el.innerHTML = lists.map(function(l) {
@@ -260,29 +271,29 @@ var IOC = (function() {
   function renderDetail() {
     var el = document.getElementById('ioc-detail');
     if (!activeList) {
-      el.innerHTML = '<div class="iocs-empty">{{ t('iocs.pick_list_hint') }}</div>';
+      el.innerHTML = '<div class="iocs-empty">' + tjs('iocs.pick_list_hint') + '</div>';
       return;
     }
     var entries = activeList.entries || [];
     var html = '<h3>' + esc(activeList.name) + '</h3>';
     if (activeList.description) html += '<p style="color:var(--text-dim);font-size:0.9em">' + esc(activeList.description) + '</p>';
     html += '<div class="iocs-detail-meta">'
-      + '<div class="iocs-stat"><div class="label">{{ t('iocs.stat_entries') }}</div><div class="value">' + entries.length + '</div></div>'
-      + '<div class="iocs-stat"><div class="label">{{ t('iocs.stat_types') }}</div><div class="value">' + Object.keys(byType(entries)).length + '</div></div>'
+      + '<div class="iocs-stat"><div class="label">' + tjs('iocs.stat_entries') + '</div><div class="value">' + entries.length + '</div></div>'
+      + '<div class="iocs-stat"><div class="label">' + tjs('iocs.stat_types') + '</div><div class="value">' + Object.keys(byType(entries)).length + '</div></div>'
       + '</div>';
 
     html += '<div class="iocs-import">'
-      + '<div style="font-size:0.82em;color:var(--text-dim);margin-bottom:4px">{{ t('iocs.bulk_import_hint') }}</div>'
-      + '<textarea id="ioc-paste" placeholder="' + esc('{{ t('iocs.bulk_paste_ph') }}') + '"></textarea>'
-      + '<button class="btn btn-sm" onclick="IOC.bulkImport()">{{ t('iocs.bulk_import') }}</button>'
+      + '<div style="font-size:0.82em;color:var(--text-dim);margin-bottom:4px">' + tjs('iocs.bulk_import_hint') + '</div>'
+      + '<textarea id="ioc-paste" placeholder="' + esc(tjs('iocs.bulk_paste_ph')) + '"></textarea>'
+      + '<button class="btn btn-sm" onclick="IOC.bulkImport()">' + tjs('iocs.bulk_import') + '</button>'
       + '</div>';
 
     if (entries.length) {
       html += '<table class="iocs-entries-table"><thead><tr>'
-        + '<th>{{ t('iocs.col_type') }}</th>'
-        + '<th>{{ t('iocs.col_value') }}</th>'
-        + '<th>{{ t('iocs.col_label') }}</th>'
-        + '<th>{{ t('iocs.col_severity') }}</th>'
+        + '<th>' + tjs('iocs.col_type') + '</th>'
+        + '<th>' + tjs('iocs.col_value') + '</th>'
+        + '<th>' + tjs('iocs.col_label') + '</th>'
+        + '<th>' + tjs('iocs.col_severity') + '</th>'
         + '</tr></thead><tbody>';
       entries.slice(0, 200).forEach(function(e) {
         html += '<tr><td><span class="iocs-type-chip">' + esc(e.ioc_type) + '</span></td>'
@@ -291,14 +302,14 @@ var IOC = (function() {
           + '<td class="iocs-sev-' + esc(e.severity || '') + '">' + esc(e.severity || '') + '</td></tr>';
       });
       if (entries.length > 200) {
-        html += '<tr><td colspan="4" style="text-align:center;color:var(--text-muted)">' + esc('{{ t('iocs.entries_truncated', count=200) }}'.replace('{count}', '200')) + '</td></tr>';
+        html += '<tr><td colspan="4" style="text-align:center;color:var(--text-muted)">' + esc(tjs('iocs.entries_truncated', {count: 200}).replace('{count}', '200')) + '</td></tr>';
       }
       html += '</tbody></table>';
     }
 
     html += '<div class="iocs-actions">'
-      + '<button class="btn btn-sm" onclick="IOC.runScan()">{{ t('iocs.run_scan') }}</button>'
-      + '<button class="btn btn-sm btn-danger" onclick="IOC.deleteList()">{{ t('iocs.delete_list') }}</button>'
+      + '<button class="btn btn-sm" onclick="IOC.runScan()">' + tjs('iocs.run_scan') + '</button>'
+      + '<button class="btn btn-sm btn-danger" onclick="IOC.deleteList()">' + tjs('iocs.delete_list') + '</button>'
       + '</div>';
 
     html += '<div id="ioc-scan-results"></div>';
@@ -314,7 +325,7 @@ var IOC = (function() {
   function createList() {
     if (pid == null) return;
     var name = (document.getElementById('ioc-new-name').value || '').trim();
-    if (!name) { alert('{{ t('iocs.name_required') }}'); return; }
+    if (!name) { alert(tjs('iocs.name_required')); return; }
     var desc = document.getElementById('ioc-new-desc').value || '';
     fetchJson('/api/projects/' + pid + '/iocs', {
       method: 'POST',
@@ -325,7 +336,7 @@ var IOC = (function() {
       document.getElementById('ioc-new-desc').value = '';
       loadLists();
       if (j && j.list && j.list.id) openList(j.list.id);
-    }).catch(function(e) { alert('{{ t('iocs.create_failed') }} ' + e.message); });
+    }).catch(function(e) { alert('' + tjs('iocs.create_failed') + ' ' + e.message); });
   }
 
   function bulkImport() {
@@ -337,30 +348,30 @@ var IOC = (function() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: text, default_type: 'ip' })
     }).then(function(j) {
-      var errs = (j.errors && j.errors.length) ? '\n{{ t('iocs.import_errors') }} ' + j.errors.length : '';
-      alert(('{{ t('iocs.import_summary') }}').replace('{added}', j.added || 0).replace('{skipped}', j.skipped || 0) + errs);
+      var errs = (j.errors && j.errors.length) ? '\n' + tjs('iocs.import_errors') + ' ' + j.errors.length : '';
+      alert((tjs('iocs.import_summary')).replace('{added}', j.added || 0).replace('{skipped}', j.skipped || 0) + errs);
       document.getElementById('ioc-paste').value = '';
       openList(activeListId);
-    }).catch(function(e) { alert('{{ t('iocs.import_failed') }} ' + e.message); });
+    }).catch(function(e) { alert('' + tjs('iocs.import_failed') + ' ' + e.message); });
   }
 
   function runScan() {
     if (!activeListId) return;
     var resEl = document.getElementById('ioc-scan-results');
-    resEl.innerHTML = '<div style="padding:10px;color:var(--text-dim)">{{ t('iocs.scanning') }}</div>';
+    resEl.innerHTML = '<div style="padding:10px;color:var(--text-dim)">' + tjs('iocs.scanning') + '</div>';
     fetchJson('/api/projects/' + pid + '/iocs/' + activeListId + '/scan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: '{}'
     }).then(function(j) {
-      var html = '<div class="iocs-scan-results"><h3>{{ t('iocs.scan_results') }}</h3>';
+      var html = '<div class="iocs-scan-results"><h3>' + tjs('iocs.scan_results') + '</h3>';
       var s = j.summary || {};
       html += '<div class="iocs-detail-meta">'
-        + '<div class="iocs-stat"><div class="label">{{ t('iocs.scan_total_hits') }}</div><div class="value">' + (s.total_hits || 0) + '</div></div>'
-        + '<div class="iocs-stat"><div class="label">{{ t('iocs.scan_reports') }}</div><div class="value">' + (j.scanned_reports || 0) + '</div></div>'
+        + '<div class="iocs-stat"><div class="label">' + tjs('iocs.scan_total_hits') + '</div><div class="value">' + (s.total_hits || 0) + '</div></div>'
+        + '<div class="iocs-stat"><div class="label">' + tjs('iocs.scan_reports') + '</div><div class="value">' + (j.scanned_reports || 0) + '</div></div>'
         + '</div>';
       if (!(j.hits || []).length) {
-        html += '<div class="iocs-empty">{{ t('iocs.no_hits') }}</div>';
+        html += '<div class="iocs-empty">' + tjs('iocs.no_hits') + '</div>';
       } else {
         html += '<div>';
         j.hits.slice(0, 200).forEach(function(h) {
@@ -372,19 +383,19 @@ var IOC = (function() {
             + (h.matches || []).slice(0, 3).map(function(m) { return esc(m.location); }).join(', ')
             + '</div></div>';
         });
-        if (j.truncated) html += '<div class="iocs-empty">{{ t('iocs.scan_truncated') }}</div>';
+        if (j.truncated) html += '<div class="iocs-empty">' + tjs('iocs.scan_truncated') + '</div>';
         html += '</div>';
       }
       html += '</div>';
       resEl.innerHTML = html;
     }).catch(function(e) {
-      resEl.innerHTML = '<div style="padding:10px;color:var(--color-danger)">{{ t('iocs.scan_failed') }} ' + esc(e.message) + '</div>';
+      resEl.innerHTML = '<div style="padding:10px;color:var(--color-danger)">' + tjs('iocs.scan_failed') + ' ' + esc(e.message) + '</div>';
     });
   }
 
   function deleteList() {
     if (!activeListId) return;
-    if (!confirm('{{ t('iocs.delete_confirm') }}')) return;
+    if (!confirm(tjs('iocs.delete_confirm'))) return;
     fetch('/api/projects/' + pid + '/iocs/' + activeListId, {
       method: 'DELETE',
       credentials: 'same-origin',
