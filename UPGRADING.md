@@ -125,6 +125,23 @@ helper:
       ...
   ```
 
+* **`set_concurrent_check_fn`** (in `marlinspike.app`) — replaces the global
+  single-scan limit with a wrapper-supplied policy. Useful for SaaS deployments
+  that need per-user or per-tier concurrency:
+
+  ```python
+  from marlinspike.app import set_concurrent_check_fn, _get_active_runs
+
+  def per_tier_limit(user_id):
+      tier_limit = lookup_tier_limit(user_id)             # your code
+      active = len(_get_active_runs(user_id=user_id))     # marlinspike helper
+      return active, tier_limit
+
+  set_concurrent_check_fn(per_tier_limit)
+  ```
+
+  When no hook is installed, behaviour is unchanged (1 scan globally).
+
 The next phase (planned for v3.1) will:
 
 - Refactor `create_app()` to accept `extra_blueprints`, `extra_template_dirs`,

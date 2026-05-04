@@ -661,13 +661,47 @@ def _build_findings_catalog():
 MAX_CONCURRENT_SCANS = 1
 
 
-def _get_active_runs():
-    """Return list of (run_id, run_state) for all active runs."""
+def _get_active_runs(user_id=None):
+    """Return list of (run_id, run_state) for active runs.
+
+    If ``user_id`` is given, restrict to runs owned by that user (used by the
+    per-user concurrency hook). Without it, returns every active run.
+    """
     active = []
     for run_id, run in _run_registry.items():
-        if run["status"] in ("pending", "running"):
-            active.append((run_id, run))
+        if run["status"] not in ("pending", "running"):
+            continue
+        if user_id is not None and run.get("user_id") != user_id:
+            continue
+        active.append((run_id, run))
     return active
+
+
+# ── Concurrency policy hook ─────────────────────────────────────────────────
+# Wrappers (e.g. cloudmarlin) override this to apply per-user / per-tier
+# concurrency limits. The hook receives the requesting user's id and returns
+# a (active_count, limit) tuple. When unset, marlinspike falls back to the
+# legacy global limit (``MAX_CONCURRENT_SCANS`` runs across all users).
+
+_concurrent_check_fn = None
+
+
+def set_concurrent_check_fn(fn):
+    """Install a callable that decides whether a scan request may proceed.
+
+    ``fn(user_id) -> (active_count, limit)``. Marlinspike rejects the request
+    with HTTP 409 when ``active_count >= limit``. Pass ``None`` to restore the
+    default global behaviour.
+    """
+    global _concurrent_check_fn
+    _concurrent_check_fn = fn
+
+
+def _resolve_concurrency(user_id):
+    if _concurrent_check_fn is not None:
+        return _concurrent_check_fn(user_id)
+    # Legacy default: one scan globally.
+    return len(_get_active_runs()), MAX_CONCURRENT_SCANS
 
 
 def _scan_artifacts(run_state):
@@ -3069,12 +3103,14 @@ def create_app():
                 return jsonify({"ok": False, "error": "File not found"}), 404
 
         with _runs_lock:
-            active = _get_active_runs()
-            if len(active) >= MAX_CONCURRENT_SCANS:
+            active_count, scan_limit = _resolve_concurrency(session.get("user_id"))
+            if active_count >= scan_limit:
+                # The active_run_ids list still reflects the GLOBAL set so the
+                # admin diagnostic surface is unchanged.
                 return jsonify({
                     "ok": False,
-                    "error": f"Maximum {MAX_CONCURRENT_SCANS} concurrent scans reached",
-                    "active_run_ids": [r[0] for r in active],
+                    "error": f"Maximum {scan_limit} concurrent scans reached",
+                    "active_run_ids": [r[0] for r in _get_active_runs()],
                 }), 409
             _cleanup_runs()
 
@@ -3196,6 +3232,7 @@ def create_app():
             "return_code": None,
             "artifacts_produced": {},
             "project_id": project_id,
+            "user_id": session.get("user_id"),
             "stop_requested": False,
             "pcap_path": pcap_path,
             "pcap_size": pcap_size,
