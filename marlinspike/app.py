@@ -1020,6 +1020,75 @@ def _sanitize_report(report: dict) -> dict:
     return r
 
 
+def _localize_finding(finding: dict, locale: str) -> dict:
+    """Overlay localized category label, description, and remediation on an
+    engine-emitted risk finding. Falls back to the engine's English values
+    when no translation is registered for the category. Description templates
+    receive ``count`` (= len(affected_nodes)) and ``ips`` (= sorted distinct
+    IP/MAC string) as substitution params, so categories whose engine prose
+    is templated by exactly those fields get a clean FR rendering."""
+    if locale == DEFAULT_LOCALE:
+        return finding
+    cat = str(finding.get("category") or "").strip().upper()
+    if not cat:
+        return finding
+    out = dict(finding)
+    affected = list(finding.get("affected_nodes") or [])
+    params = {
+        "count": len(affected),
+        "ips": ", ".join(sorted({str(x) for x in affected})),
+    }
+    label = _translate(f"viewer.finding.cat.{cat}", locale=locale)
+    if label and label != f"viewer.finding.cat.{cat}":
+        out["category_label"] = label
+    rem = _translate(f"viewer.finding.rem.{cat}", locale=locale)
+    if rem and rem != f"viewer.finding.rem.{cat}":
+        out["remediation"] = rem
+    desc = _translate(f"viewer.finding.desc.{cat}", locale=locale, **params)
+    if desc and desc != f"viewer.finding.desc.{cat}":
+        out["description"] = desc
+    return out
+
+
+def _localize_indicator(indicator: dict, locale: str) -> dict:
+    """C2 indicators carry ``type`` rather than ``category`` — same overlay,
+    keyed under ``viewer.indicator.*``."""
+    if locale == DEFAULT_LOCALE:
+        return indicator
+    cat = str(indicator.get("type") or "").strip().upper()
+    if not cat:
+        return indicator
+    out = dict(indicator)
+    rem = _translate(f"viewer.indicator.rem.{cat}", locale=locale)
+    if rem and rem != f"viewer.indicator.rem.{cat}":
+        out["remediation"] = rem
+    label = _translate(f"viewer.indicator.cat.{cat}", locale=locale)
+    if label and label != f"viewer.indicator.cat.{cat}":
+        out["type_label"] = label
+    desc = _translate(f"viewer.indicator.desc.{cat}", locale=locale)
+    if desc and desc != f"viewer.indicator.desc.{cat}":
+        out["description"] = desc
+    return out
+
+
+def _localize_report(report: dict, locale: str) -> dict:
+    """Apply locale overlays to a sanitized report's finding lists.
+
+    Keeps the structure intact; only swaps in localized strings where a
+    translation key exists. Engine-emitted English remains the fallback so
+    nothing goes blank if a category lacks a translation."""
+    if locale == DEFAULT_LOCALE:
+        return report
+    r = dict(report)
+    risk_findings = list(r.get("risk_findings") or [])
+    if risk_findings:
+        r["risk_findings"] = [_localize_finding(f, locale) for f in risk_findings]
+    c2_indicators = list(r.get("c2_indicators") or [])
+    if c2_indicators:
+        r["c2_indicators"] = [_localize_indicator(i, locale) for i in c2_indicators]
+    return r
+
+
 def _is_primary_report_filename(filename: str) -> bool:
     safe_name = os.path.basename(str(filename or ""))
     return bool(
@@ -2454,6 +2523,9 @@ def create_app():
     @app.before_request
     def csrf_check():
         if request.method in ('POST', 'PUT', 'DELETE'):
+            view = app.view_functions.get(request.endpoint)
+            if view is not None and getattr(view, "_csrf_exempt", False):
+                return
             origin = request.headers.get('Origin') or ''
             referer = request.headers.get('Referer') or ''
             expected_host = request.host.split(':')[0]
@@ -3655,6 +3727,11 @@ def create_app():
             return "Report not found", 404
         report = _load_report_with_extensions(path, ensure_mitre=True)
         sanitized_report = _sanitize_report(report)
+        # Localize finding/indicator strings per the request locale BEFORE the
+        # viewer context is built so the JS-rendered surfaces and the
+        # server-rendered report tab both see the same translated copy.
+        locale = getattr(g, "locale", DEFAULT_LOCALE)
+        sanitized_report = _localize_report(sanitized_report, locale)
         return render_template(
             "viewer.html",
             report=sanitized_report,

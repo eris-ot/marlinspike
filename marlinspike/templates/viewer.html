@@ -2029,7 +2029,7 @@ body {
               {% if viewer_context.top_findings %}
                 {% for finding in viewer_context.top_findings %}
                 <div class="ms-finding-card sev-{{ finding.severity }}">
-                  <div class="ms-finding-head"><span class="ms-finding-sev">{{ finding.severity }}</span><span class="ms-finding-cat">{{ finding.category }}</span></div>
+                  <div class="ms-finding-head"><span class="ms-finding-sev">{{ finding.severity }}</span><span class="ms-finding-cat">{{ finding.category_label or finding.category }}</span></div>
                   <div class="ms-finding-desc">{{ finding.description }}</div>
                   {% if finding.detection_id or finding.attack_ids %}
                   <div class="ms-finding-meta">
@@ -2820,18 +2820,18 @@ var MS = (function() {
 
   function queueTitle(focus) {
     return {
-      all: 'Visible Assets',
-      priority: 'Priority Targets',
-      risk: 'Assets With Findings',
-      'auth-gap': 'Auth Gaps',
-      writes: 'Write-Capable Paths',
-      unclassified: 'Needs Classification Review',
-      ot: 'OT Assets',
-      external: 'External / Level 5',
-      'level-1': 'Purdue Level 1',
-      'level-2': 'Purdue Level 2',
-      'level-3': 'Purdue Level 3'
-    }[focus || 'all'] || 'Visible Assets';
+      all: tjs('viewer.queue.title.all'),
+      priority: tjs('viewer.queue.title.priority'),
+      risk: tjs('viewer.queue.title.risk'),
+      'auth-gap': tjs('viewer.queue.title.auth_gap'),
+      writes: tjs('viewer.queue.title.writes'),
+      unclassified: tjs('viewer.queue.title.unclassified'),
+      ot: tjs('viewer.queue.title.ot'),
+      external: tjs('viewer.queue.title.external'),
+      'level-1': tjs('viewer.focus.level_1'),
+      'level-2': tjs('viewer.focus.level_2'),
+      'level-3': tjs('viewer.focus.level_3')
+    }[focus || 'all'] || tjs('viewer.queue.title.all');
   }
 
   function describeNodeForFocus(n, focus) {
@@ -2880,15 +2880,15 @@ var MS = (function() {
     if (!dpi.conversation_count) return '';
 
     var html = '';
-    html += '<div class="ms-section-label">Protocol Evidence</div>';
-    html += '<div class="ms-service-item">Observed in <strong>' + esc(dpi.conversation_count) + '</strong> enriched sessions';
+    html += '<div class="ms-section-label">' + esc(tjs('viewer.section.protocol_evidence')) + '</div>';
+    html += '<div class="ms-service-item">' + tjs('viewer.dpi.observed_in', { count: '<strong>' + esc(dpi.conversation_count) + '</strong>' });
     if (toArray(dpi.protocols).length) {
-      html += ' across <span style="font-family:var(--font-mono)">' + dpi.protocols.map(esc).join(', ') + '</span>';
+      html += ' ' + tjs('viewer.dpi.across') + ' <span style="font-family:var(--font-mono)">' + dpi.protocols.map(esc).join(', ') + '</span>';
     }
     html += '.</div>';
 
     if (toArray(dpi.identities).length) {
-      html += '<div class="ms-section-label">Identity Clues</div><div class="ms-chip-row">';
+      html += '<div class="ms-section-label">' + esc(tjs('viewer.dpi.identity_clues')) + '</div><div class="ms-chip-row">';
       html += interactive ? renderPairChips(dpi.identities, true) : toArray(dpi.identities).map(function(pair) {
         return '<span class="ms-chip" style="border-color:rgba(50,184,198,0.28);background:rgba(50,184,198,0.12);color:var(--accent-cyan)">' + esc(dpiPairText(pair)) + '</span>';
       }).join('');
@@ -2896,7 +2896,7 @@ var MS = (function() {
     }
 
     if (toArray(dpi.operations).length) {
-      html += '<div class="ms-section-label">Observed Operations</div><div class="ms-chip-row">';
+      html += '<div class="ms-section-label">' + esc(tjs('viewer.dpi.observed_operations')) + '</div><div class="ms-chip-row">';
       html += toArray(dpi.operations).map(function(op) {
         return '<span class="ms-chip">' + esc(op) + '</span>';
       }).join('');
@@ -2911,7 +2911,7 @@ var MS = (function() {
       if (pivotTerms.indexOf(item) === -1) pivotTerms.push(item);
     });
     if (pivotTerms.length) {
-      html += '<div class="ms-section-label">Hunt Pivots</div><div class="ms-chip-row">';
+      html += '<div class="ms-section-label">' + esc(tjs('viewer.dpi.hunt_pivots')) + '</div><div class="ms-chip-row">';
       html += pivotTerms.slice(0, 8).map(function(term) {
         if (interactive) return renderSearchChip(term, false);
         return '<span class="ms-chip">' + esc(term) + '</span>';
@@ -2920,7 +2920,7 @@ var MS = (function() {
     }
 
     if (toArray(dpi.asset_hints).length) {
-      html += '<div class="ms-section-label">Asset Clues</div><div class="ms-service-list">';
+      html += '<div class="ms-section-label">' + esc(tjs('viewer.dpi.asset_clues')) + '</div><div class="ms-service-list">';
       toArray(dpi.asset_hints).slice(0, 4).forEach(function(pair) {
         html += '<div class="ms-service-item"><strong>' + esc(pair.label) + ':</strong> <span style="font-family:var(--font-mono)">' + esc(pair.value) + '</span></div>';
       });
@@ -2928,14 +2928,14 @@ var MS = (function() {
     }
 
     if (toArray(dpi.peers).length) {
-      html += '<div class="ms-section-label">Peer Evidence</div><div class="ms-connection-list">';
+      html += '<div class="ms-section-label">' + esc(tjs('viewer.dpi.peer_evidence')) + '</div><div class="ms-connection-list">';
       toArray(dpi.peers).slice(0, 4).forEach(function(peer) {
         html += '<div class="ms-connection-item"><code>' + esc(peer.peer) + '</code> · ';
-        html += esc(toArray(peer.protocols).join(', ') || 'Unknown') + ' · ';
-        html += esc(peer.conversation_count || 0) + ' sessions';
+        html += esc(toArray(peer.protocols).join(', ') || tjs('viewer.unknown')) + ' · ';
+        html += esc(tjs('viewer.dpi.sessions_count', { count: peer.conversation_count || 0 }));
         if (toArray(peer.operations).length) html += ' · ' + esc(peer.operations.join(', '));
-        if (toArray(peer.objects).length) html += '<div style="margin-top:4px;color:var(--text-dim)">Objects: ' + peer.objects.map(esc).join(', ') + '</div>';
-        if (toArray(peer.notes).length) html += '<div style="margin-top:4px;color:var(--text-dim)">Clues: ' + peer.notes.map(esc).join(' · ') + '</div>';
+        if (toArray(peer.objects).length) html += '<div style="margin-top:4px;color:var(--text-dim)">' + esc(tjs('viewer.report.objects_label')) + ': ' + peer.objects.map(esc).join(', ') + '</div>';
+        if (toArray(peer.notes).length) html += '<div style="margin-top:4px;color:var(--text-dim)">' + esc(tjs('viewer.dpi.clues_label')) + ': ' + peer.notes.map(esc).join(' · ') + '</div>';
         html += '</div>';
       });
       html += '</div>';
@@ -2948,20 +2948,20 @@ var MS = (function() {
     var summary = VIEWER_CONTEXT.dpi_summary || {};
     var highlights = toArray(VIEWER_CONTEXT.dpi_highlights);
     if (!summary.enriched_conversation_count) {
-      return '<div style="color:var(--text-dim);padding:8px 0;">No enriched DPI observables were preserved in this report.</div>';
+      return '<div style="color:var(--text-dim);padding:8px 0;">' + esc(tjs('viewer.report.dpi_empty')) + '</div>';
     }
 
     var html = '<div class="ms-evidence-summary">';
-    html += '<div class="ms-evidence-kpi"><span class="val">' + esc(summary.enriched_conversation_count) + '</span><span class="lbl">Enriched sessions</span></div>';
-    html += '<div class="ms-evidence-kpi"><span class="val">' + esc(summary.asset_count || 0) + '</span><span class="lbl">Assets with pivots</span></div>';
-    html += '<div class="ms-evidence-kpi"><span class="val">' + esc(summary.identity_count || 0) + '</span><span class="lbl">Identity clues</span></div>';
-    html += '<div class="ms-evidence-kpi"><span class="val">' + esc(summary.hunt_term_count || 0) + '</span><span class="lbl">Search pivots</span></div>';
+    html += '<div class="ms-evidence-kpi"><span class="val">' + esc(summary.enriched_conversation_count) + '</span><span class="lbl">' + esc(tjs('viewer.report.dpi.enriched_sessions')) + '</span></div>';
+    html += '<div class="ms-evidence-kpi"><span class="val">' + esc(summary.asset_count || 0) + '</span><span class="lbl">' + esc(tjs('viewer.report.dpi.assets_with_pivots')) + '</span></div>';
+    html += '<div class="ms-evidence-kpi"><span class="val">' + esc(summary.identity_count || 0) + '</span><span class="lbl">' + esc(tjs('viewer.report.dpi.identity_clues')) + '</span></div>';
+    html += '<div class="ms-evidence-kpi"><span class="val">' + esc(summary.hunt_term_count || 0) + '</span><span class="lbl">' + esc(tjs('viewer.report.dpi.search_pivots')) + '</span></div>';
     html += '</div>';
 
     html += '<div class="ms-chip-row" style="margin-bottom:10px">';
     if (summary.engine) html += '<span class="ms-chip">' + esc(summary.engine) + '</span>';
     if (summary.engine_version) html += '<span class="ms-chip">v' + esc(summary.engine_version) + '</span>';
-    if (summary.schema_version) html += '<span class="ms-chip">schema ' + esc(summary.schema_version) + '</span>';
+    if (summary.schema_version) html += '<span class="ms-chip">' + esc(tjs('viewer.report.dpi.schema_label')) + ' ' + esc(summary.schema_version) + '</span>';
     toArray(summary.top_protocols).forEach(function(proto) {
       html += '<span class="ms-chip">' + esc(proto.name + ' ' + proto.count) + '</span>';
     });
@@ -2971,25 +2971,25 @@ var MS = (function() {
     highlights.forEach(function(item) {
       html += '<div class="ms-evidence-card">';
       html += '<div class="ms-evidence-head">';
-      html += '<span class="ms-chip" style="border-color:rgba(50,184,198,0.28);background:rgba(50,184,198,0.12);color:var(--accent-cyan)">' + esc(item.protocol || 'Unknown') + '</span>';
-      html += '<span class="ms-evidence-title">' + esc((item.src || 'Unknown') + ' → ' + (item.dst || 'Unknown')) + '</span>';
-      html += '<span class="ms-evidence-meta">' + esc(item.packet_count || 0) + ' pkts · ' + esc(Number(item.bytes_total || 0).toLocaleString()) + ' bytes</span>';
+      html += '<span class="ms-chip" style="border-color:rgba(50,184,198,0.28);background:rgba(50,184,198,0.12);color:var(--accent-cyan)">' + esc(item.protocol || tjs('viewer.unknown')) + '</span>';
+      html += '<span class="ms-evidence-title">' + esc((item.src || tjs('viewer.unknown')) + ' → ' + (item.dst || tjs('viewer.unknown'))) + '</span>';
+      html += '<span class="ms-evidence-meta">' + esc(item.packet_count || 0) + ' ' + esc(tjs('viewer.report.pkts')) + ' · ' + esc(Number(item.bytes_total || 0).toLocaleString()) + ' ' + esc(tjs('viewer.report.bytes')) + '</span>';
       html += '</div>';
       if (toArray(item.identities).length) {
         html += '<div class="ms-chip-row" style="margin-bottom:6px">' + renderPairChips(item.identities, true) + '</div>';
       }
       if (toArray(item.operations).length) {
-        html += '<div class="ms-evidence-copy"><strong>Operations:</strong> ' + item.operations.map(esc).join(', ') + '</div>';
+        html += '<div class="ms-evidence-copy"><strong>' + esc(tjs('viewer.report.operations_label')) + ':</strong> ' + item.operations.map(esc).join(', ') + '</div>';
       }
       if (toArray(item.object_refs).length) {
-        html += '<div class="ms-section-label" style="margin-top:8px">Objects</div><div class="ms-chip-row">';
+        html += '<div class="ms-section-label" style="margin-top:8px">' + esc(tjs('viewer.report.objects_label')) + '</div><div class="ms-chip-row">';
         html += item.object_refs.map(function(ref) {
           return renderSearchChip(ref, false);
         }).join('');
         html += '</div>';
       }
       if (toArray(item.asset_hints).length) {
-        html += '<div class="ms-evidence-copy"><strong>Asset Clues:</strong> ' + item.asset_hints.slice(0, 4).map(function(pair) {
+        html += '<div class="ms-evidence-copy"><strong>' + esc(tjs('viewer.report.asset_clues_label')) + ':</strong> ' + item.asset_hints.slice(0, 4).map(function(pair) {
           return esc(dpiPairText(pair));
         }).join(' · ') + '</div>';
       }
@@ -4029,20 +4029,20 @@ var MS = (function() {
   function renderToolbarStatus() {
     var filtered = getFilteredNodes();
     var parts = [];
-    parts.push('<span class="ms-status-pill"><strong>' + filtered.length + '</strong> visible</span>');
+    parts.push('<span class="ms-status-pill"><strong>' + filtered.length + '</strong> ' + esc(tjs('viewer.toolbar.status.visible')) + '</span>');
     if (filterState.query) {
-      parts.push('<span class="ms-status-pill">Search <strong>' + esc(filterState.query) + '</strong></span>');
+      parts.push('<span class="ms-status-pill">' + esc(tjs('viewer.toolbar.status.search')) + ' <strong>' + esc(filterState.query) + '</strong></span>');
     }
     if (selectedNode) {
-      parts.push('<span class="ms-status-pill">Selected <strong>' + esc(selectedNode._ip) + '</strong></span>');
+      parts.push('<span class="ms-status-pill">' + esc(tjs('viewer.toolbar.status.selected')) + ' <strong>' + esc(selectedNode._ip) + '</strong></span>');
     }
-    parts.push('<span>Use <strong style="font-family:var(--font-mono)">/</strong> to jump to search and <strong style="font-family:var(--font-mono)">Esc</strong> to clear.</span>');
+    parts.push('<span>' + tjs('viewer.toolbar.status.hint') + '</span>');
     document.getElementById('ms-toolbar-status').innerHTML = parts.join('');
   }
 
   function renderSelectionPanel() {
     if (!selectedNode) {
-      return '<div class="ms-sidebar-panel"><h3>Selected Asset</h3><div class="ms-empty-panel"><strong>No asset selected.</strong><br>Select a node, queue item, or finding to pull its classification, services, paths, and protocol evidence into view.</div></div>';
+      return '<div class="ms-sidebar-panel"><h3>' + esc(tjs('viewer.sel.title')) + '</h3><div class="ms-empty-panel"><strong>' + esc(tjs('viewer.sel.empty_title')) + '</strong><br>' + esc(tjs('viewer.sel.empty_body')) + '</div></div>';
     }
 
     var n = selectedNode;
@@ -4050,31 +4050,31 @@ var MS = (function() {
     var levelColor = PURDUE_COLORS[n._level] || '#64748b';
     var risks = nodeRiskFindings(n);
     var html = '<div class="ms-sidebar-panel">';
-    html += '<h3>Selected Asset</h3>';
+    html += '<h3>' + esc(tjs('viewer.sel.title')) + '</h3>';
     html += '<div class="ms-selection-header">';
     html += '<div class="ms-selection-title">';
     html += '<h2>' + esc(n._ip) + '</h2>';
     html += '<div class="ms-selection-role">';
     html += '<span class="ms-role-badge" style="color:' + roleColor + ';border-color:' + roleColor + '44;background:' + roleColor + '18">' + esc(n._role) + '</span>';
-    html += '<span class="ms-level-badge" style="color:' + levelColor + ';border-color:' + levelColor + '44;background:' + levelColor + '18">' + esc(PURDUE_LABELS[n._level] || ('Level ' + n._level)) + '</span>';
+    html += '<span class="ms-level-badge" style="color:' + levelColor + ';border-color:' + levelColor + '44;background:' + levelColor + '18">' + esc(PURDUE_LABELS[n._level] || (tjs('viewer.report.level_label') + ' ' + n._level)) + '</span>';
     html += '</div></div>';
     html += '<div class="ms-selection-actions">';
-    html += '<button class="ms-mini-btn" onclick="MS.centerOnSelected()">Center</button>';
-    html += '<button class="ms-mini-btn" onclick="MS.deselectNode()">Clear</button>';
+    html += '<button class="ms-mini-btn" onclick="MS.centerOnSelected()">' + esc(tjs('viewer.sel.center')) + '</button>';
+    html += '<button class="ms-mini-btn" onclick="MS.deselectNode()">' + esc(tjs('viewer.sel.clear')) + '</button>';
     html += '</div></div>';
 
     html += renderNodeDpiEvidence(n, true);
 
     html += '<div class="ms-selection-grid">';
     var fields = [
-      ['Vendor', n.vendor || 'Unknown'],
-      ['Device Type', n.device_type || 'Unknown'],
-      ['Product', n.product_line || '—'],
-      ['System Name', n.system_name || '—'],
-      ['Mgmt IP', n.mgmt_ip || '—'],
-      ['Connections', String(n._connCount)],
-      ['Auth Observed', n.auth_observed ? 'Yes' : 'No'],
-      ['Attack Priority', String(n.attack_priority || 0)]
+      [tjs('viewer.report.vendor'), n.vendor || tjs('viewer.unknown')],
+      [tjs('viewer.report.device_type'), n.device_type || tjs('viewer.unknown')],
+      [tjs('viewer.report.product'), n.product_line || '—'],
+      [tjs('viewer.report.system_name'), n.system_name || '—'],
+      [tjs('viewer.report.mgmt_ip'), n.mgmt_ip || '—'],
+      [tjs('viewer.sel.connections'), String(n._connCount)],
+      [tjs('viewer.report.auth_observed'), n.auth_observed ? tjs('common.yes') : tjs('common.no')],
+      [tjs('viewer.sel.attack_priority'), String(n.attack_priority || 0)]
     ];
     fields.forEach(function(field) {
       html += '<div class="ms-field"><span class="label">' + esc(field[0]) + '</span><span class="value">' + esc(field[1]) + '</span></div>';
@@ -4082,11 +4082,11 @@ var MS = (function() {
     html += '</div>';
 
     if (n.system_desc) {
-      html += '<div class="ms-section-label">Description</div><div class="ms-service-item">' + esc(n.system_desc) + '</div>';
+      html += '<div class="ms-section-label">' + esc(tjs('viewer.sel.description')) + '</div><div class="ms-service-item">' + esc(n.system_desc) + '</div>';
     }
 
     if (n._protocols.length) {
-      html += '<div class="ms-section-label">Observed Protocols</div><div class="ms-chip-row">';
+      html += '<div class="ms-section-label">' + esc(tjs('viewer.sel.observed_protocols')) + '</div><div class="ms-chip-row">';
       n._protocols.forEach(function(p) {
         html += '<span class="ms-chip" style="color:' + protoColor(p) + ';border-color:' + protoColor(p) + '44;background:' + protoColor(p) + '14">' + esc(p) + '</span>';
       });
@@ -4094,7 +4094,7 @@ var MS = (function() {
     }
 
     if (toArray(n.capabilities).length || toArray(n.vlans).length) {
-      html += '<div class="ms-section-label">Identity Signals</div><div class="ms-chip-row">';
+      html += '<div class="ms-section-label">' + esc(tjs('viewer.sel.identity_signals')) + '</div><div class="ms-chip-row">';
       toArray(n.capabilities).forEach(function(cap) {
         html += '<span class="ms-chip">' + esc(cap) + '</span>';
       });
@@ -4105,7 +4105,7 @@ var MS = (function() {
     }
 
     if (toArray(n.recommended_modules).length) {
-      html += '<div class="ms-section-label">Suggested Modules</div><div class="ms-chip-row">';
+      html += '<div class="ms-section-label">' + esc(tjs('viewer.sel.suggested_modules')) + '</div><div class="ms-chip-row">';
       n.recommended_modules.forEach(function(mod) {
         html += '<span class="ms-chip" style="border-color:rgba(91,138,240,0.28);background:rgba(91,138,240,0.12)">' + esc(mod) + '</span>';
       });
@@ -4113,30 +4113,30 @@ var MS = (function() {
     }
 
     if (toArray(n.service_ports).length) {
-      html += '<div class="ms-section-label">Service Exposure</div><div class="ms-service-list">';
+      html += '<div class="ms-section-label">' + esc(tjs('viewer.sel.service_exposure')) + '</div><div class="ms-service-list">';
       n.service_ports.slice(0, 8).forEach(function(sp) {
         var catColor = sp.category === 'OT' ? 'var(--color-ot)' : sp.category === 'IT' ? 'var(--color-it)' : 'var(--accent-cyan)';
-        html += '<div class="ms-service-item"><code>' + esc(sp.port) + '/' + esc(sp.transport) + '</code> · <span style="color:' + catColor + '">' + esc(sp.protocol) + '</span> · <span style="color:var(--text-dim)">' + esc(sp.category) + '</span> · ' + esc(sp.connections) + ' connections</div>';
+        html += '<div class="ms-service-item"><code>' + esc(sp.port) + '/' + esc(sp.transport) + '</code> · <span style="color:' + catColor + '">' + esc(sp.protocol) + '</span> · <span style="color:var(--text-dim)">' + esc(sp.category) + '</span> · ' + esc(tjs('viewer.sel.connections_count', { count: sp.connections })) + '</div>';
       });
       html += '</div>';
     }
 
     if (n._edges.length) {
-      html += '<div class="ms-section-label">Connected Paths</div><div class="ms-connection-list">';
+      html += '<div class="ms-section-label">' + esc(tjs('viewer.sel.connected_paths')) + '</div><div class="ms-connection-list">';
       n._edges.slice().sort(function(a, b) {
         return Number(!!b.includes_writes) - Number(!!a.includes_writes) || (b.conversation_count || 0) - (a.conversation_count || 0);
       }).slice(0, 8).forEach(function(e) {
         var peer = e.src === n._ip ? e.dst : e.src;
         var flags = [];
-        if (e.includes_writes) flags.push('WRITE');
-        if (e.includes_program_access) flags.push('PROGRAM');
-        html += '<div class="ms-connection-item"><span style="color:' + e._color + '">' + esc(e.protocol) + '</span> · <code>' + esc(peer) + '</code> · ' + esc(e.conversation_count || 0) + ' conv · ' + esc(formatBytes(e.bytes_total)) + (flags.length ? ' · <span style="color:var(--color-danger)">' + esc(flags.join(', ')) + '</span>' : '') + '</div>';
+        if (e.includes_writes) flags.push(tjs('viewer.tag_write'));
+        if (e.includes_program_access) flags.push(tjs('viewer.tag_program'));
+        html += '<div class="ms-connection-item"><span style="color:' + e._color + '">' + esc(e.protocol) + '</span> · <code>' + esc(peer) + '</code> · ' + esc(e.conversation_count || 0) + ' ' + esc(tjs('viewer.conv_short')) + ' · ' + esc(formatBytes(e.bytes_total)) + (flags.length ? ' · <span style="color:var(--color-danger)">' + esc(flags.join(', ')) + '</span>' : '') + '</div>';
       });
       html += '</div>';
     }
 
     if (risks.length) {
-      html += '<div class="ms-section-label">Linked Findings</div>';
+      html += '<div class="ms-section-label">' + esc(tjs('viewer.sel.linked_findings')) + '</div>';
       risks.slice(0, 4).forEach(function(r) {
         html += '<div class="ms-risk-item sev-' + esc(r.severity) + '"><div class="ms-risk-sev">' + esc(r.severity) + ' — ' + esc(r.category) + '</div><div>' + esc(r.description) + '</div></div>';
       });
@@ -4147,27 +4147,27 @@ var MS = (function() {
   }
 
   function renderSnapshotPanel(state) {
-    return '<div class="ms-sidebar-panel"><h3>Operator Snapshot</h3>'
+    return '<div class="ms-sidebar-panel"><h3>' + esc(tjs('viewer.sidebar.operator_snapshot')) + '</h3>'
       + '<div class="ms-sidebar-kpis">'
-      + '<div class="ms-sidebar-kpi"><span class="val">' + state.classified + '</span><span class="lbl">Classified assets</span></div>'
-      + '<div class="ms-sidebar-kpi"><span class="val">' + state.unknown + '</span><span class="lbl">Needs review</span></div>'
-      + '<div class="ms-sidebar-kpi"><span class="val">' + state.critHigh + '</span><span class="lbl">Critical / high</span></div>'
-      + '<div class="ms-sidebar-kpi"><span class="val">' + state.authGap + '</span><span class="lbl">Auth gaps</span></div>'
-      + '<div class="ms-sidebar-kpi"><span class="val">' + state.writeNodes + '</span><span class="lbl">Write-capable nodes</span></div>'
-      + '<div class="ms-sidebar-kpi"><span class="val">' + state.external + '</span><span class="lbl">External assets</span></div>'
+      + '<div class="ms-sidebar-kpi"><span class="val">' + state.classified + '</span><span class="lbl">' + esc(tjs('viewer.sidebar.kpi.classified_assets')) + '</span></div>'
+      + '<div class="ms-sidebar-kpi"><span class="val">' + state.unknown + '</span><span class="lbl">' + esc(tjs('viewer.sidebar.kpi.needs_review')) + '</span></div>'
+      + '<div class="ms-sidebar-kpi"><span class="val">' + state.critHigh + '</span><span class="lbl">' + esc(tjs('viewer.sidebar.kpi.critical_high')) + '</span></div>'
+      + '<div class="ms-sidebar-kpi"><span class="val">' + state.authGap + '</span><span class="lbl">' + esc(tjs('viewer.sidebar.kpi.auth_gaps')) + '</span></div>'
+      + '<div class="ms-sidebar-kpi"><span class="val">' + state.writeNodes + '</span><span class="lbl">' + esc(tjs('viewer.sidebar.kpi.write_capable_nodes')) + '</span></div>'
+      + '<div class="ms-sidebar-kpi"><span class="val">' + state.external + '</span><span class="lbl">' + esc(tjs('viewer.sidebar.kpi.external_assets')) + '</span></div>'
       + '</div></div>';
   }
 
   function renderFocusPanel(counts) {
     var buttons = [
-      { key: 'priority', label: 'Priority targets', note: 'Attack-scored assets or module suggestions', count: counts.priority },
-      { key: 'risk', label: 'Findings', note: 'Assets tied to risk records', count: counts.risk },
-      { key: 'auth-gap', label: 'Auth gaps', note: 'Traffic without observed auth', count: counts.authGap },
-      { key: 'writes', label: 'Write paths', note: 'Writable or program-capable edges', count: counts.writes },
-      { key: 'unclassified', label: 'Classification review', note: 'Weak identity or naming depth', count: counts.unclassified },
-      { key: 'ot', label: 'OT levels 0-2', note: 'Stay on the control-side surface', count: getQueueNodes('ot').length }
+      { key: 'priority', label: tjs('viewer.focus.priority'), note: tjs('viewer.focus.priority_note'), count: counts.priority },
+      { key: 'risk', label: tjs('viewer.focus.findings'), note: tjs('viewer.focus.findings_note'), count: counts.risk },
+      { key: 'auth-gap', label: tjs('viewer.focus.auth_gaps'), note: tjs('viewer.focus.auth_gaps_note'), count: counts.authGap },
+      { key: 'writes', label: tjs('viewer.focus.write_paths'), note: tjs('viewer.focus.write_paths_note'), count: counts.writes },
+      { key: 'unclassified', label: tjs('viewer.focus.classification_review'), note: tjs('viewer.focus.classification_review_note'), count: counts.unclassified },
+      { key: 'ot', label: tjs('viewer.focus.ot'), note: tjs('viewer.focus.ot_note'), count: getQueueNodes('ot').length }
     ];
-    return '<div class="ms-sidebar-panel"><h3>Investigation Queues</h3><div class="ms-focus-grid">' + buttons.map(function(btn) {
+    return '<div class="ms-sidebar-panel"><h3>' + esc(tjs('viewer.sidebar.investigation_queues')) + '</h3><div class="ms-focus-grid">' + buttons.map(function(btn) {
       return '<button class="ms-focus-btn' + (filterState.focus === btn.key ? ' active' : '') + '" onclick="MS.setFocus(\'' + btn.key + '\')">'
         + '<span class="count">' + esc(btn.count) + '</span>'
         + '<span class="label">' + esc(btn.label) + '</span>'
@@ -4182,7 +4182,7 @@ var MS = (function() {
     var title = queueTitle(focus);
     var html = '<div class="ms-sidebar-panel"><h3>' + esc(title) + '</h3>';
     if (!list.length) {
-      html += '<div class="ms-empty-panel">No assets match the current focus.</div>';
+      html += '<div class="ms-empty-panel">' + esc(tjs('viewer.sidebar.queue_empty')) + '</div>';
     } else {
       list.slice(0, 8).forEach(function(n) {
         html += '<div class="ms-queue-item" onclick="MS.selectNodeByIp(\'' + escjs(n._ip) + '\', true)">';
@@ -4198,15 +4198,15 @@ var MS = (function() {
     var risks = (REPORT.risk_findings || []).slice().sort(function(a, b) {
       return severityRank(a.severity) - severityRank(b.severity);
     });
-    var html = '<div class="ms-sidebar-panel"><h3>Top Findings</h3>';
+    var html = '<div class="ms-sidebar-panel"><h3>' + esc(tjs('viewer.sidebar.top_findings')) + '</h3>';
     if (!risks.length) {
-      html += '<div class="ms-empty-panel">No risk findings were produced for this report.</div>';
+      html += '<div class="ms-empty-panel">' + esc(tjs('viewer.sidebar.findings_empty')) + '</div>';
     } else {
       risks.slice(0, 5).forEach(function(r) {
         var targetIp = toArray(r.affected_nodes)[0] || '';
         var clickable = targetIp && nodeByIp[targetIp];
         html += '<div class="ms-risk-item sev-' + esc(r.severity) + '"' + (clickable ? ' style="cursor:pointer"' : '') + (clickable ? ' onclick="MS.selectNodeByIp(\'' + escjs(targetIp) + '\', true)"' : '') + '>';
-        html += '<div class="ms-risk-sev">' + esc(r.severity) + ' — ' + esc(r.category) + '</div>';
+        html += '<div class="ms-risk-sev">' + esc(r.severity) + ' — ' + esc(r.category_label || r.category) + '</div>';
         html += '<div>' + esc(r.description) + '</div>';
         if (r.remediation) {
           html += '<div style="margin-top:5px;color:var(--text-muted)">' + esc(r.remediation) + '</div>';
@@ -4224,9 +4224,9 @@ var MS = (function() {
   function renderProtocolPanel() {
     var protoSummary = REPORT.protocol_summary || {};
     var protos = Object.keys(protoSummary).sort(function(a, b) { return protoSummary[b] - protoSummary[a]; });
-    var html = '<div class="ms-sidebar-panel"><h3>Protocol Mix</h3>';
+    var html = '<div class="ms-sidebar-panel"><h3>' + esc(tjs('viewer.sidebar.protocol_mix')) + '</h3>';
     if (!protos.length) {
-      html += '<div class="ms-empty-panel">No protocol summary is available.</div>';
+      html += '<div class="ms-empty-panel">' + esc(tjs('viewer.sidebar.protocol_mix_empty')) + '</div>';
     } else {
       protos.slice(0, 10).forEach(function(p) {
         html += '<div class="ms-legend-item"><span class="ms-legend-dot" style="background:' + protoColor(p) + '"></span><span>' + esc(p) + '</span><span class="ms-legend-count">' + esc(protoSummary[p]) + '</span></div>';
@@ -4867,7 +4867,7 @@ var MS = (function() {
       html += '</div></div>';
     });
     if (renderedAny) {
-      return '<div style="font-size:0.78em;color:var(--text-dim);margin:0 0 8px;text-transform:uppercase;letter-spacing:0.08em;">Tactic Matrix</div>' + html;
+      return '<div style="font-size:0.78em;color:var(--text-dim);margin:0 0 8px;text-transform:uppercase;letter-spacing:0.08em;">' + esc(tjs('viewer.report.mitre.tactic_matrix')) + '</div>' + html;
     }
     return '';
   }
@@ -4904,16 +4904,16 @@ var MS = (function() {
     }
     if (item.attack_version) html += '<span class="ms-finding-chip">ATT&CK ' + esc(item.attack_version) + '</span>';
     html += '<span class="ms-finding-chip">' + esc(basis) + '</span>';
-    html += '<span class="ms-finding-chip">' + esc(Math.round(Number(item.confidence || 0) * 100)) + '% confidence</span>';
+    html += '<span class="ms-finding-chip">' + esc(tjs('viewer.report.mitre.confidence_pct', { pct: Math.round(Number(item.confidence || 0) * 100) })) + '</span>';
     html += '</div>';
     if (toArray(item.tactics).length) {
-      html += '<div style="margin-top:4px;font-size:0.82em;color:var(--text-dim)"><strong>Tactics:</strong> ' + toArray(item.tactics).map(function(tactic) {
+      html += '<div style="margin-top:4px;font-size:0.82em;color:var(--text-dim)"><strong>' + esc(tjs('viewer.report.mitre.tactics_label')) + ':</strong> ' + toArray(item.tactics).map(function(tactic) {
         if (tactic.url) return '<a href="' + esc(tactic.url) + '" target="_blank" rel="noopener noreferrer" style="color:var(--accent-cyan);text-decoration:none">' + esc(tactic.name || tactic.id || 'Tactic') + '</a>';
         return esc(tactic.name || tactic.id || 'Tactic');
       }).join(', ') + '</div>';
     }
     if (item.is_subtechnique && item.parent_technique_id) {
-      html += '<div style="margin-top:4px;font-size:0.82em;color:var(--text-dim)"><strong>Parent:</strong> ' + esc(item.parent_technique_id);
+      html += '<div style="margin-top:4px;font-size:0.82em;color:var(--text-dim)"><strong>' + esc(tjs('viewer.report.mitre.parent_label')) + ':</strong> ' + esc(item.parent_technique_id);
       if (item.parent_technique_name) html += ' · ' + esc(item.parent_technique_name);
       html += '</div>';
     }
@@ -4923,30 +4923,30 @@ var MS = (function() {
       html += '<div class="ms-finding-desc">' + esc(item.rationale) + '</div>';
     }
     if (toArray(item.mapped_from).length) {
-      html += '<div style="margin-top:6px;font-size:0.82em;color:var(--text-dim)"><strong>Signals:</strong> ' + toArray(item.mapped_from).map(esc).join(', ') + '</div>';
+      html += '<div style="margin-top:6px;font-size:0.82em;color:var(--text-dim)"><strong>' + esc(tjs('viewer.report.mitre.signals_label')) + ':</strong> ' + toArray(item.mapped_from).map(esc).join(', ') + '</div>';
     }
     if (toArray(item.affected_nodes).length) {
-      html += '<div class="ms-finding-nodes">Affected: ' + toArray(item.affected_nodes).map(esc).join(', ') + '</div>';
+      html += '<div class="ms-finding-nodes">' + esc(tjs('viewer.report.affected_label')) + ': ' + toArray(item.affected_nodes).map(esc).join(', ') + '</div>';
     }
     if (toArray(item.evidence_refs).length) {
-      html += '<div style="margin-top:4px;font-size:0.78em;color:var(--text-muted);font-family:var(--font-mono);word-break:break-word">Evidence: ' + toArray(item.evidence_refs).map(esc).join(', ') + '</div>';
+      html += '<div style="margin-top:4px;font-size:0.78em;color:var(--text-muted);font-family:var(--font-mono);word-break:break-word">' + esc(tjs('viewer.report.mitre.evidence_label')) + ': ' + toArray(item.evidence_refs).map(esc).join(', ') + '</div>';
     }
     if (toArray(item.platforms).length) {
-      html += '<div style="margin-top:6px;font-size:0.82em;color:var(--text-dim)"><strong>Platforms:</strong> ' + toArray(item.platforms).map(esc).join(', ') + '</div>';
+      html += '<div style="margin-top:6px;font-size:0.82em;color:var(--text-dim)"><strong>' + esc(tjs('viewer.report.mitre.platforms_label')) + ':</strong> ' + toArray(item.platforms).map(esc).join(', ') + '</div>';
     }
     if (item.response_guidance && toArray(item.response_guidance.next_steps).length) {
       html += '<div style="margin-top:8px;padding:8px 10px;background:rgba(50,184,198,0.08);border:1px solid rgba(50,184,198,0.18);border-radius:4px">';
-      html += '<div style="font-size:0.78em;color:var(--accent-cyan);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Response Guidance</div>';
+      html += '<div style="font-size:0.78em;color:var(--accent-cyan);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">' + esc(tjs('viewer.report.mitre.response_guidance')) + '</div>';
       html += '<ul style="margin:0;padding-left:18px;color:var(--text-dim);font-size:0.82em">';
       toArray(item.response_guidance.next_steps).slice(0, 4).forEach(function(step) {
         html += '<li style="margin:3px 0">' + esc(step) + '</li>';
       });
       html += '</ul></div>';
     } else if (item.detection) {
-      html += '<div style="margin-top:8px;font-size:0.82em;color:var(--text-dim)"><strong>Detection:</strong> ' + esc(truncateText(item.detection, 320)) + '</div>';
+      html += '<div style="margin-top:8px;font-size:0.82em;color:var(--text-dim)"><strong>' + esc(tjs('viewer.report.mitre.detection_label')) + ':</strong> ' + esc(truncateText(item.detection, 320)) + '</div>';
     }
     if (toArray(item.mitigations).length) {
-      html += '<div style="margin-top:6px;font-size:0.82em;color:var(--text-dim)"><strong>Mitigations:</strong> ' + toArray(item.mitigations).slice(0, 5).map(function(mitigation) {
+      html += '<div style="margin-top:6px;font-size:0.82em;color:var(--text-dim)"><strong>' + esc(tjs('viewer.report.mitre.mitigations_label')) + ':</strong> ' + toArray(item.mitigations).slice(0, 5).map(function(mitigation) {
         return esc(mitigation.name || mitigation.id || '');
       }).join(', ') + '</div>';
     }
@@ -4969,45 +4969,45 @@ var MS = (function() {
       return severityRank(a.severity) - severityRank(b.severity);
     });
     var sumHtml = '<div class="ms-summary-grid">';
-    sumHtml += '<div class="ms-summary-card"><div class="val">' + nodes.length + '</div><div class="lbl">Assets</div></div>';
-    sumHtml += '<div class="ms-summary-card"><div class="val">' + edges.length + '</div><div class="lbl">Connections</div></div>';
+    sumHtml += '<div class="ms-summary-card"><div class="val">' + nodes.length + '</div><div class="lbl">' + esc(tjs('viewer.report.lbl.assets')) + '</div></div>';
+    sumHtml += '<div class="ms-summary-card"><div class="val">' + edges.length + '</div><div class="lbl">' + esc(tjs('viewer.report.lbl.connections')) + '</div></div>';
     var protos = Object.keys(REPORT.protocol_summary || {});
-    sumHtml += '<div class="ms-summary-card"><div class="val">' + protos.length + '</div><div class="lbl">Protocols</div></div>';
-    if (ci.total_packets) sumHtml += '<div class="ms-summary-card"><div class="val">' + ci.total_packets.toLocaleString() + '</div><div class="lbl">Packets</div></div>';
-    if (ci.duration_seconds) sumHtml += '<div class="ms-summary-card"><div class="val">' + ci.duration_seconds.toFixed(1) + 's</div><div class="lbl">Duration</div></div>';
+    sumHtml += '<div class="ms-summary-card"><div class="val">' + protos.length + '</div><div class="lbl">' + esc(tjs('viewer.report.lbl.protocols')) + '</div></div>';
+    if (ci.total_packets) sumHtml += '<div class="ms-summary-card"><div class="val">' + ci.total_packets.toLocaleString() + '</div><div class="lbl">' + esc(tjs('viewer.report.lbl.packets')) + '</div></div>';
+    if (ci.duration_seconds) sumHtml += '<div class="ms-summary-card"><div class="val">' + ci.duration_seconds.toFixed(1) + 's</div><div class="lbl">' + esc(tjs('viewer.report.lbl.duration')) + '</div></div>';
     var sevCounts = {};
     risks.forEach(function(r) { sevCounts[r.severity] = (sevCounts[r.severity] || 0) + 1; });
     var critHigh = (sevCounts.CRITICAL || 0) + (sevCounts.HIGH || 0);
-    sumHtml += '<div class="ms-summary-card"><div class="val" style="color:' + (critHigh > 0 ? 'var(--color-danger)' : 'var(--accent-green)') + '">' + critHigh + '</div><div class="lbl">Critical/High</div></div>';
+    sumHtml += '<div class="ms-summary-card"><div class="val" style="color:' + (critHigh > 0 ? 'var(--color-danger)' : 'var(--accent-green)') + '">' + critHigh + '</div><div class="lbl">' + esc(tjs('viewer.report.lbl.critical_high')) + '</div></div>';
     if (mitreClassifications.length || mitrePlatformCoverage.length) {
-      sumHtml += '<div class="ms-summary-card"><div class="val">' + mitreClassifications.length + '</div><div class="lbl">ATT&CK Hits</div></div>';
+      sumHtml += '<div class="ms-summary-card"><div class="val">' + mitreClassifications.length + '</div><div class="lbl">' + esc(tjs('viewer.report.lbl.attack_hits')) + '</div></div>';
     }
     if (mitrePlatformCoverage.length) {
-      sumHtml += '<div class="ms-summary-card"><div class="val">' + mitrePlatformCoverage.length + '</div><div class="lbl">Coverage</div></div>';
+      sumHtml += '<div class="ms-summary-card"><div class="val">' + mitrePlatformCoverage.length + '</div><div class="lbl">' + esc(tjs('viewer.report.lbl.coverage')) + '</div></div>';
     }
     if (Number(mitreSummary.tactic_total || 0) > 0) {
-      sumHtml += '<div class="ms-summary-card"><div class="val">' + esc(mitreSummary.tactic_total) + '</div><div class="lbl">ATT&CK Tactics</div></div>';
+      sumHtml += '<div class="ms-summary-card"><div class="val">' + esc(mitreSummary.tactic_total) + '</div><div class="lbl">' + esc(tjs('viewer.report.lbl.attack_tactics')) + '</div></div>';
     }
     sumHtml += '</div>';
     if (REPORT.timestamp_start) {
-      sumHtml += '<div style="font-size:0.82em;color:var(--text-dim);margin-top:4px;">Scan: ' + esc(REPORT.timestamp_start);
+      sumHtml += '<div style="font-size:0.82em;color:var(--text-dim);margin-top:4px;">' + esc(tjs('viewer.report.scan_label')) + ': ' + esc(REPORT.timestamp_start);
       if (REPORT.timestamp_end) sumHtml += ' — ' + esc(REPORT.timestamp_end);
       sumHtml += '</div>';
     }
     if (ci.pcap_path) {
       var pcapBasename = ci.pcap_path.split('/').pop();
-      sumHtml += '<div style="font-size:0.82em;color:var(--text-dim);">Source: <span style="font-family:var(--font-mono)">' + esc(pcapBasename) + '</span></div>';
+      sumHtml += '<div style="font-size:0.82em;color:var(--text-dim);">' + esc(tjs('viewer.report.source_label')) + ': <span style="font-family:var(--font-mono)">' + esc(pcapBasename) + '</span></div>';
     }
-    document.getElementById('ms-rpt-summary').innerHTML = sectionHtml('ms-rpt-summary', 'Executive Summary', null, sumHtml);
+    document.getElementById('ms-rpt-summary').innerHTML = sectionHtml('ms-rpt-summary', tjs('viewer.report.executive_summary'), null, sumHtml);
 
     var findHtml = '';
     if (risks.length === 0) {
-      findHtml = '<div style="color:var(--text-dim);padding:8px 0;">No risk findings.</div>';
+      findHtml = '<div style="color:var(--text-dim);padding:8px 0;">' + esc(tjs('viewer.report.no_findings')) + '</div>';
     } else {
       var sortedFindings = risks.slice().sort(function(a, b) { return severityRank(a.severity) - severityRank(b.severity); });
       sortedFindings.forEach(function(r) {
         findHtml += '<div class="ms-finding-card sev-' + esc(r.severity) + '">';
-        findHtml += '<div class="ms-finding-head"><span class="ms-finding-sev">' + esc(r.severity) + '</span><span class="ms-finding-cat">' + esc(r.category) + '</span></div>';
+        findHtml += '<div class="ms-finding-head"><span class="ms-finding-sev">' + esc(r.severity) + '</span><span class="ms-finding-cat">' + esc(r.category_label || r.category) + '</span></div>';
         findHtml += '<div class="ms-finding-desc">' + esc(r.description) + '</div>';
         if (r.detection_id || (r.attack_ids && r.attack_ids.length)) {
           findHtml += '<div class="ms-finding-meta">';
@@ -5016,29 +5016,29 @@ var MS = (function() {
           findHtml += '</div>';
         }
         if (r.purdue_context) {
-          findHtml += '<div class="ms-finding-context"><strong>Purdue:</strong> ' + esc(r.purdue_context) + '</div>';
+          findHtml += '<div class="ms-finding-context"><strong>' + esc(tjs('viewer.report.purdue_label')) + ':</strong> ' + esc(r.purdue_context) + '</div>';
         }
         if (r.remediation) {
-          findHtml += '<div class="ms-finding-remediation"><strong>Recommendation:</strong> ' + esc(r.remediation) + '</div>';
+          findHtml += '<div class="ms-finding-remediation"><strong>' + esc(tjs('viewer.report.recommendation_label')) + ':</strong> ' + esc(r.remediation) + '</div>';
         }
         if (toArray(r.affected_nodes).length) {
-          findHtml += '<div class="ms-finding-nodes">Affected: ' + r.affected_nodes.map(esc).join(', ') + '</div>';
+          findHtml += '<div class="ms-finding-nodes">' + esc(tjs('viewer.report.affected_label')) + ': ' + r.affected_nodes.map(esc).join(', ') + '</div>';
         }
         findHtml += '</div>';
       });
     }
-    document.getElementById('ms-rpt-findings').innerHTML = sectionHtml('ms-rpt-findings', 'Risk Findings & Recommendations', risks.length, findHtml);
+    document.getElementById('ms-rpt-findings').innerHTML = sectionHtml('ms-rpt-findings', tjs('viewer.report.risk_findings_label'), risks.length, findHtml);
 
     var pvs = REPORT.purdue_violations || [];
     var pvHtml = '';
     if (pvs.length === 0) {
-      pvHtml = '<div style="color:var(--text-dim);padding:8px 0;">No violations detected.</div>';
+      pvHtml = '<div style="color:var(--text-dim);padding:8px 0;">' + esc(tjs('viewer.report.no_violations')) + '</div>';
     } else {
       pvs.forEach(function(v) {
         pvHtml += '<div class="ms-purdue-item">' + esc(typeof v === 'string' ? v : JSON.stringify(v)) + '</div>';
       });
     }
-    document.getElementById('ms-rpt-purdue').innerHTML = sectionHtml('ms-rpt-purdue', 'Purdue Model Violations', pvs.length, pvHtml);
+    document.getElementById('ms-rpt-purdue').innerHTML = sectionHtml('ms-rpt-purdue', tjs('viewer.report.purdue_violations_label'), pvs.length, pvHtml);
 
     var assetHtml = '';
     nodes.slice().sort(compareNodes).forEach(function(n, idx) {
@@ -5051,22 +5051,23 @@ var MS = (function() {
       assetHtml += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">';
       assetHtml += '<span style="font-family:var(--font-mono);font-size:1.05em;font-weight:600">' + esc(n._ip) + '</span>';
       assetHtml += '<span class="role-tag" style="background:' + style.color + '22;color:' + style.color + ';border:1px solid ' + style.color + '44;padding:2px 8px;border-radius:3px;font-size:0.82em">' + esc(style.label) + '</span>';
-      assetHtml += '<span style="color:' + lvlColor + ';font-size:0.82em;font-weight:600">' + esc(PURDUE_LABELS[lvl] || ('Level ' + lvl)) + '</span>';
-      if (pri > 0) assetHtml += '<span style="margin-left:auto;font-family:var(--font-mono);font-size:0.82em;padding:2px 8px;border-radius:3px;background:rgba(239,68,68,0.1);color:' + priColor + '">Priority ' + esc(pri) + '</span>';
+      assetHtml += '<span style="color:' + lvlColor + ';font-size:0.82em;font-weight:600">' + esc(PURDUE_LABELS[lvl] || (tjs('viewer.report.level_label') + ' ' + lvl)) + '</span>';
+      if (pri > 0) assetHtml += '<span style="margin-left:auto;font-family:var(--font-mono);font-size:0.82em;padding:2px 8px;border-radius:3px;background:rgba(239,68,68,0.1);color:' + priColor + '">' + esc(tjs('viewer.report.priority_label')) + ' ' + esc(pri) + '</span>';
       assetHtml += '</div>';
       assetHtml += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:4px 16px;font-size:0.85em;margin-bottom:6px">';
       var fields = [
-        ['Vendor', n.vendor || 'Unknown'],
-        ['Device Type', n.device_type || 'Unknown'],
-        ['MAC', n.mac || '—']
+        [tjs('viewer.report.vendor'), n.vendor || tjs('viewer.unknown')],
+        [tjs('viewer.report.device_type'), n.device_type || tjs('viewer.unknown')],
+        [tjs('viewer.asset.mac'), n.mac || '—']
       ];
-      if (n.product_line) fields.push(['Product', n.product_line]);
-      if (n.system_name) fields.push(['System Name', n.system_name]);
-      if (n.system_desc) fields.push(['Description', n.system_desc]);
-      if (n.mgmt_ip) fields.push(['Mgmt IP', n.mgmt_ip]);
-      fields.push(['Auth Observed', n.auth_observed ? 'Yes' : 'No']);
+      if (n.product_line) fields.push([tjs('viewer.report.product'), n.product_line]);
+      if (n.system_name) fields.push([tjs('viewer.report.system_name'), n.system_name]);
+      if (n.system_desc) fields.push([tjs('viewer.sel.description'), n.system_desc]);
+      if (n.mgmt_ip) fields.push([tjs('viewer.report.mgmt_ip'), n.mgmt_ip]);
+      var authObsLabel = tjs('viewer.report.auth_observed');
+      fields.push([authObsLabel, n.auth_observed ? tjs('common.yes') : tjs('common.no')]);
       fields.forEach(function(f) {
-        var valColor = f[0] === 'Auth Observed' ? (n.auth_observed ? 'var(--accent-green)' : 'var(--color-warning)') : 'var(--text)';
+        var valColor = f[0] === authObsLabel ? (n.auth_observed ? 'var(--accent-green)' : 'var(--color-warning)') : 'var(--text)';
         assetHtml += '<div><span style="color:var(--text-dim)">' + esc(f[0]) + ':</span> <span style="font-family:var(--font-mono);color:' + valColor + '">' + esc(f[1]) + '</span></div>';
       });
       assetHtml += '</div>';
@@ -5078,7 +5079,7 @@ var MS = (function() {
         assetHtml += '</div>';
       }
       if (toArray(n.recommended_modules).length) {
-        assetHtml += '<div style="margin-bottom:6px;font-size:0.82em"><span style="color:var(--text-dim)">Recommended Modules:</span> ';
+        assetHtml += '<div style="margin-bottom:6px;font-size:0.82em"><span style="color:var(--text-dim)">' + esc(tjs('viewer.report.recommended_modules')) + ':</span> ';
         n.recommended_modules.forEach(function(m) {
           assetHtml += '<span style="display:inline-block;padding:2px 6px;margin:2px;border-radius:3px;background:rgba(91,138,240,0.08);border:1px solid var(--border);font-family:var(--font-mono);font-size:0.95em">' + esc(m) + '</span>';
         });
@@ -5087,23 +5088,23 @@ var MS = (function() {
       assetHtml += renderNodeDpiEvidence(n, true);
       if (n._edges.length) {
         assetHtml += '<details style="font-size:0.82em;margin-top:4px">';
-        assetHtml += '<summary style="cursor:pointer;color:var(--text-dim);user-select:none">Connections (' + n._edges.length + ')</summary>';
+        assetHtml += '<summary style="cursor:pointer;color:var(--text-dim);user-select:none">' + esc(tjs('viewer.asset.connections', { count: n._edges.length })) + '</summary>';
         assetHtml += '<div style="margin-top:4px;padding-left:8px;border-left:1px solid var(--border-dim)">';
         n._edges.forEach(function(e) {
           var peer = e.src === n._ip ? e.dst : e.src;
           var dir = e.src === n._ip ? '→' : '←';
           assetHtml += '<div style="padding:2px 0;border-bottom:1px solid var(--border-dim)">';
           assetHtml += '<span style="color:' + e._color + '">' + esc(e.protocol) + '</span> ' + dir + ' <span style="font-family:var(--font-mono)">' + esc(peer) + '</span>';
-          assetHtml += ' <span style="color:var(--text-muted)">' + esc(e.conversation_count || 0) + ' conv, ' + esc(formatBytes(e.bytes_total)) + '</span>';
-          if (e.includes_writes) assetHtml += ' <span style="color:var(--color-danger);font-weight:600">[WRITE]</span>';
-          if (e.includes_program_access) assetHtml += ' <span style="color:var(--color-danger);font-weight:600">[PROGRAM]</span>';
+          assetHtml += ' <span style="color:var(--text-muted)">' + esc(e.conversation_count || 0) + ' ' + esc(tjs('viewer.conv_short')) + ', ' + esc(formatBytes(e.bytes_total)) + '</span>';
+          if (e.includes_writes) assetHtml += ' <span style="color:var(--color-danger);font-weight:600">[' + esc(tjs('viewer.tag_write')) + ']</span>';
+          if (e.includes_program_access) assetHtml += ' <span style="color:var(--color-danger);font-weight:600">[' + esc(tjs('viewer.tag_program')) + ']</span>';
           assetHtml += '</div>';
         });
         assetHtml += '</div></details>';
       }
       if (nodeRiskFindings(n).length) {
         assetHtml += '<details style="font-size:0.82em;margin-top:4px">';
-        assetHtml += '<summary style="cursor:pointer;color:var(--color-danger);user-select:none">Risk Findings (' + nodeRiskFindings(n).length + ')</summary>';
+        assetHtml += '<summary style="cursor:pointer;color:var(--color-danger);user-select:none">' + esc(tjs('viewer.asset.risk_findings_count', { count: nodeRiskFindings(n).length })) + '</summary>';
         assetHtml += '<div style="margin-top:4px">';
         nodeRiskFindings(n).forEach(function(r) {
           assetHtml += '<div style="padding:4px 0;border-bottom:1px solid var(--border-dim)"><span style="font-weight:600;color:' + (r.severity === 'CRITICAL' ? '#ef4444' : r.severity === 'HIGH' ? '#f59e0b' : 'var(--text-dim)') + '">' + esc(r.severity) + '</span> ' + esc(r.description) + '</div>';
@@ -5112,24 +5113,24 @@ var MS = (function() {
       }
       assetHtml += '</div>';
     });
-    document.getElementById('ms-rpt-assets').innerHTML = sectionHtml('ms-rpt-assets', 'Asset Inventory', nodes.length, assetHtml);
-    document.getElementById('ms-rpt-dpi').innerHTML = sectionHtml('ms-rpt-dpi', 'Protocol Observables & Hunt Pivots', toArray(VIEWER_CONTEXT.dpi_highlights).length, renderDpiReportSection());
+    document.getElementById('ms-rpt-assets').innerHTML = sectionHtml('ms-rpt-assets', tjs('viewer.report.asset_inventory_label'), nodes.length, assetHtml);
+    document.getElementById('ms-rpt-dpi').innerHTML = sectionHtml('ms-rpt-dpi', tjs('viewer.report.dpi_label'), toArray(VIEWER_CONTEXT.dpi_highlights).length, renderDpiReportSection());
 
     var ps = REPORT.protocol_summary || {};
     var pKeys = Object.keys(ps).sort(function(a, b) { return ps[b] - ps[a]; });
     var protoHtml = '';
     if (pKeys.length === 0) {
-      protoHtml = '<div style="color:var(--text-dim);padding:8px 0;">No protocols.</div>';
+      protoHtml = '<div style="color:var(--text-dim);padding:8px 0;">' + esc(tjs('viewer.report.no_protocols')) + '</div>';
     } else {
       var totalConvs = pKeys.reduce(function(sum, key) { return sum + ps[key]; }, 0);
-      protoHtml += '<table class="ms-asset-table"><thead><tr><th>Protocol</th><th>Conversations</th><th>Share</th></tr></thead><tbody>';
+      protoHtml += '<table class="ms-asset-table"><thead><tr><th>' + esc(tjs('viewer.traffic.col.protocol')) + '</th><th>' + esc(tjs('viewer.proto.col.conversations')) + '</th><th>' + esc(tjs('viewer.report.col.share')) + '</th></tr></thead><tbody>';
       pKeys.forEach(function(p) {
         var pct = totalConvs > 0 ? ((ps[p] / totalConvs) * 100).toFixed(1) : '0';
         protoHtml += '<tr><td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + protoColor(p) + ';margin-right:6px"></span>' + esc(p) + '</td><td>' + esc(ps[p]) + '</td><td>' + esc(pct) + '%</td></tr>';
       });
       protoHtml += '</tbody></table>';
     }
-    document.getElementById('ms-rpt-protocols').innerHTML = sectionHtml('ms-rpt-protocols', 'Protocol Breakdown', pKeys.length, protoHtml);
+    document.getElementById('ms-rpt-protocols').innerHTML = sectionHtml('ms-rpt-protocols', tjs('viewer.report.protocol_breakdown_label'), pKeys.length, protoHtml);
 
     var portSum = REPORT.port_summary || {};
     var portKeys = Object.keys(portSum).sort(function(a, b) {
@@ -5137,10 +5138,10 @@ var MS = (function() {
     });
     var portHtml = '';
     if (portKeys.length === 0) {
-      portHtml = '<div style="color:var(--text-dim);padding:8px 0;">No port data.</div>';
+      portHtml = '<div style="color:var(--text-dim);padding:8px 0;">' + esc(tjs('viewer.report.no_port_data')) + '</div>';
     } else {
       var catColors = { OT: 'var(--color-ot)', IT: 'var(--color-it)', 'IT/OT': 'var(--accent-cyan)', Ephemeral: 'var(--text-muted)', Unknown: 'var(--color-warning)' };
-      portHtml += '<table class="ms-asset-table"><thead><tr><th>Port</th><th>Protocol</th><th>Category</th><th>Conns</th><th>Peers</th></tr></thead><tbody>';
+      portHtml += '<table class="ms-asset-table"><thead><tr><th>' + esc(tjs('viewer.traffic.col.port')) + '</th><th>' + esc(tjs('viewer.traffic.col.protocol')) + '</th><th>' + esc(tjs('viewer.intel.col.category')) + '</th><th>' + esc(tjs('viewer.report.col.conns')) + '</th><th>' + esc(tjs('viewer.report.col.peers')) + '</th></tr></thead><tbody>';
       portKeys.forEach(function(k) {
         var p = portSum[k];
         var cc = catColors[p.category] || 'var(--text-dim)';
@@ -5150,16 +5151,16 @@ var MS = (function() {
       });
       portHtml += '</tbody></table>';
     }
-    document.getElementById('ms-rpt-ports').innerHTML = sectionHtml('ms-rpt-ports', 'Port Analysis', portKeys.length, portHtml);
+    document.getElementById('ms-rpt-ports').innerHTML = sectionHtml('ms-rpt-ports', tjs('viewer.report.port_analysis_label'), portKeys.length, portHtml);
 
     var c2Html = '';
     if (c2.length === 0) {
-      c2Html = '<div style="color:var(--accent-green);padding:8px 0;">No C2 indicators detected.</div>';
+      c2Html = '<div style="color:var(--accent-green);padding:8px 0;">' + esc(tjs('viewer.report.c2_empty')) + '</div>';
     } else {
       c2.slice().sort(function(a, b) { return severityRank(a.severity) - severityRank(b.severity); }).forEach(function(ind) {
         var sc = ind.severity === 'CRITICAL' ? '#ef4444' : ind.severity === 'HIGH' ? '#f59e0b' : '#3b82f6';
         c2Html += '<div class="ms-finding-card sev-' + esc(ind.severity) + '">';
-        c2Html += '<div class="ms-finding-head"><span class="ms-finding-sev">' + esc(ind.severity) + '</span><span class="ms-finding-cat">' + esc(ind.type) + '</span></div>';
+        c2Html += '<div class="ms-finding-head"><span class="ms-finding-sev">' + esc(ind.severity) + '</span><span class="ms-finding-cat">' + esc(ind.type_label || ind.type) + '</span></div>';
         c2Html += '<div class="ms-finding-desc">' + esc(ind.description) + '</div>';
         if (ind.detection_id || (ind.attack_ids && ind.attack_ids.length)) {
           c2Html += '<div class="ms-finding-meta">';
@@ -5169,14 +5170,14 @@ var MS = (function() {
         }
         if (ind.beacon_score != null) {
           var pct = Math.round(ind.beacon_score * 100);
-          c2Html += '<div style="margin-top:6px"><div style="font-size:0.78em;color:var(--text-dim);margin-bottom:2px">Beacon Confidence</div>';
+          c2Html += '<div style="margin-top:6px"><div style="font-size:0.78em;color:var(--text-dim);margin-bottom:2px">' + esc(tjs('viewer.c2.beacon_confidence')) + '</div>';
           c2Html += '<div style="background:var(--border-dim);border-radius:3px;height:8px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:' + sc + ';border-radius:3px"></div></div>';
-          c2Html += '<div style="font-size:0.78em;color:var(--text-dim);margin-top:2px">' + pct + '% confidence · ~' + esc(ind.interval || 0) + 's interval · ' + Math.round((ind.jitter || 0) * 100) + '% jitter</div></div>';
+          c2Html += '<div style="font-size:0.78em;color:var(--text-dim);margin-top:2px">' + esc(tjs('viewer.c2.beacon_meta', { pct: pct, interval: ind.interval || 0, jitter: Math.round((ind.jitter || 0) * 100) })) + '</div></div>';
         }
         if (ind.entropy != null) {
-          c2Html += '<div style="margin-top:4px;font-size:0.85em;color:var(--text-dim)">Entropy: <span style="font-family:var(--font-mono);color:' + (ind.entropy > 4.0 ? '#ef4444' : ind.entropy > 3.5 ? '#f59e0b' : 'var(--text)') + '">' + esc(ind.entropy) + '</span>';
-          if (ind.base_domain) c2Html += ' · Domain: <span style="font-family:var(--font-mono)">' + esc(ind.base_domain) + '</span>';
-          if (ind.unique_subdomains) c2Html += ' · ' + esc(ind.unique_subdomains) + ' subdomains';
+          c2Html += '<div style="margin-top:4px;font-size:0.85em;color:var(--text-dim)">' + esc(tjs('viewer.c2.entropy_label')) + ': <span style="font-family:var(--font-mono);color:' + (ind.entropy > 4.0 ? '#ef4444' : ind.entropy > 3.5 ? '#f59e0b' : 'var(--text)') + '">' + esc(ind.entropy) + '</span>';
+          if (ind.base_domain) c2Html += ' · ' + esc(tjs('viewer.c2.domain_label')) + ': <span style="font-family:var(--font-mono)">' + esc(ind.base_domain) + '</span>';
+          if (ind.unique_subdomains) c2Html += ' · ' + esc(tjs('viewer.c2.subdomains_count', { count: ind.unique_subdomains }));
           c2Html += '</div>';
           if (toArray(ind.sample_queries).length) {
             c2Html += '<div style="margin-top:4px;font-size:0.78em;color:var(--text-muted);font-family:var(--font-mono);word-break:break-all">' + ind.sample_queries.map(esc).join('<br>') + '</div>';
@@ -5185,33 +5186,33 @@ var MS = (function() {
         c2Html += '</div>';
       });
     }
-    document.getElementById('ms-rpt-c2').innerHTML = sectionHtml('ms-rpt-c2', 'C2 Indicators', c2.length, c2Html);
+    document.getElementById('ms-rpt-c2').innerHTML = sectionHtml('ms-rpt-c2', tjs('viewer.report.c2_label'), c2.length, c2Html);
 
     var mitreHtml = '';
     if (mitreClassifications.length === 0 && mitrePlatformCoverage.length === 0) {
-      mitreHtml = '<div style="color:var(--text-dim);padding:8px 0;">No MITRE ATT&CK mappings available.</div>';
+      mitreHtml = '<div style="color:var(--text-dim);padding:8px 0;">' + esc(tjs('viewer.report.mitre.empty')) + '</div>';
     } else {
       mitreHtml += mitreMetadataHtml(mitreAttackMeta, mitreSummary);
       mitreHtml += mitreMatrixHtml(mitreMatrix);
       if (mitreClassifications.length) {
-        mitreHtml += '<div style="font-size:0.82em;color:var(--text-dim);margin-bottom:8px;">Techniques inferred from passive findings and external communication indicators.</div>';
+        mitreHtml += '<div style="font-size:0.82em;color:var(--text-dim);margin-bottom:8px;">' + esc(tjs('viewer.report.mitre.inferred_blurb')) + '</div>';
         mitreClassifications.forEach(function(item) {
           mitreHtml += mitreCardHtml(item);
         });
       } else {
-        mitreHtml += '<div style="color:var(--text-dim);padding:8px 0;">No ATT&CK techniques were inferred from the observed findings.</div>';
+        mitreHtml += '<div style="color:var(--text-dim);padding:8px 0;">' + esc(tjs('viewer.report.mitre.no_techniques')) + '</div>';
       }
       if (mitrePlatformCoverage.length) {
-        mitreHtml += '<div style="font-size:0.78em;color:var(--text-dim);margin:12px 0 8px;text-transform:uppercase;letter-spacing:0.08em;">Platform Coverage</div>';
+        mitreHtml += '<div style="font-size:0.78em;color:var(--text-dim);margin:12px 0 8px;text-transform:uppercase;letter-spacing:0.08em;">' + esc(tjs('viewer.report.mitre.platform_coverage')) + '</div>';
         mitrePlatformCoverage.forEach(function(item) {
           mitreHtml += mitreCardHtml(item);
         });
       }
       if (mitreSummary.unmapped_category_total) {
-        mitreHtml += '<div style="margin-top:8px;font-size:0.82em;color:var(--text-dim);">' + esc(mitreSummary.unmapped_category_total) + ' finding categories remain unmapped in the active ATT&CK pack.</div>';
+        mitreHtml += '<div style="margin-top:8px;font-size:0.82em;color:var(--text-dim);">' + esc(tjs('viewer.report.mitre.unmapped_categories', { count: mitreSummary.unmapped_category_total })) + '</div>';
       }
     }
-    document.getElementById('ms-rpt-mitre').innerHTML = sectionHtml('ms-rpt-mitre', 'MITRE ATT&CK Mapping', mitreClassifications.length + mitrePlatformCoverage.length, mitreHtml);
+    document.getElementById('ms-rpt-mitre').innerHTML = sectionHtml('ms-rpt-mitre', tjs('viewer.report.mitre_label'), mitreClassifications.length + mitrePlatformCoverage.length, mitreHtml);
   }
 
   function switchReportTab(tab) {
