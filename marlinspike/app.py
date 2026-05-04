@@ -5,8 +5,10 @@ Flask web application with database-backed auth and scan history.
 
 import glob
 import hashlib
+import io
 import json
 import logging
+import math
 import os
 import platform
 import re
@@ -63,7 +65,7 @@ from marlinspike.i18n import (
     resolve_locale,
     t as _translate,
 )
-from marlinspike.models import AuditLog, PasswordResetToken, Project, ScanHistory, User, db
+from marlinspike.models import AuditLog, AssetTag, FindingNote, PasswordResetToken, Project, ScanHistory, User, db
 
 APP_VERSION = "3.0.0"
 
@@ -76,6 +78,117 @@ PCAP_MAGIC = {
     b"\xa1\xb2\xc3\xd4",  # pcap BE
     b"\x0a\x0d\x0d\x0a",  # pcapng
 }
+
+
+# ═══════════════════════════════════════════════════════════════
+# Timeline helpers — module-level so they are importable from tests
+# ═══════════════════════════════════════════════════════════════
+
+def _ts_to_epoch(value):
+    """Convert a timestamp value to a Unix epoch float, or None."""
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp()
+    except (ValueError, TypeError):
+        return None
+
+
+def _compute_timeline_buckets(conversations: list) -> dict:
+    """Build adaptive timeline buckets from a list of conversation dicts.
+
+    Returns a dict with keys: first_seen, last_seen, bucket_seconds, buckets.
+    Each bucket: {t, packets, bytes, conv_count}.
+    """
+    entries = []
+    for conv in conversations:
+        fs = _ts_to_epoch(conv.get("first_seen"))
+        ls = _ts_to_epoch(conv.get("last_seen"))
+        pkts = int(conv.get("packet_count") or 0)
+        bts = int(conv.get("bytes_total") or 0)
+        if fs is None:
+            continue
+        if ls is None or ls < fs:
+            ls = fs
+        entries.append((fs, ls, pkts, bts))
+
+    if not entries:
+        return {
+            "first_seen": None,
+            "last_seen": None,
+            "bucket_seconds": 1,
+            "buckets": [],
+        }
+
+    global_first = min(e[0] for e in entries)
+    global_last = max(e[1] for e in entries)
+    span = global_last - global_first
+
+    # ~120 buckets max; minimum 1 second per bucket
+    bucket_seconds = max(1, math.ceil(span / 120)) if span > 0 else 1
+    n_buckets = math.ceil(span / bucket_seconds) + 1 if span > 0 else 1
+
+    pkt_arr = [0] * n_buckets
+    byte_arr = [0] * n_buckets
+    conv_arr = [0] * n_buckets
+
+    for (fs, ls, pkts, bts) in entries:
+        b_start = int((fs - global_first) / bucket_seconds)
+        b_end = int((ls - global_first) / bucket_seconds)
+        b_start = max(0, min(b_start, n_buckets - 1))
+        b_end = max(0, min(b_end, n_buckets - 1))
+        n_span = b_end - b_start + 1
+        # Distribute packets/bytes uniformly; spread remainder across leading buckets
+        pkt_each, pkt_rem = divmod(pkts, n_span)
+        byte_each, byte_rem = divmod(bts, n_span)
+        for offset in range(n_span):
+            i = b_start + offset
+            conv_arr[i] += 1
+            pkt_arr[i] += pkt_each + (1 if offset < pkt_rem else 0)
+            byte_arr[i] += byte_each + (1 if offset < byte_rem else 0)
+
+    buckets = []
+    for i in range(n_buckets):
+        t = global_first + i * bucket_seconds
+        if pkt_arr[i] or byte_arr[i] or conv_arr[i]:
+            buckets.append({
+                "t": t,
+                "packets": pkt_arr[i],
+                "bytes": byte_arr[i],
+                "conv_count": conv_arr[i],
+            })
+
+    return {
+        "first_seen": global_first,
+        "last_seen": global_last,
+        "bucket_seconds": bucket_seconds,
+        "buckets": buckets,
+    }
+
+
+# LRU cache keyed by (path, mtime), max 32 entries
+_timeline_cache: dict = {}
+_TIMELINE_CACHE_MAX = 32
+
+
+def _get_timeline_for_report(path: str, conversations: list) -> dict:
+    """Return cached timeline dict; keyed by (path, mtime) to invalidate on file change."""
+    try:
+        mtime = os.stat(path).st_mtime
+    except OSError:
+        mtime = 0.0
+    cache_key = (path, mtime)
+    if cache_key in _timeline_cache:
+        return _timeline_cache[cache_key]
+    result = _compute_timeline_buckets(conversations)
+    if len(_timeline_cache) >= _TIMELINE_CACHE_MAX:
+        # Evict oldest inserted key
+        oldest = next(iter(_timeline_cache))
+        del _timeline_cache[oldest]
+    _timeline_cache[cache_key] = result
+    return result
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1447,6 +1560,15 @@ def _severity_rank(severity: str) -> int:
     }.get((severity or "").upper(), 5)
 
 
+def _finding_signature(finding: dict) -> str:
+    payload = {
+        "category": str(finding.get("category") or ""),
+        "nodes": sorted(str(n) for n in (finding.get("affected_nodes") or [])),
+        "edges": sorted(str(e) for e in (finding.get("affected_edges") or [])),
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:32]
+
+
 _DPI_LABELS = {
     "app_name": "App Name",
     "called_station_id": "Called Station",
@@ -1987,7 +2109,65 @@ def _count_active_dissector_families(conversations: list) -> int:
     return active
 
 
-def _build_viewer_context(report: dict) -> dict:
+_SEVERITY_ORDER = ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
+
+
+def _apply_contextual_severity(
+    findings: list,
+    asset_tags_by_key: dict,
+    notes_by_sig: dict,
+) -> list:
+    """Return enriched copies of each finding with contextual severity fields."""
+    result = []
+    for finding in findings:
+        item = dict(finding)
+        base_sev = str(item.get("severity") or "").upper()
+        affected = [str(n) for n in (item.get("affected_nodes") or [])]
+
+        # Build per-finding asset_tags map: node_key -> tag dict
+        node_tag_map = {}
+        for node_key in affected:
+            tag = asset_tags_by_key.get(node_key)
+            if tag is not None:
+                node_tag_map[node_key] = tag
+
+        ctx_sev = base_sev
+        reason = "unchanged"
+
+        if base_sev in _SEVERITY_ORDER:
+            base_idx = _SEVERITY_ORDER.index(base_sev)
+            tagged_criticalities = [
+                tag.get("criticality") for tag in node_tag_map.values() if tag.get("criticality")
+            ]
+            has_critical_asset = any(c == "critical" for c in tagged_criticalities)
+            # "all low": every affected node must be present in tags AND tagged low
+            all_low = (
+                bool(affected)
+                and len(node_tag_map) == len(affected)
+                and all(
+                    node_tag_map.get(n, {}).get("criticality") == "low" for n in affected
+                )
+            )
+
+            if has_critical_asset and base_idx < len(_SEVERITY_ORDER) - 1:
+                ctx_sev = _SEVERITY_ORDER[base_idx + 1]
+                reason = "bumped: affected node tagged critical"
+            elif all_low and base_idx > 0:
+                ctx_sev = _SEVERITY_ORDER[base_idx - 1]
+                reason = "reduced: all affected nodes tagged low"
+
+        sig = _finding_signature(item)
+        note = notes_by_sig.get(sig)
+
+        item["contextual_severity"] = ctx_sev
+        item["contextual_severity_reason"] = reason
+        item["note"] = note
+        item["asset_tags"] = node_tag_map
+        result.append(item)
+    return result
+
+
+def _build_viewer_context(report: dict, project_id: int = None, report_filename: str = None) -> dict:
     """Prepare server-rendered triage context for the viewer."""
     nodes = list(report.get("nodes") or [])
     edges = list(report.get("edges") or [])
@@ -2041,6 +2221,38 @@ def _build_viewer_context(report: dict) -> dict:
         item["attack_ids"] = sorted(set(existing + mapped))
         enriched_findings.append(item)
     risk_findings = enriched_findings
+
+    # ── Contextual severity overlay (Bet 2) ──────────────────────────────────
+    # Load AssetTags and FindingNotes for this project when project_id is given.
+    _ctx_asset_tags_by_key: dict = {}
+    _ctx_notes_by_sig: dict = {}
+    if project_id is not None:
+        for tag in AssetTag.query.filter_by(project_id=project_id).all():
+            _ctx_asset_tags_by_key[tag.asset_key] = {
+                "id": tag.id,
+                "asset_key": tag.asset_key,
+                "owner": tag.owner,
+                "criticality": tag.criticality,
+                "zone": tag.zone,
+                "business_function": tag.business_function,
+                "free_text": tag.free_text,
+            }
+        _fn_query = FindingNote.query.filter_by(project_id=project_id)
+        if report_filename:
+            _fn_query = _fn_query.filter_by(report_filename=report_filename)
+        for note in _fn_query.all():
+            _ctx_notes_by_sig[note.finding_signature] = {
+                "id": note.id,
+                "status": note.status,
+                "body": note.body,
+                "author_id": note.author_id,
+                "report_filename": note.report_filename,
+                "created_at": note.created_at.isoformat() if note.created_at else None,
+                "updated_at": note.updated_at.isoformat() if note.updated_at else None,
+            }
+        risk_findings = _apply_contextual_severity(
+            risk_findings, _ctx_asset_tags_by_key, _ctx_notes_by_sig
+        )
 
     enriched_indicators = []
     for indicator in c2_indicators:
@@ -2811,6 +3023,165 @@ def create_app():
         db.session.delete(proj)
         db.session.commit()
         return jsonify({"ok": True})
+
+    # ── Asset tags (Bet 2) ───────────────────────────────────────
+
+    _VALID_CRITICALITIES = {"low", "medium", "high", "critical"}
+    _VALID_NOTE_STATUSES = {"open", "resolved", "accepted", "false_positive"}
+    _ASSET_KEY_RE = re.compile(r"[\x00-\x1f\x7f]")
+
+    def _validate_asset_key(key: str):
+        """Return error string if key is invalid, else None."""
+        if not key or len(key) > 64:
+            return "asset_key must be 1–64 characters"
+        if _ASSET_KEY_RE.search(key):
+            return "asset_key must not contain control characters"
+        return None
+
+    def _asset_tag_dict(tag: "AssetTag") -> dict:
+        return {
+            "id": tag.id,
+            "project_id": tag.project_id,
+            "asset_key": tag.asset_key,
+            "owner": tag.owner,
+            "criticality": tag.criticality,
+            "zone": tag.zone,
+            "business_function": tag.business_function,
+            "free_text": tag.free_text,
+            "updated_by": tag.updated_by,
+            "created_at": tag.created_at.isoformat() if tag.created_at else None,
+            "updated_at": tag.updated_at.isoformat() if tag.updated_at else None,
+        }
+
+    def _finding_note_dict(note: "FindingNote") -> dict:
+        return {
+            "id": note.id,
+            "project_id": note.project_id,
+            "report_filename": note.report_filename,
+            "finding_signature": note.finding_signature,
+            "status": note.status,
+            "body": note.body,
+            "author_id": note.author_id,
+            "created_at": note.created_at.isoformat() if note.created_at else None,
+            "updated_at": note.updated_at.isoformat() if note.updated_at else None,
+        }
+
+    @app.route("/api/projects/<int:pid>/asset-tags")
+    @login_required
+    def api_asset_tags_list(pid):
+        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        if not proj:
+            return jsonify({"error": "Project not found"}), 404
+        tags = AssetTag.query.filter_by(project_id=pid).order_by(AssetTag.asset_key).all()
+        return jsonify({"asset_tags": [_asset_tag_dict(t) for t in tags]})
+
+    @app.route("/api/projects/<int:pid>/asset-tags/<path:asset_key>", methods=["PUT"])
+    @login_required
+    def api_asset_tags_upsert(pid, asset_key):
+        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        if not proj:
+            return jsonify({"error": "Project not found"}), 404
+        err = _validate_asset_key(asset_key)
+        if err:
+            return jsonify({"error": err}), 400
+        body = request.get_json(silent=True) or {}
+        criticality = body.get("criticality")
+        if criticality is not None and criticality not in _VALID_CRITICALITIES:
+            return jsonify({"error": f"criticality must be one of {sorted(_VALID_CRITICALITIES)}"}), 400
+        tag = AssetTag.query.filter_by(project_id=pid, asset_key=asset_key).first()
+        now = datetime.utcnow()
+        if tag is None:
+            tag = AssetTag(
+                project_id=pid,
+                asset_key=asset_key,
+                created_at=now,
+            )
+            db.session.add(tag)
+        tag.owner = body.get("owner", tag.owner)
+        tag.criticality = criticality if criticality is not None else tag.criticality
+        tag.zone = body.get("zone", tag.zone)
+        tag.business_function = body.get("business_function", tag.business_function)
+        tag.free_text = body.get("free_text", tag.free_text)
+        tag.updated_by = session["user_id"]
+        tag.updated_at = now
+        db.session.commit()
+        return jsonify(_asset_tag_dict(tag))
+
+    @app.route("/api/projects/<int:pid>/asset-tags/<path:asset_key>", methods=["DELETE"])
+    @login_required
+    def api_asset_tags_delete(pid, asset_key):
+        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        if not proj:
+            return jsonify({"error": "Project not found"}), 404
+        tag = AssetTag.query.filter_by(project_id=pid, asset_key=asset_key).first()
+        if tag:
+            db.session.delete(tag)
+            db.session.commit()
+        return "", 204
+
+    # ── Finding notes (Bet 2) ────────────────────────────────────
+
+    @app.route("/api/projects/<int:pid>/notes")
+    @login_required
+    def api_notes_list(pid):
+        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        if not proj:
+            return jsonify({"error": "Project not found"}), 404
+        q = FindingNote.query.filter_by(project_id=pid)
+        report_filter = request.args.get("report")
+        if report_filter:
+            q = q.filter_by(report_filename=report_filter)
+        notes = q.order_by(FindingNote.updated_at.desc()).all()
+        return jsonify({"notes": [_finding_note_dict(n) for n in notes]})
+
+    @app.route("/api/projects/<int:pid>/notes/<finding_signature>", methods=["PUT"])
+    @login_required
+    def api_notes_upsert(pid, finding_signature):
+        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        if not proj:
+            return jsonify({"error": "Project not found"}), 404
+        err = _validate_asset_key(finding_signature)  # same constraints: no control chars, ≤64
+        if err:
+            return jsonify({"error": f"finding_signature invalid: {err}"}), 400
+        body = request.get_json(silent=True) or {}
+        status = body.get("status", "open")
+        if status not in _VALID_NOTE_STATUSES:
+            return jsonify({"error": f"status must be one of {sorted(_VALID_NOTE_STATUSES)}"}), 400
+        report_filename = body.get("report_filename", "")
+        note = FindingNote.query.filter_by(
+            project_id=pid, finding_signature=finding_signature
+        ).first()
+        now = datetime.utcnow()
+        if note is None:
+            note = FindingNote(
+                project_id=pid,
+                finding_signature=finding_signature,
+                report_filename=report_filename,
+                created_at=now,
+            )
+            db.session.add(note)
+        if report_filename:
+            note.report_filename = report_filename
+        note.status = status
+        note.body = body.get("body", note.body)
+        note.author_id = session["user_id"]
+        note.updated_at = now
+        db.session.commit()
+        return jsonify(_finding_note_dict(note))
+
+    @app.route("/api/projects/<int:pid>/notes/<finding_signature>", methods=["DELETE"])
+    @login_required
+    def api_notes_delete(pid, finding_signature):
+        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        if not proj:
+            return jsonify({"error": "Project not found"}), 404
+        note = FindingNote.query.filter_by(
+            project_id=pid, finding_signature=finding_signature
+        ).first()
+        if note:
+            db.session.delete(note)
+            db.session.commit()
+        return "", 204
 
     @app.route("/api/projects/<int:pid>/files")
     @login_required
@@ -3773,7 +4144,11 @@ def create_app():
             "viewer.html",
             report=sanitized_report,
             report_json=sanitized_report,
-            viewer_context=_build_viewer_context(sanitized_report),
+            viewer_context=_build_viewer_context(
+                sanitized_report,
+                project_id=project_id,
+                report_filename=safe_name,
+            ),
             filename=safe_name,
         )
 
@@ -3790,6 +4165,200 @@ def create_app():
             "assets.html",
             report_json=_sanitize_report(report),
             filename=safe_name,
+        )
+
+    @app.route("/api/reports/<filename>/timeline")
+    @login_required
+    def api_report_timeline(filename):
+        """GET — time-bucketed packet+byte counts from report.conversations[].
+
+        Query params:
+            project_id  (int, optional)
+
+        Response JSON:
+            {first_seen, last_seen, bucket_seconds,
+             buckets: [{t, packets, bytes, conv_count}]}
+        """
+        safe_name = os.path.basename(filename)
+        project_id = request.args.get("project_id", None, type=int)
+        path = os.path.join(user_reports_dir(project_id), safe_name)
+        if not os.path.isfile(path):
+            return jsonify({"error": "Report not found"}), 404
+        try:
+            with open(path) as fh:
+                report = json.load(fh)
+        except Exception as exc:
+            log.warning("timeline: failed to parse report %s: %s", path, exc)
+            return jsonify({"error": "Failed to parse report"}), 500
+        conversations = report.get("conversations") or []
+        result = _get_timeline_for_report(path, conversations)
+        return jsonify(result)
+
+    @app.route("/api/reports/<filename>/extract", methods=["POST"])
+    @login_required
+    def api_report_extract(filename):
+        """POST — extract a sub-PCAP for a specific conversation or time window.
+
+        Request JSON (all fields optional):
+            src, dst, port, protocol, time_start, time_end, max_packets
+
+        Returns the resulting .pcap as application/vnd.tcpdump.pcap.
+        Hard timeout: 60 s (returns 504 on TimeoutExpired).
+        Max packets: min(request.max_packets, 500_000).
+        """
+        EXTRACT_TIMEOUT = 60
+        MAX_PACKETS_HARD = 500_000
+
+        safe_name = os.path.basename(filename)
+        project_id = request.args.get("project_id", None, type=int)
+        report_path = os.path.join(user_reports_dir(project_id), safe_name)
+        if not os.path.isfile(report_path):
+            return jsonify({"error": "Report not found"}), 404
+
+        body = request.get_json(silent=True) or {}
+        src = body.get("src")
+        dst = body.get("dst")
+        port = body.get("port")
+        protocol = body.get("protocol")
+        time_start = body.get("time_start")
+        time_end = body.get("time_end")
+        max_packets_req = body.get("max_packets")
+
+        max_packets = MAX_PACKETS_HARD
+        if max_packets_req is not None:
+            try:
+                max_packets = min(int(max_packets_req), MAX_PACKETS_HARD)
+            except (TypeError, ValueError):
+                pass
+
+        # Resolve PCAP path from report capture_info
+        try:
+            with open(report_path) as fh:
+                report = json.load(fh)
+        except Exception as exc:
+            log.warning("extract: failed to parse report %s: %s", report_path, exc)
+            return jsonify({"error": "Failed to parse report"}), 500
+
+        capture_info = report.get("capture_info") or {}
+        pcap_basename = os.path.basename(capture_info.get("pcap_path") or "")
+        if not pcap_basename:
+            return jsonify({"error": "No PCAP path recorded in report"}), 404
+
+        pid_for_path = project_id
+        if pid_for_path is None:
+            pid_for_path = _ensure_default_project(session["user_id"]).id
+        pcap_path = os.path.join(
+            config.UPLOADS_DIR,
+            str(session["user_id"]),
+            str(pid_for_path),
+            pcap_basename,
+        )
+        if not os.path.isfile(pcap_path):
+            return jsonify({"error": "Original PCAP not found"}), 404
+
+        # Build tshark display filter
+        filter_parts = []
+        if src and dst:
+            filter_parts.append(
+                f"(ip.src=={src} and ip.dst=={dst})"
+                f" or (ip.src=={dst} and ip.dst=={src})"
+            )
+        elif src:
+            filter_parts.append(f"ip.src=={src} or ip.dst=={src}")
+        elif dst:
+            filter_parts.append(f"ip.src=={dst} or ip.dst=={dst}")
+        if port is not None:
+            try:
+                port_int = int(port)
+                filter_parts.append(f"tcp.port=={port_int} or udp.port=={port_int}")
+            except (TypeError, ValueError):
+                pass
+        if protocol:
+            filter_parts.append(protocol.lower())
+
+        display_filter = (
+            " and ".join(f"({p})" for p in filter_parts) if filter_parts else ""
+        )
+
+        tmp_dir = tempfile.mkdtemp(prefix="ms_extract_")
+        try:
+            stage1_out = os.path.join(tmp_dir, "stage1.pcap")
+            stage2_out = os.path.join(tmp_dir, "stage2.pcap")
+
+            # Stage 1: tshark filter (IP / port / protocol)
+            tshark_cmd = [
+                "tshark", "-r", pcap_path,
+                "-w", stage1_out,
+                "-c", str(max_packets),
+            ]
+            if display_filter:
+                tshark_cmd = [
+                    "tshark", "-r", pcap_path,
+                    "-Y", display_filter,
+                    "-w", stage1_out,
+                    "-c", str(max_packets),
+                ]
+
+            try:
+                subprocess.run(
+                    tshark_cmd,
+                    capture_output=True,
+                    timeout=EXTRACT_TIMEOUT,
+                    check=False,
+                )
+            except subprocess.TimeoutExpired:
+                return jsonify({"error": "Extract timed out"}), 504
+
+            intermediate = stage1_out if os.path.isfile(stage1_out) else pcap_path
+
+            # Stage 2: editcap time window
+            if time_start is not None or time_end is not None:
+                editcap_cmd = ["editcap"]
+                if time_start is not None:
+                    try:
+                        start_iso = datetime.fromtimestamp(
+                            float(time_start), tz=timezone.utc
+                        ).strftime("%Y-%m-%d %H:%M:%S")
+                        editcap_cmd += ["-A", start_iso]
+                    except (TypeError, ValueError, OSError):
+                        pass
+                if time_end is not None:
+                    try:
+                        end_iso = datetime.fromtimestamp(
+                            float(time_end), tz=timezone.utc
+                        ).strftime("%Y-%m-%d %H:%M:%S")
+                        editcap_cmd += ["-B", end_iso]
+                    except (TypeError, ValueError, OSError):
+                        pass
+                editcap_cmd += [intermediate, stage2_out]
+                try:
+                    subprocess.run(
+                        editcap_cmd,
+                        capture_output=True,
+                        timeout=EXTRACT_TIMEOUT,
+                        check=False,
+                    )
+                except subprocess.TimeoutExpired:
+                    return jsonify({"error": "Extract timed out"}), 504
+                final_path = stage2_out if os.path.isfile(stage2_out) else intermediate
+            else:
+                final_path = intermediate
+
+            if not os.path.isfile(final_path):
+                return jsonify({"error": "Extract produced no output"}), 500
+
+            stem = safe_name.replace(".json", "")
+            dl_name = f"{stem}-extract.pcap"
+            with open(final_path, "rb") as fh:
+                data = fh.read()
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+        return app.response_class(
+            response=data,
+            status=200,
+            mimetype="application/vnd.tcpdump.pcap",
+            headers={"Content-Disposition": f'attachment; filename="{dl_name}"'},
         )
 
     @app.route("/api/reports/<filename>", methods=["DELETE"])
