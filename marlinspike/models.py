@@ -93,6 +93,38 @@ class PasswordResetToken(db.Model):
     )
 
 
+class AssetTag(db.Model):
+    __tablename__ = "asset_tags"
+
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("projects.id"), nullable=False, index=True)
+    asset_key = db.Column(db.String(64), nullable=False, index=True)  # MAC first, IP fallback
+    owner = db.Column(db.String(120))
+    criticality = db.Column(db.String(20))   # 'low'|'medium'|'high'|'critical'|None
+    zone = db.Column(db.String(80))
+    business_function = db.Column(db.String(120))
+    free_text = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_by = db.Column(db.Integer, db.ForeignKey("users.id"))
+
+    __table_args__ = (db.UniqueConstraint("project_id", "asset_key", name="uq_asset_tag"),)
+
+
+class FindingNote(db.Model):
+    __tablename__ = "finding_notes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("projects.id"), nullable=False, index=True)
+    report_filename = db.Column(db.String(255), nullable=False, index=True)
+    finding_signature = db.Column(db.String(64), nullable=False, index=True)
+    status = db.Column(db.String(20), default="open", nullable=False)
+    body = db.Column(db.Text)
+    author_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class AuditLog(db.Model):
     __tablename__ = "audit_log"
 
