@@ -109,8 +109,23 @@ docker compose up --build
 
 ### Wrapper / extension hook points
 
-`v3.0.0` ships the package layout and pip-installability. The next phase
-(planned for v3.1) will:
+`v3.0.0` ships the package layout, pip-installability, and one extension
+helper:
+
+* **`@csrf_exempt`** (in `marlinspike.auth`) — opts a view function out of the
+  global `Origin`/`Referer` check so wrappers can register webhook endpoints
+  that legitimately receive cross-origin POSTs (Stripe, GitHub, SCIM, OAuth):
+
+  ```python
+  from marlinspike.auth import csrf_exempt
+
+  @app.route("/billing/webhook", methods=["POST"])
+  @csrf_exempt
+  def stripe_webhook():
+      ...
+  ```
+
+The next phase (planned for v3.1) will:
 
 - Refactor `create_app()` to accept `extra_blueprints`, `extra_template_dirs`,
   `extra_static_dirs`, and an `on_user_created` callback.
@@ -118,7 +133,7 @@ docker compose up --build
   blueprints (`auth`, `uploads`, `scans`, `reports`, `users`, `audit`,
   `system`, `dashboard`).
 
-Until then, wrappers can already:
+Wrappers can already:
 
 ```python
 from marlinspike import create_app, db

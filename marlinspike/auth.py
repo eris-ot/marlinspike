@@ -44,6 +44,22 @@ def login_required(f):
     return decorated
 
 
+def csrf_exempt(view_func):
+    """Mark a view function as exempt from the global CSRF / origin check.
+
+    Use sparingly — intended for endpoints that legitimately receive POSTs
+    from third parties (e.g. payment-provider webhooks, OAuth callbacks)
+    where ``Origin`` and ``Referer`` won't match the application host.
+
+    Example:
+        @app.route("/billing/webhook", methods=["POST"])
+        @csrf_exempt
+        def stripe_webhook(): ...
+    """
+    view_func._csrf_exempt = True
+    return view_func
+
+
 def admin_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
