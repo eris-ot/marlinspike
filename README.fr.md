@@ -1,6 +1,6 @@
 # MarlinSpike
 
-Version actuelle : `2.4.0`
+Version actuelle : `3.0.0`
 
 Langues : [English](README.md) · **Français**
 
@@ -10,9 +10,11 @@ MarlinSpike est une plateforme d'analyse réseau OT/ICS passive conçue depuis z
 
 **Conçu pour les missions d'équipe sur site** — multi-utilisateurs, parcours sans JS pour les flux principaux, cible `1 cœur / 1 Go RAM`, et artefacts JSON portables.
 
+**Atelier bilingue** (English / Français) — chaque écran bascule entre les langues, y compris les catégories de constats, descriptions et recommandations émises par le moteur.
+
 **2,45 M paquets (1,7 Go) -> 2 449 nœuds, 2 662 arêtes, 75 constats en 58 secondes.**
 
-Dépôt : [github.com/riverrisk/marlinspike](https://github.com/riverrisk/marlinspike)
+Dépôt : [github.com/eris-ot/marlinspike](https://github.com/eris-ot/marlinspike)
 
 ## Ce qu'est MarlinSpike
 
@@ -58,7 +60,7 @@ Les fonctionnalités interactives du navigateur peuvent améliorer la vitesse et
 1. Cloner le dépôt et entrer dans le répertoire du projet.
 
 ```bash
-git clone https://github.com/riverrisk/marlinspike.git
+git clone https://github.com/eris-ot/marlinspike.git
 cd marlinspike
 ```
 
@@ -596,10 +598,10 @@ Pour en savoir plus : [riverriskpartners.com](https://riverriskpartners.com).
 
 MarlinSpike est meilleur grâce aux personnes qui prennent le temps de le tester, de lire le code et d'ouvrir des issues ou des PRs. Contributeurs de la communauté :
 
-- **[Michael Sargis (@MichaelMVS)](https://github.com/MichaelMVS)** — a attrapé une collision silencieuse dans le dictionnaire OUI `ICS_OUI_DB` qui faisait identifier à tort des équipements Honeywell comme étant GE dans chaque rapport ([PR #3](https://github.com/riverrisk/marlinspike/pull/3), v2.0.3)
+- **[Michael Sargis (@MichaelMVS)](https://github.com/MichaelMVS)** — a attrapé une collision silencieuse dans le dictionnaire OUI `ICS_OUI_DB` qui faisait identifier à tort des équipements Honeywell comme étant GE dans chaque rapport ([PR #3](https://github.com/eris-ot/marlinspike/pull/3), v2.0.3)
 - **Jerrid Brown** (OTPulse) — a fait passer de vraies captures de paquets DCS dans MarlinSpike et a remonté plusieurs problèmes de classification et d'UX qui ont conduit aux correctifs v2.0.1 / v2.0.2 (mauvaise classification multicast, mauvaise attribution OUI sur la MAC de gateway, bruit `NO_AUTH_OBSERVED`, fourre-tout « Application Server » du Niveau 3, heuristiques Purdue L3 vs L4)
 
-Si vous trouvez un bug ou avez une empreinte à ajouter, [ouvrez une issue](https://github.com/riverrisk/marlinspike/issues) ou [envoyez une PR](https://github.com/riverrisk/marlinspike/pulls) — les contributeurs débutants sont très bienvenus.
+Si vous trouvez un bug ou avez une empreinte à ajouter, [ouvrez une issue](https://github.com/eris-ot/marlinspike/issues) ou [envoyez une PR](https://github.com/eris-ot/marlinspike/pulls) — les contributeurs débutants sont très bienvenus.
 
 ## Licence
 

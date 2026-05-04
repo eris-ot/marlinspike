@@ -1,6 +1,6 @@
 # MarlinSpike
 
-Current release: `2.4.0`
+Current release: `3.0.0`
 
 MarlinSpike is a ground-up passive OT/ICS network analysis platform built in the tradition of GrassMarlin-style topology mapping, but wrapped in a multi-user web workbench designed for real engagements. It analyzes PCAP and PCAPNG captures, builds a topology graph, infers Purdue levels, fingerprints vendors, and surfaces responder-grade risk indicators such as cross-zone communication, cleartext services, beaconing, suspicious external communications, and DNS exfiltration, then exports everything as portable JSON report artifacts that travel with the team.
 
@@ -8,9 +8,11 @@ MarlinSpike is a ground-up passive OT/ICS network analysis platform built in the
 
 **Designed for on-site team engagements** — multi-user, zero-JS core workflows, `1 core / 1 GB RAM`, and portable JSON report artifacts.
 
+**Bilingual workbench** (English / Français) — every screen flips between locales, including engine-emitted finding categories, descriptions, and remediations.
+
 **2.45M packets (1.7 GB) -> 2,449 nodes, 2,662 edges, 75 findings in 58 seconds.**
 
-Repository: [github.com/riverrisk/marlinspike](https://github.com/riverrisk/marlinspike)
+Repository: [github.com/eris-ot/marlinspike](https://github.com/eris-ot/marlinspike)
 
 ## What MarlinSpike Is
 
@@ -45,7 +47,11 @@ Interactive browser features can improve speed and convenience, but the core tri
 - Topology construction with Purdue-level inference and vendor fingerprinting
 - Risk surfacing for remote access exposure, C2-like beaconing, suspicious external channels, DNS entropy anomalies, policy violations, full MITRE ATT&CK mapping with tactics, sub-techniques, matrix views, response guidance, and IEC 62443 SR-oriented remediation guidance
 - Flask web UI with an upgraded multi-mode analyst workbench, project management, report viewer, baseline/drift comparison, asset inventory, scan history, and a source-backed `/capabilities` detection coverage catalog
+- Bilingual UI (English / Français) — Jinja chrome, JS-rendered workbench panes, and engine-emitted finding categories/descriptions/remediations all flip via a homegrown JSON-dictionary i18n layer with no new pip dependencies; locale picker in the nav, session-persisted, with `Accept-Language` fallback
+- IR-triage workbench flow with two new left-rail panes that line up with the NetworkMiner / Arkime / Wireshark / Corelight / Dragos consensus pattern (provenance → inventory → traffic stats → protocol drilldown → anomalies/IOCs): **Traffic Statistics** pane (capture-volume KPIs, top conversations by bytes, protocol byte distribution, top source/destination endpoints, conversation-anomaly flags for beaconing / high-entropy DNS / unsecured OPC), and **Protocol Drilldown** pane (per-dissector evidence for Modbus, S7, DNP3, IEC 60870-5-104, CIP, MMS, GOOSE, BACnet, OMRON, PROFINET, OPC, DNS — with a roster header that lists silent families so absence of a protocol is itself part of the report)
+- L2 / ARP anomaly surface in the workbench: bilgepump `mac_local` / `arp_spoof` / `mac_flap` detections grouped by anomaly type with per-bucket count, severity histogram, and representative samples; ARP observations rendered alongside
 - Project Overview tab as the default project landing surface: walks every report in a project, dedupes assets (MAC-keyed, IP fallback) and findings (`(category, sorted(affected_nodes), sorted(affected_edges))`) across captures, promotes finding severity to the highest seen, and renders one rolled-up KPI strip, severity bar, findings table, asset inventory, protocol list, and ATT&CK coverage chip set — pure compute, no schema migration
+- Pip-installable Python package (v3.0.0): `pip install marlinspike` exposes `from marlinspike import create_app, db`; downstream wrappers (e.g. cloudmarlin) can extend the app without forking via the new `csrf_exempt` and `set_concurrent_check_fn` extension hooks
 - Docker Compose deployment with PostgreSQL backing the application
 - Rust DPI engine via [`marlinspike-dpi`](https://github.com/riverrisk/marlinspike-dpi) enabled by default (`--dpi-engine auto`), built into the image from a pinned GitHub ref — 14x faster than the Python tshark fallback on large captures
 - MITRE ATT&CK runtime surfaces sourced from the standalone [`marlinspike-mitre`](https://github.com/riverrisk/marlinspike-mitre) repo at a pinned GitHub ref during image build
@@ -56,7 +62,7 @@ Interactive browser features can improve speed and convenience, but the core tri
 1. Clone the repository and enter the project directory.
 
 ```bash
-git clone https://github.com/riverrisk/marlinspike.git
+git clone https://github.com/eris-ot/marlinspike.git
 cd marlinspike
 ```
 
@@ -594,10 +600,10 @@ Learn more at [riverriskpartners.com](https://riverriskpartners.com).
 
 MarlinSpike is better because of the people who take the time to test it, read the code, and file issues or PRs. Community contributors:
 
-- **[Michael Sargis (@MichaelMVS)](https://github.com/MichaelMVS)** — caught a silent OUI dict collision in `ICS_OUI_DB` that was causing Honeywell devices to be misidentified as GE in every report ([PR #3](https://github.com/riverrisk/marlinspike/pull/3), v2.0.3)
+- **[Michael Sargis (@MichaelMVS)](https://github.com/MichaelMVS)** — caught a silent OUI dict collision in `ICS_OUI_DB` that was causing Honeywell devices to be misidentified as GE in every report ([PR #3](https://github.com/eris-ot/marlinspike/pull/3), v2.0.3)
 - **Jerrid Brown** (OTPulse) — ran real DCS packet captures through MarlinSpike and surfaced multiple classification and UX issues that drove the v2.0.1 / v2.0.2 fixes (multicast misclassification, OUI gateway-MAC misattribution, NO_AUTH_OBSERVED noise, Level 3 "Application Server" catch-all, Purdue L3 vs L4 heuristics)
 
-If you find a bug or have a fingerprint to add, [open an issue](https://github.com/riverrisk/marlinspike/issues) or [send a PR](https://github.com/riverrisk/marlinspike/pulls) — first-time contributors very welcome.
+If you find a bug or have a fingerprint to add, [open an issue](https://github.com/eris-ot/marlinspike/issues) or [send a PR](https://github.com/eris-ot/marlinspike/pulls) — first-time contributors very welcome.
 
 ## License
 
