@@ -1081,5 +1081,8 @@
   "viewer.utilities.label": "Utilitaires",
   "viewer.utilities.png": "PNG",
   "viewer.utilities.print": "Imprimer",
-  "viewer.utilities.risk_overlay": "Couche de risque"
+  "viewer.utilities.risk_overlay": "Couche de risque",
+  "viewer.baseline.btn": "Référence",
+  "viewer.baseline.tooltip": "Ouvrir la référence longitudinale de l'actif — mélange de protocoles, dérive des pairs, historique des constats sur tous les rapports du projet",
+  "viewer.sel.baseline": "Référence"
 }

@@ -42,6 +42,7 @@ from flask_limiter.util import get_remote_address
 
 from marlinspike import config
 from marlinspike.aggregate import aggregate_reports
+from marlinspike.baselines import compute_asset_baseline
 from marlinspike.audit import audit
 from marlinspike.auth import (
     admin_required,
@@ -84,7 +85,7 @@ from marlinspike.models import (
     db,
 )
 
-APP_VERSION = "3.1.0"
+APP_VERSION = "3.2.0"
 
 log = logging.getLogger("marlinspike")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(message)s")
@@ -3261,6 +3262,59 @@ def create_app():
                         pass
         reports.sort(key=lambda r: r["modified"], reverse=True)
         return jsonify({"reports": reports})
+
+    @app.route("/projects/<int:pid>/assets/<path:asset_key>")
+    @login_required
+    def asset_baseline_page(pid, asset_key):
+        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        if not proj:
+            return "Project not found", 404
+        return render_template(
+            "asset_baseline.html",
+            pid=pid,
+            project_name=proj.name,
+            asset_key=asset_key,
+        )
+
+    @app.route("/api/projects/<int:pid>/assets/<path:asset_key>/baseline")
+    @login_required
+    def api_asset_baseline(pid, asset_key):
+        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        if not proj:
+            return jsonify({"error": "Project not found"}), 404
+
+        limit = request.args.get("limit_reports", type=int)
+
+        rdir = os.path.join(config.REPORTS_DIR, str(session["user_id"]), str(pid))
+        loaded: list[dict] = []
+        if os.path.isdir(rdir):
+            for fn in os.listdir(rdir):
+                if not _is_primary_report_filename(fn):
+                    continue
+                path = os.path.join(rdir, fn)
+                try:
+                    report = _load_report_with_extensions(path, ensure_mitre=False)
+                except Exception:
+                    continue
+                # Annotate so baselines._report_filename() picks the canonical name.
+                report["_report_filename"] = fn
+                loaded.append(report)
+
+        # Sort oldest → newest by best-available timestamp; fall back to filename.
+        def _sort_key(r: dict) -> tuple[str, str]:
+            ts = r.get("timestamp_start") or (r.get("capture_info") or {}).get("start_ts") or ""
+            return (str(ts), str(r.get("_report_filename") or ""))
+
+        loaded.sort(key=_sort_key)
+
+        baseline = compute_asset_baseline(loaded, asset_key, limit_reports=limit)
+        if baseline is None:
+            return jsonify({
+                "error": "asset not found in any report in this project",
+                "asset_key": asset_key,
+                "scanned_reports": len(loaded),
+            }), 404
+        return jsonify(baseline)
 
     @app.route("/api/projects/<int:pid>/aggregate")
     @login_required

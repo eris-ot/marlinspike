@@ -3986,14 +3986,21 @@ var MS = (function() {
     if (!list.length) {
       table = '<div class="ms-stage-note">No assets match the current focus and search.</div>';
     } else {
-      table += '<div class="ms-stage-table-wrap"><table class="ms-stage-table"><thead><tr><th>Asset</th><th>Role</th><th>Identity</th><th>Protocols</th><th>Risk</th><th>Evidence</th></tr></thead><tbody>';
+      table += '<div class="ms-stage-table-wrap"><table class="ms-stage-table"><thead><tr><th>Asset</th><th>Role</th><th>Identity</th><th>Protocols</th><th>Risk</th><th>Evidence</th><th></th></tr></thead><tbody>';
       list.forEach(function(node) {
+        var bkey = node.mac || node._ip;
         table += '<tr><td><button class="ms-stage-row-btn" onclick="MS.selectNodeByIp(\'' + escjs(node._ip) + '\', true)"><span class="ms-inline-code">' + esc(node._ip) + '</span></button></td>';
         table += '<td>' + esc(node._role) + '<br><span class="ms-stage-note">' + esc(PURDUE_LABELS[node._level] || ('Level ' + node._level)) + '</span></td>';
         table += '<td>' + esc((node.vendor && node.vendor !== 'Unknown' ? node.vendor : 'Unknown vendor') + ' · ' + (node.device_type || 'Unknown')) + '</td>';
         table += '<td>' + esc(toArray(node._protocols).slice(0, 4).join(', ') || '—') + '</td>';
         table += '<td>' + esc(nodeRiskFindings(node).length) + ' findings</td>';
-        table += '<td>' + esc((node._dpi && node._dpi.conversation_count) || 0) + ' sessions</td></tr>';
+        table += '<td>' + esc((node._dpi && node._dpi.conversation_count) || 0) + ' sessions</td>';
+        if (projectId != null && bkey) {
+          table += '<td><a class="ms-mini-btn" href="/projects/' + esc(projectId) + '/assets/' + encodeURIComponent(bkey) + '" target="_blank" rel="noopener" title="' + esc(tjs('viewer.baseline.tooltip')) + '">' + esc(tjs('viewer.baseline.btn')) + '</a></td>';
+        } else {
+          table += '<td></td>';
+        }
+        table += '</tr>';
       });
       table += '</tbody></table></div>';
     }
@@ -4505,6 +4512,10 @@ var MS = (function() {
     html += '<div class="ms-selection-actions">';
     html += '<button class="ms-mini-btn" onclick="MS.centerOnSelected()">' + esc(tjs('viewer.sel.center')) + '</button>';
     html += '<button class="ms-mini-btn" onclick="MS.deselectNode()">' + esc(tjs('viewer.sel.clear')) + '</button>';
+    var bkey = n.mac || n._ip;
+    if (projectId != null && bkey) {
+      html += '<a class="ms-mini-btn" href="/projects/' + esc(projectId) + '/assets/' + encodeURIComponent(bkey) + '" target="_blank" rel="noopener" title="' + esc(tjs('viewer.baseline.tooltip')) + '">' + esc(tjs('viewer.sel.baseline')) + '</a>';
+    }
     html += '</div></div>';
 
     html += renderNodeDpiEvidence(n, true);

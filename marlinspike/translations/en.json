@@ -1081,5 +1081,8 @@
   "viewer.utilities.label": "Utilities",
   "viewer.utilities.png": "PNG",
   "viewer.utilities.print": "Print",
-  "viewer.utilities.risk_overlay": "Risk Overlay"
+  "viewer.utilities.risk_overlay": "Risk Overlay",
+  "viewer.baseline.btn": "Baseline",
+  "viewer.baseline.tooltip": "Open the longitudinal asset baseline — protocol mix, peer drift, finding history across every report in this project",
+  "viewer.sel.baseline": "Baseline"
 }
