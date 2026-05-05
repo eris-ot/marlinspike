@@ -761,7 +761,13 @@
     });
   }
 
-  document.addEventListener('DOMContentLoaded', init);
+  // Script lives at end-of-body, so DOMContentLoaded may have already fired by
+  // the time we get here. Run init() directly when ready, schedule otherwise.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 })();
 </script>
 {% endblock %}

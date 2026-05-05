@@ -3283,37 +3283,59 @@ def create_app():
         if not proj:
             return jsonify({"error": "Project not found"}), 404
 
+        # Default cap so the page doesn't sit on "Loading…" for projects with hundreds of
+        # reports — defenders mostly care about recent drift. Pass ?limit_reports= to widen.
         limit = request.args.get("limit_reports", type=int)
+        if limit is None:
+            limit = 30
+        limit = max(1, min(500, limit))
 
         rdir = os.path.join(config.REPORTS_DIR, str(session["user_id"]), str(pid))
-        loaded: list[dict] = []
+        candidates: list[tuple[str, str]] = []  # (sort_key, path) — pre-sort by mtime descending
         if os.path.isdir(rdir):
             for fn in os.listdir(rdir):
                 if not _is_primary_report_filename(fn):
                     continue
                 path = os.path.join(rdir, fn)
                 try:
-                    report = _load_report_with_extensions(path, ensure_mitre=False)
-                except Exception:
+                    mtime = os.path.getmtime(path)
+                except OSError:
                     continue
-                # Annotate so baselines._report_filename() picks the canonical name.
-                report["_report_filename"] = fn
-                loaded.append(report)
+                candidates.append((mtime, path, fn))
+        # Take the newest *limit* by mtime (cheap proxy for capture order; we re-sort by
+        # capture timestamp once loaded). This caps how many JSONs we open.
+        candidates.sort(key=lambda c: c[0], reverse=True)
+        candidates = candidates[:limit]
 
-        # Sort oldest → newest by best-available timestamp; fall back to filename.
+        loaded: list[dict] = []
+        for _, path, fn in candidates:
+            try:
+                # Plain load — baselines only reads top-level fields; sidecar merge is wasted I/O.
+                with open(path) as fh:
+                    report = json.load(fh)
+            except Exception:
+                continue
+            if not isinstance(report, dict):
+                continue
+            report["_report_filename"] = fn
+            loaded.append(report)
+
+        # Final sort oldest → newest by best-available capture timestamp.
         def _sort_key(r: dict) -> tuple[str, str]:
             ts = r.get("timestamp_start") or (r.get("capture_info") or {}).get("start_ts") or ""
             return (str(ts), str(r.get("_report_filename") or ""))
 
         loaded.sort(key=_sort_key)
 
-        baseline = compute_asset_baseline(loaded, asset_key, limit_reports=limit)
+        baseline = compute_asset_baseline(loaded, asset_key, limit_reports=None)
         if baseline is None:
             return jsonify({
                 "error": "asset not found in any report in this project",
                 "asset_key": asset_key,
                 "scanned_reports": len(loaded),
+                "limit_reports_applied": limit,
             }), 404
+        baseline["limit_reports_applied"] = limit
         return jsonify(baseline)
 
     @app.route("/api/projects/<int:pid>/aggregate")
