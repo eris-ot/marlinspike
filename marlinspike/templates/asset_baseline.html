@@ -1,0 +1,767 @@
+{% extends "base.html" %}
+{% block title %}MarlinSpike — {{ t('baseline.title') }}{% endblock %}
+
+{% block head %}
+<style>
+/* ── Headline strip ── */
+.bl-headline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.bl-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.bl-asset-key {
+  font-family: var(--font-mono);
+  font-size: 1.15em;
+  font-weight: 600;
+  color: var(--text);
+}
+.bl-identity-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.84em;
+  color: var(--text-dim);
+}
+.bl-identity-meta span { display: flex; align-items: center; gap: 4px; }
+.bl-identity-meta .dim-label {
+  font-size: 0.78em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.bl-stability-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.8em;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.bl-stability-badge.stable {
+  background: rgba(58, 173, 107, 0.12);
+  color: var(--accent-green);
+  border: 1px solid rgba(58, 173, 107, 0.28);
+}
+.bl-stability-badge.drifted {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--color-warning);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+}
+
+/* ── Report count stat strip ── */
+.bl-meta-strip {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.bl-stat {
+  background: var(--panel-alt);
+  border: 1px solid var(--border-dim);
+  border-left: 2px solid var(--accent-cyan);
+  border-radius: 4px;
+  padding: 7px 12px;
+  min-width: 110px;
+}
+.bl-stat .label { font-size: 0.7em; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+.bl-stat .value { font-family: var(--font-mono); font-size: 1.05em; color: var(--text); margin-top: 2px; }
+
+/* ── Section headings ── */
+.bl-section { margin-bottom: 16px; }
+.bl-section-title {
+  font-size: 0.8em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  margin: 0 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-dim);
+}
+
+/* ── Novelty card ── */
+.bl-novelty {
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.bl-novelty-empty {
+  color: var(--text-muted);
+  font-size: 0.86em;
+  font-style: italic;
+}
+.bl-novelty-group { margin-bottom: 10px; }
+.bl-novelty-group:last-child { margin-bottom: 0; }
+.bl-novelty-group-label {
+  font-size: 0.75em;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+}
+.bl-novelty-items { display: flex; flex-wrap: wrap; gap: 5px; }
+.bl-novelty-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 0.78em;
+  font-family: var(--font-mono);
+}
+.bl-novelty-pill.new {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--color-warning);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+.bl-novelty-pill.lost {
+  background: rgba(100, 116, 139, 0.1);
+  color: var(--text-dim);
+  border: 1px solid var(--border-dim);
+  text-decoration: line-through;
+}
+
+/* ── Chip: NEW ── */
+.bl-chip-new {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.68em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--color-warning);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  vertical-align: middle;
+  margin-left: 4px;
+}
+
+/* ── Protocol mix timeline ── */
+.bl-proto-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border-dim);
+  border-radius: 4px;
+}
+.bl-proto-table {
+  border-collapse: collapse;
+  font-size: 0.8em;
+  white-space: nowrap;
+  min-width: 100%;
+}
+.bl-proto-table th,
+.bl-proto-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-dim);
+  border-right: 1px solid var(--border-dim);
+  text-align: right;
+}
+.bl-proto-table th { color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 0.72em; letter-spacing: 0.05em; text-align: center; }
+.bl-proto-table td.bl-proto-name {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  color: var(--text);
+  position: sticky;
+  left: 0;
+  background: var(--panel);
+  z-index: 2;
+  min-width: 120px;
+}
+.bl-proto-table th.bl-proto-name-h {
+  text-align: left;
+  position: sticky;
+  left: 0;
+  background: var(--panel);
+  z-index: 3;
+}
+.bl-proto-table td:last-child,
+.bl-proto-table th:last-child { border-right: none; }
+.bl-proto-table tr:last-child td { border-bottom: none; }
+.bl-proto-table td .convs { color: var(--text-dim); }
+.bl-proto-table td.has-data .convs { color: var(--text); }
+
+/* ── Peer table and finding history ── */
+.bl-sortable th[data-sort] { cursor: pointer; user-select: none; }
+.bl-sortable th[data-sort]:hover { color: var(--accent); }
+.bl-sort-indicator { margin-left: 3px; font-size: 0.8em; opacity: 0.6; }
+
+/* ── Anomaly cadence ── */
+.bl-anomaly-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+.bl-anomaly-item {
+  background: var(--panel-alt);
+  border: 1px solid var(--border-dim);
+  border-radius: 4px;
+  padding: 10px 12px;
+}
+.bl-anomaly-item .anom-key {
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+  color: var(--accent-cyan);
+  margin-bottom: 6px;
+}
+.bl-anomaly-item .anom-count {
+  font-size: 1.1em;
+  font-weight: 600;
+  color: var(--text);
+}
+.bl-anomaly-item .anom-meta {
+  font-size: 0.76em;
+  color: var(--text-muted);
+  margin-top: 3px;
+  font-family: var(--font-mono);
+}
+
+/* ── Identity timeline ── */
+.bl-id-timeline {
+  overflow-x: auto;
+  border: 1px solid var(--border-dim);
+  border-radius: 4px;
+}
+.bl-id-table {
+  border-collapse: collapse;
+  font-size: 0.82em;
+  white-space: nowrap;
+  min-width: 100%;
+}
+.bl-id-table th {
+  padding: 6px 10px;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.7em;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+.bl-id-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-dim);
+  color: var(--text-dim);
+}
+.bl-id-table tr:last-child td { border-bottom: none; }
+.bl-id-table td.mono { font-family: var(--font-mono); font-size: 0.9em; }
+
+/* ── Error and loading states ── */
+.bl-error-banner {
+  padding: 10px 14px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 4px;
+  color: var(--color-danger);
+  font-size: 0.88em;
+  margin-bottom: 16px;
+}
+.bl-not-found {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-dim);
+}
+.bl-not-found .nf-key {
+  font-family: var(--font-mono);
+  font-size: 1.05em;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.bl-not-found .nf-sub { font-size: 0.86em; color: var(--text-muted); margin-bottom: 16px; }
+.bl-collapsed { display: none; }
+
+/* ── Role distribution tooltip content ── */
+.role-dist { font-family: var(--font-ui); white-space: normal; }
+.role-dist-row { margin-bottom: 2px; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="ms-content">
+  <div class="panel">
+    <div class="panel-header">
+      <h2 id="bl-page-title">{{ t('baseline.title') }}</h2>
+    </div>
+    <div class="panel-body" id="bl-root">
+      <div class="ms-loading" id="bl-loading">
+        <div class="ms-spinner ms-spinner--lg"></div>
+        <span id="bl-loading-text">{{ t('baseline.loading') }}</span>
+      </div>
+      <div id="bl-error" style="display:none"></div>
+      <div id="bl-content" style="display:none"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  'use strict';
+
+  var I18N = {{ i18n_dict() | tojson }};
+  var PID      = {{ pid | tojson }};
+  var ASSET_KEY = {{ asset_key | tojson }};
+
+  /* ── i18n shim ── */
+  function tjs(key, params) {
+    var raw = I18N[key];
+    if (raw == null) raw = key;
+    if (params) {
+      Object.keys(params).forEach(function(k) {
+        raw = raw.replace(new RegExp('\\{' + k + '\\}', 'g'), String(params[k]));
+      });
+    }
+    return raw;
+  }
+
+  /* ── HTML escaping ── */
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  /* ── Fetch helper ── */
+  function fetchJson(url) {
+    return fetch(url, { credentials: 'same-origin' }).then(function(r) {
+      if (r.status === 404) return Promise.reject({ status: 404 });
+      if (!r.ok) return r.text().then(function(t) { throw { status: r.status, message: t.slice(0, 200) }; });
+      return r.json();
+    });
+  }
+
+  /* ── Date formatting ── */
+  function fmtTs(ts) {
+    if (!ts) return '—';
+    try {
+      var d = new Date(ts);
+      return d.toISOString().slice(0, 10);
+    } catch(e) { return esc(ts); }
+  }
+
+  /* ── Chip: NEW ── */
+  function newChip() {
+    return '<span class="bl-chip-new">' + tjs('baseline.chip.new') + '</span>';
+  }
+
+  /* ── Main render ── */
+  function render(d) {
+    var identity = (d.identity_timeline && d.identity_timeline.length)
+      ? d.identity_timeline[d.identity_timeline.length - 1]
+      : {};
+    var stability = d.stability || {};
+    var novelty   = d.novelty_vs_baseline || {};
+
+    var html = '';
+
+    /* 1. Headline strip */
+    html += renderHeadline(d, identity, stability);
+
+    /* 2. Novelty card */
+    html += renderNovelty(novelty, d.report_count);
+
+    /* 3. Protocol mix timeline */
+    if (d.protocol_history && Object.keys(d.protocol_history).length) {
+      html += renderProtoTimeline(d.protocol_history, d.identity_timeline || []);
+    }
+
+    /* 4. Peer set table */
+    if (d.peer_history && d.peer_history.length) {
+      html += renderPeerTable(d.peer_history);
+    }
+
+    /* 5. Finding history */
+    if (d.finding_history && d.finding_history.length) {
+      html += renderFindingHistory(d.finding_history, d.report_count);
+    }
+
+    /* 6. Anomaly cadence (only if non-empty) */
+    if (d.anomaly_cadence && Object.keys(d.anomaly_cadence).length) {
+      html += renderAnomalyCadence(d.anomaly_cadence);
+    }
+
+    /* 7. Identity timeline (only if unstable) */
+    if (stability.vendor_stable === false || stability.role_stable === false) {
+      if (d.identity_timeline && d.identity_timeline.length) {
+        html += renderIdentityTimeline(d.identity_timeline);
+      }
+    }
+
+    document.getElementById('bl-content').innerHTML = html;
+
+    /* Wire sortable peer table */
+    var peerTable = document.getElementById('bl-peer-table');
+    if (peerTable) initSort(peerTable, 3, 'desc');
+  }
+
+  /* ── 1. Headline strip ── */
+  function renderHeadline(d, identity, stability) {
+    var vendorStable = stability.vendor_stable !== false;
+    var roleStable   = stability.role_stable   !== false;
+    var isStable     = vendorStable && roleStable;
+
+    var badgeClass = isStable ? 'stable' : 'drifted';
+    var badgeLabel = isStable
+      ? tjs('baseline.headline.stable', { n: d.report_count || 0 })
+      : tjs('baseline.headline.drifted');
+
+    /* Build role distribution tooltip content for drifted badge */
+    var tooltipContent = '';
+    if (!isStable && stability.role_distribution && Object.keys(stability.role_distribution).length) {
+      tooltipContent = '<div class="role-dist">';
+      Object.keys(stability.role_distribution).forEach(function(role) {
+        tooltipContent += '<div class="role-dist-row">' + esc(role) + ': ' + esc(stability.role_distribution[role]) + '</div>';
+      });
+      tooltipContent += '</div>';
+    }
+
+    var badge = '<span class="bl-stability-badge ' + badgeClass + '">'
+      + esc(badgeLabel);
+    if (tooltipContent) {
+      badge += '<span class="info-hint">i<span class="info-tip">' + tooltipContent + '</span></span>';
+    }
+    badge += '</span>';
+
+    var html = '<div class="bl-headline">';
+    html += '<div class="bl-identity">';
+    html += '<div class="bl-asset-key">' + esc(d.asset_key || ASSET_KEY) + '</div>';
+    html += '<div class="bl-identity-meta">';
+    if (identity.vendor) {
+      html += '<span><span class="dim-label">' + tjs('baseline.col.vendor') + '</span> ' + esc(identity.vendor) + '</span>';
+    }
+    if (identity.device_type) {
+      html += '<span><span class="dim-label">' + tjs('baseline.col.device_type') + '</span> ' + esc(identity.device_type) + '</span>';
+    }
+    if (identity.role) {
+      html += '<span><span class="dim-label">' + tjs('baseline.col.role') + '</span> ' + esc(identity.role) + '</span>';
+    }
+    if (identity.purdue_level != null) {
+      html += '<span><span class="dim-label">Purdue</span> L' + esc(identity.purdue_level) + '</span>';
+    }
+    if (identity.system_name) {
+      html += '<span><span class="dim-label">' + tjs('baseline.col.system_name') + '</span> ' + esc(identity.system_name) + '</span>';
+    }
+    html += '</div>';
+    html += '</div>';
+    html += badge;
+    html += '</div>';
+
+    /* Meta strip: report count + first/last seen */
+    html += '<div class="bl-meta-strip">';
+    html += '<div class="bl-stat"><div class="label">' + tjs('baseline.col.report_count') + '</div>'
+      + '<div class="value">' + esc(d.report_count || 0) + '</div></div>';
+    if (d.first_seen_report) {
+      html += '<div class="bl-stat"><div class="label">' + tjs('baseline.col.first_seen') + '</div>'
+        + '<div class="value">' + fmtTs(d.first_seen_report.ts) + '</div></div>';
+    }
+    if (d.last_seen_report) {
+      html += '<div class="bl-stat"><div class="label">' + tjs('baseline.col.last_seen') + '</div>'
+        + '<div class="value">' + fmtTs(d.last_seen_report.ts) + '</div></div>';
+    }
+    if (d.matched_by) {
+      html += '<div class="bl-stat"><div class="label">' + tjs('baseline.col.matched_by') + '</div>'
+        + '<div class="value" style="font-size:0.88em">' + esc(d.matched_by) + '</div></div>';
+    }
+    html += '</div>';
+
+    return html;
+  }
+
+  /* ── 2. Novelty card ── */
+  function renderNovelty(nov, reportCount) {
+    var groups = [
+      { key: 'new_protocols',  label: tjs('baseline.novelty.new_protocols'),  items: nov.new_protocols  || [], cls: 'new' },
+      { key: 'new_peers',      label: tjs('baseline.novelty.new_peers'),      items: nov.new_peers      || [], cls: 'new' },
+      { key: 'new_findings',   label: tjs('baseline.novelty.new_findings'),   items: nov.new_findings   || [], cls: 'new' },
+      { key: 'lost_protocols', label: tjs('baseline.novelty.lost_protocols'), items: nov.lost_protocols || [], cls: 'lost' },
+      { key: 'lost_peers',     label: tjs('baseline.novelty.lost_peers'),     items: nov.lost_peers     || [], cls: 'lost' },
+    ];
+    var hasAny = groups.some(function(g) { return g.items.length > 0; });
+
+    var html = '<div class="bl-section">';
+    html += '<div class="bl-section-title">' + tjs('baseline.novelty.heading') + '</div>';
+    html += '<div class="bl-novelty">';
+
+    if (!hasAny) {
+      html += '<div class="bl-novelty-empty">' + tjs('baseline.novelty.empty') + '</div>';
+    } else {
+      groups.forEach(function(g) {
+        if (!g.items.length) return;
+        html += '<div class="bl-novelty-group">';
+        html += '<div class="bl-novelty-group-label">' + esc(g.label) + '</div>';
+        html += '<div class="bl-novelty-items">';
+        g.items.forEach(function(item) {
+          html += '<span class="bl-novelty-pill ' + g.cls + '">' + esc(item) + '</span>';
+        });
+        html += '</div></div>';
+      });
+    }
+
+    html += '</div></div>';
+    return html;
+  }
+
+  /* ── 3. Protocol mix timeline ── */
+  function renderProtoTimeline(protoHistory, idTimeline) {
+    /* Collect all unique report timestamps in chronological order */
+    var reportSet = {};
+    Object.keys(protoHistory).forEach(function(proto) {
+      (protoHistory[proto] || []).forEach(function(entry) {
+        reportSet[entry.report] = entry.ts || '';
+      });
+    });
+    var reports = Object.keys(reportSet).sort(function(a, b) {
+      return (reportSet[a] || a) < (reportSet[b] || b) ? -1 : 1;
+    });
+
+    if (!reports.length) return '';
+
+    var html = '<div class="bl-section">';
+    html += '<div class="bl-section-title">' + tjs('baseline.section.protocol_history') + '</div>';
+    html += '<div class="bl-proto-scroll"><table class="bl-proto-table"><thead><tr>';
+    html += '<th class="bl-proto-name-h">' + tjs('baseline.col.protocol') + '</th>';
+    reports.forEach(function(rep) {
+      html += '<th title="' + esc(rep) + '">' + esc(fmtTs(reportSet[rep])) + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+
+    Object.keys(protoHistory).sort().forEach(function(proto) {
+      var entries = protoHistory[proto] || [];
+      /* Build lookup by report */
+      var byReport = {};
+      var isNewProto = false;
+      entries.forEach(function(e) {
+        byReport[e.report] = e;
+        if (e.is_new) isNewProto = true;
+      });
+
+      html += '<tr>';
+      html += '<td class="bl-proto-name">' + esc(proto);
+      if (isNewProto) html += newChip();
+      html += '</td>';
+      reports.forEach(function(rep) {
+        var e = byReport[rep];
+        if (e) {
+          html += '<td class="has-data">'
+            + '<span class="convs">' + esc(e.convs != null ? e.convs : '—') + '</span>'
+            + '</td>';
+        } else {
+          html += '<td><span class="convs">—</span></td>';
+        }
+      });
+      html += '</tr>';
+    });
+
+    html += '</tbody></table></div></div>';
+    return html;
+  }
+
+  /* ── 4. Peer set table ── */
+  function renderPeerTable(peers) {
+    var html = '<div class="bl-section">';
+    html += '<div class="bl-section-title">' + tjs('baseline.section.peer_set') + '</div>';
+    html += '<div style="overflow-x:auto"><table class="ms-table bl-sortable" id="bl-peer-table"><thead><tr>';
+    html += '<th>' + tjs('baseline.col.peer') + '</th>';
+    html += '<th>' + tjs('baseline.col.first_seen') + '</th>';
+    html += '<th>' + tjs('baseline.col.last_seen') + '</th>';
+    html += '<th data-sort="num">' + tjs('baseline.col.report_count') + ' <span class="bl-sort-indicator">&#x25BC;</span></th>';
+    html += '<th data-sort="num">' + tjs('baseline.col.convs_total') + '</th>';
+    html += '<th>' + tjs('baseline.col.is_new') + '</th>';
+    html += '</tr></thead><tbody>';
+
+    peers.forEach(function(p) {
+      html += '<tr>'
+        + '<td class="mono">' + esc(p.peer) + '</td>'
+        + '<td class="dim">' + esc(p.first_seen_report || '—') + '</td>'
+        + '<td class="dim">' + esc(p.last_seen_report || '—') + '</td>'
+        + '<td>' + esc(p.report_count != null ? p.report_count : '—') + '</td>'
+        + '<td>' + esc(p.convs_total != null ? p.convs_total : '—') + '</td>'
+        + '<td>' + (p.is_new_in_latest ? newChip() : '') + '</td>'
+        + '</tr>';
+    });
+
+    html += '</tbody></table></div></div>';
+    return html;
+  }
+
+  /* ── 5. Finding history ── */
+  function renderFindingHistory(findings, reportCount) {
+    var html = '<div class="bl-section">';
+    html += '<div class="bl-section-title">' + tjs('baseline.section.finding_history') + '</div>';
+    html += '<div style="overflow-x:auto"><table class="ms-table"><thead><tr>';
+    html += '<th>' + tjs('baseline.col.category') + '</th>';
+    html += '<th>' + tjs('baseline.col.first_seen') + '</th>';
+    html += '<th>' + tjs('baseline.col.last_seen') + '</th>';
+    html += '<th>' + tjs('baseline.col.report_count') + '</th>';
+    html += '<th>' + tjs('baseline.col.is_new') + '</th>';
+    html += '</tr></thead><tbody>';
+
+    findings.forEach(function(f) {
+      var inReportsText = tjs('baseline.report_count_n', { n: f.in_reports }) + ' / ' + tjs('baseline.report_count_n', { n: reportCount });
+      html += '<tr>'
+        + '<td><span class="iocs-type-chip">' + esc(f.category) + '</span></td>'
+        + '<td class="dim mono">' + esc(f.first_seen_report || '—') + '</td>'
+        + '<td class="dim mono">' + esc(f.last_seen_report || '—') + '</td>'
+        + '<td>' + esc(inReportsText) + '</td>'
+        + '<td>' + (f.is_new_in_latest ? newChip() : '') + '</td>'
+        + '</tr>';
+    });
+
+    html += '</tbody></table></div></div>';
+    return html;
+  }
+
+  /* ── 6. Anomaly cadence ── */
+  function renderAnomalyCadence(cadence) {
+    var html = '<div class="bl-section">';
+    html += '<div class="bl-section-title">' + tjs('baseline.section.anomaly_cadence') + '</div>';
+    html += '<div class="bl-anomaly-grid">';
+
+    Object.keys(cadence).sort().forEach(function(key) {
+      var ev = cadence[key];
+      html += '<div class="bl-anomaly-item">';
+      html += '<div class="anom-key">' + esc(key) + '</div>';
+      html += '<div class="anom-count">' + tjs('baseline.report_count_n', { n: ev.reports_with_event || 0 }) + '</div>';
+      html += '<div class="anom-meta">';
+      if (ev.first) html += tjs('baseline.col.first_seen') + ': ' + esc(fmtTs(ev.first));
+      if (ev.first && ev.last) html += ' &nbsp;·&nbsp; ';
+      if (ev.last)  html += tjs('baseline.col.last_seen') + ': ' + esc(fmtTs(ev.last));
+      html += '</div>';
+      html += '</div>';
+    });
+
+    html += '</div></div>';
+    return html;
+  }
+
+  /* ── 7. Identity timeline ── */
+  function renderIdentityTimeline(timeline) {
+    var html = '<div class="bl-section">';
+    html += '<div class="bl-section-title">' + tjs('baseline.section.identity_timeline') + '</div>';
+    html += '<div class="bl-id-timeline"><table class="bl-id-table"><thead><tr>';
+    html += '<th>' + tjs('baseline.col.report') + '</th>';
+    html += '<th>' + tjs('baseline.col.vendor') + '</th>';
+    html += '<th>' + tjs('baseline.col.device_type') + '</th>';
+    html += '<th>' + tjs('baseline.col.role') + '</th>';
+    html += '<th>Purdue</th>';
+    html += '<th>' + tjs('baseline.col.system_name') + '</th>';
+    html += '</tr></thead><tbody>';
+
+    timeline.forEach(function(row) {
+      html += '<tr>'
+        + '<td class="mono">' + esc(fmtTs(row.ts)) + '<br><span style="font-size:0.75em;color:var(--text-muted)">' + esc(row.report || '') + '</span></td>'
+        + '<td>' + esc(row.vendor || '—') + '</td>'
+        + '<td>' + esc(row.device_type || '—') + '</td>'
+        + '<td>' + esc(row.role || '—') + '</td>'
+        + '<td>' + (row.purdue_level != null ? 'L' + esc(row.purdue_level) : '—') + '</td>'
+        + '<td>' + esc(row.system_name || '—') + '</td>'
+        + '</tr>';
+    });
+
+    html += '</tbody></table></div></div>';
+    return html;
+  }
+
+  /* ── Client-side table sort ── */
+  function initSort(table, defaultCol, defaultDir) {
+    var headers = table.querySelectorAll('th[data-sort]');
+    var sortCol = defaultCol;
+    var sortDir = defaultDir || 'desc';
+
+    function sortTable(colIdx, dir) {
+      var tbody = table.querySelector('tbody');
+      var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+      rows.sort(function(a, b) {
+        var av = a.cells[colIdx] ? a.cells[colIdx].textContent.replace(/[^0-9.\-]/g, '') : '';
+        var bv = b.cells[colIdx] ? b.cells[colIdx].textContent.replace(/[^0-9.\-]/g, '') : '';
+        var an = parseFloat(av); var bn = parseFloat(bv);
+        an = isNaN(an) ? 0 : an; bn = isNaN(bn) ? 0 : bn;
+        return dir === 'desc' ? bn - an : an - bn;
+      });
+      rows.forEach(function(r) { tbody.appendChild(r); });
+      /* Update sort indicators */
+      table.querySelectorAll('.bl-sort-indicator').forEach(function(el) { el.innerHTML = '&#x25B2;&#x25BC;'; el.style.opacity = '0.35'; });
+      var thList = table.querySelectorAll('th');
+      if (thList[colIdx]) {
+        var ind = thList[colIdx].querySelector('.bl-sort-indicator');
+        if (ind) { ind.innerHTML = dir === 'desc' ? '&#x25BC;' : '&#x25B2;'; ind.style.opacity = '1'; }
+      }
+    }
+
+    /* Sort indicator spans for all sortable headers */
+    table.querySelectorAll('th[data-sort]').forEach(function(th) {
+      if (!th.querySelector('.bl-sort-indicator')) {
+        th.insertAdjacentHTML('beforeend', '<span class="bl-sort-indicator">&#x25B2;&#x25BC;</span>');
+      }
+    });
+
+    headers.forEach(function(th) {
+      th.addEventListener('click', function() {
+        var thList = Array.prototype.slice.call(table.querySelectorAll('th'));
+        var colIdx = thList.indexOf(th);
+        if (sortCol === colIdx) {
+          sortDir = sortDir === 'desc' ? 'asc' : 'desc';
+        } else {
+          sortCol = colIdx; sortDir = 'desc';
+        }
+        sortTable(sortCol, sortDir);
+      });
+    });
+
+    /* Apply default sort immediately */
+    sortTable(sortCol, sortDir);
+  }
+
+  /* ── Error rendering ── */
+  function showError(err) {
+    var errEl    = document.getElementById('bl-error');
+    var loadEl   = document.getElementById('bl-loading');
+    var contentEl = document.getElementById('bl-content');
+    loadEl.style.display = 'none';
+    contentEl.style.display = 'none';
+    errEl.style.display = 'block';
+
+    if (err && err.status === 404) {
+      errEl.innerHTML = '<div class="bl-not-found">'
+        + '<div class="nf-key">' + esc(ASSET_KEY) + '</div>'
+        + '<div class="nf-sub">' + tjs('baseline.error.not_found', { asset_key: esc(ASSET_KEY) }) + '</div>'
+        + '<a href="/projects/' + esc(PID) + '" class="btn btn-sm">&larr; ' + tjs('baseline.error.back_to_project') + '</a>'
+        + '</div>';
+    } else {
+      var msg = (err && err.message) ? err.message : String(err || '');
+      errEl.innerHTML = '<div class="bl-error-banner">' + tjs('baseline.error.load_failed') + ' ' + esc(msg) + '</div>';
+    }
+  }
+
+  /* ── Initialise ── */
+  function init() {
+    var url = '/api/projects/' + encodeURIComponent(PID)
+            + '/assets/' + encodeURIComponent(ASSET_KEY) + '/baseline';
+
+    fetchJson(url).then(function(data) {
+      document.getElementById('bl-loading').style.display = 'none';
+      var contentEl = document.getElementById('bl-content');
+      contentEl.style.display = 'block';
+      render(data);
+    }).catch(function(err) {
+      showError(err);
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+{% endblock %}
