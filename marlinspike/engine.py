@@ -8,7 +8,7 @@ module:
     id: VORACITY-MODULE-MARLINSPIKE
     version: 2.0.7
     author: River Caudle <danny@riverman.io>
-    organization: River Risk Partners (Riverman Enterprises LLC)
+    organization: Erisforge Ltd.
     date_created: 2026-02-20
     date_modified: 2026-04-11
     license: Apache-2.0
@@ -1083,7 +1083,7 @@ MODULE_META = {
     "id": "VORACITY-MODULE-MARLINSPIKE",
     "version": "2.0.0",
     "author": "River Caudle <danny@riverman.io>",
-    "organization": "River Risk Partners",
+    "organization": "Erisforge Ltd.",
     "date_created": "2026-02-20",
     "date_modified": "2026-03-27",
 
@@ -5055,7 +5055,7 @@ BANNER = r"""
  ║   ██║ ╚═╝ ██║██║  ██║██║  ██║███████╗██║██║ ╚███║ ║
  ║   ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝╚═╝  ╚══╝ ║
  ║                                          SPIKE    ║
- ║   RiverFlow Voracity — VORACITY-MODULE-MARLINSPIKE║
+ ║   Erisforge — VORACITY-MODULE-MARLINSPIKE║
  ║   Passive OT Topology Mapping — Zero Transmission ║
  ║   CWE-200 │ MITRE T1040 │ IEC 62443 SR 2.8       ║
  ║                                                   ║
@@ -5606,7 +5606,7 @@ def main():
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
     parser = argparse.ArgumentParser(
         prog="marlinspike",
-        description="RiverFlow Voracity — MarlinSpike (Passive OT Topology Mapping)",
+        description="Erisforge — MarlinSpike (Passive OT Topology Mapping)",
     )
 
     # All arguments on parent parser

@@ -1,7 +1,7 @@
 # ── marlinspike-dpi builder ───────────────────────────────────
 FROM rust:1.85-slim-bookworm AS dpi-builder
 
-ARG MARLINSPIKE_DPI_REPO=https://github.com/riverrisk/marlinspike-dpi.git
+ARG MARLINSPIKE_DPI_REPO=https://github.com/eris-ot/marlinspike-dpi.git
 ARG MARLINSPIKE_DPI_REF=de7ed06a28096a3da482831bc674ef0652c0e479
 
 WORKDIR /build
@@ -20,7 +20,7 @@ RUN git clone "$MARLINSPIKE_DPI_REPO" marlinspike-dpi && \
 # ── marlinspike-mitre builder ─────────────────────────────────
 FROM python:3.12-slim AS mitre-builder
 
-ARG MARLINSPIKE_MITRE_REPO=https://github.com/riverrisk/marlinspike-mitre.git
+ARG MARLINSPIKE_MITRE_REPO=https://github.com/eris-ot/marlinspike-mitre.git
 ARG MARLINSPIKE_MITRE_REF=c3583ec2d189b8cde69f2160da6a5e8e5b643f7b
 
 WORKDIR /build
@@ -38,7 +38,7 @@ RUN git clone "$MARLINSPIKE_MITRE_REPO" marlinspike-mitre && \
 # ── marlinspike-malware builder ───────────────────────────────
 FROM rust:1.85-slim-bookworm AS malware-builder
 
-ARG MARLINSPIKE_MALWARE_REPO=https://github.com/riverrisk/marlinspike-malware.git
+ARG MARLINSPIKE_MALWARE_REPO=https://github.com/eris-ot/marlinspike-malware.git
 ARG MARLINSPIKE_MALWARE_REF=4a008211cad7e56609e8a667b95f1c09b790c1b4
 
 WORKDIR /build
@@ -61,7 +61,7 @@ RUN mkdir -p /opt/marlinspike-malware/bin /opt/marlinspike-malware/rules && \
 # ── marlinspike-malware-rules builder ─────────────────────────
 FROM python:3.12-slim AS malware-rules-builder
 
-ARG MARLINSPIKE_MALWARE_RULES_REPO=https://github.com/riverrisk/marlinspike-malware-rules.git
+ARG MARLINSPIKE_MALWARE_RULES_REPO=https://github.com/eris-ot/marlinspike-malware-rules.git
 ARG MARLINSPIKE_MALWARE_RULES_REF=99cbe9358d0a5047d9b5e57a7e4ff5eafdee9bd4
 
 WORKDIR /build

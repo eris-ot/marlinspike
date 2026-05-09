@@ -32,14 +32,14 @@ Today MarlinSpike writes a single structured report object.
 
 Evidence in the current codebase:
 
-- [engine.py](/Users/butterbones/riverflow/marlinspike/msengine/msengine/engine.py#L1498)
+- [engine.py](msengine/msengine/engine.py#L1498)
   defines `MarlinSpikeReport` with stage-oriented sections such as
   `capture_info`, `conversations`, `topology`, `nodes`, `edges`,
   `risk_findings`, and `c2_indicators`.
-- [engine.py](/Users/butterbones/riverflow/marlinspike/msengine/msengine/engine.py#L4600)
+- [engine.py](msengine/msengine/engine.py#L4600)
   fills those sections progressively across ingestion, dissection, topology, and
   risk stages.
-- [app.py](/Users/butterbones/riverflow/marlinspike/app.py#L461)
+- [app.py](app.py#L461)
   loads the monolith report and then merges plugin sidecars through
   `extensions`.
 
@@ -253,7 +253,7 @@ Initial blocks:
   Type: `marlinspike.protocol_summary`
 
 These represent the closest current equivalent to Stage 2 outputs from
-[engine.py](/Users/butterbones/riverflow/marlinspike/msengine/msengine/engine.py#L4628).
+[engine.py](msengine/msengine/engine.py#L4628).
 
 ### 3. Inventory and Topology Blocks
 
@@ -293,7 +293,7 @@ Initial blocks:
   Planned block for Stage 4b IOC match results produced by the `marlinspike-malware` engine.
 
 These correspond to the current Stage 4 surfaces in
-[engine.py](/Users/butterbones/riverflow/marlinspike/msengine/msengine/engine.py#L4684).
+[engine.py](msengine/msengine/engine.py#L4684).
 
 ### 5. OCSF Blocks
 

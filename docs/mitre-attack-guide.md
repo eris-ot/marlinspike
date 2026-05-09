@@ -209,8 +209,8 @@ The value is high-signal ATT&CK framing for passive OT and ICS triage.
 
 ## Related Files
 
-- shared plugin repo: [`/Users/butterbones/marlinspike-mitre`](/Users/butterbones/marlinspike-mitre)
-- vendored runtime: [`plugins/marlinspike_mitre/`](/Users/butterbones/riverflow/marlinspike/plugins/marlinspike_mitre)
-- vendored rule pack: [`rules/mitre/base.yaml`](/Users/butterbones/riverflow/marlinspike/rules/mitre/base.yaml)
-- screenshot capture helper: [`scripts/capture_mitre_screenshots.py`](/Users/butterbones/riverflow/marlinspike/scripts/capture_mitre_screenshots.py)
-- MITRE sync helper: [`scripts/sync-mitre-bootstrap.sh`](/Users/butterbones/riverflow/marlinspike/scripts/sync-mitre-bootstrap.sh)
+- shared plugin repo: [`marlinspike-mitre`](marlinspike-mitre)
+- vendored runtime: [`plugins/marlinspike_mitre/`](plugins/marlinspike_mitre)
+- vendored rule pack: [`rules/mitre/base.yaml`](rules/mitre/base.yaml)
+- screenshot capture helper: [`scripts/capture_mitre_screenshots.py`](scripts/capture_mitre_screenshots.py)
+- MITRE sync helper: [`scripts/sync-mitre-bootstrap.sh`](scripts/sync-mitre-bootstrap.sh)

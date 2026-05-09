@@ -51,8 +51,8 @@ Les fonctionnalités interactives du navigateur peuvent améliorer la vitesse et
 - Interface web Flask avec un atelier d'analyste multi-mode amélioré, gestion de projet, visualiseur de rapport, comparaison baseline/dérive, inventaire d'actifs, historique de scans, et un catalogue de couverture de détection `/capabilities` adossé aux sources
 - Onglet Vue d'ensemble du projet (Project Overview) comme surface d'arrivée par défaut : parcourt chaque rapport d'un projet, déduplique les actifs (clé MAC, repli IP) et les constats (`(catégorie, sorted(affected_nodes), sorted(affected_edges))`) à travers les captures, promeut la sévérité au niveau le plus élevé observé, et restitue une bande de KPI agrégée, une barre de sévérité, un tableau de constats, un inventaire d'actifs, une liste de protocoles et un ensemble de pastilles de couverture ATT&CK — pur calcul, sans migration de schéma
 - Déploiement Docker Compose avec PostgreSQL en backend
-- Moteur DPI Rust via [`marlinspike-dpi`](https://github.com/riverrisk/marlinspike-dpi) activé par défaut (`--dpi-engine auto`), intégré à l'image depuis une référence GitHub épinglée — 14× plus rapide que le repli Python tshark sur les grosses captures
-- Surfaces d'exécution MITRE ATT&CK fournies par le dépôt autonome [`marlinspike-mitre`](https://github.com/riverrisk/marlinspike-mitre) à une référence GitHub épinglée lors du build de l'image
+- Moteur DPI Rust via [`marlinspike-dpi`](https://github.com/eris-ot/marlinspike-dpi) activé par défaut (`--dpi-engine auto`), intégré à l'image depuis une référence GitHub épinglée — 14× plus rapide que le repli Python tshark sur les grosses captures
+- Surfaces d'exécution MITRE ATT&CK fournies par le dépôt autonome [`marlinspike-mitre`](https://github.com/eris-ot/marlinspike-mitre) à une référence GitHub épinglée lors du build de l'image
 - Exécution optionnelle d'IOC malware en Stage 4b alimentée par les dépôts autonomes `marlinspike-malware` et `marlinspike-malware-rules` quand leurs arguments de build sont fournis
 
 ## Démarrage rapide
@@ -92,7 +92,7 @@ Si vous cherchez la documentation principale du dépôt, commencez ici :
 - Architecture et frontières d'extension : [docs/extensibility-contracts.md](docs/extensibility-contracts.md)
 - Proposition de format de bundle de rapport zippé : [docs/msbundle-format.md](docs/msbundle-format.md)
 - Guide ATT&CK pour utilisateur final : [docs/mitre-attack-guide.md](docs/mitre-attack-guide.md)
-- Dépôt du plugin MITRE partagé : `/Users/butterbones/marlinspike-mitre`
+- Dépôt du plugin MITRE partagé : `marlinspike-mitre`
 - Copie vendorée du runtime ATT&CK : [`plugins/marlinspike_mitre/`](plugins/marlinspike_mitre/) et [`rules/mitre/base.yaml`](rules/mitre/base.yaml)
 - Helper de synchronisation MITRE bootstrap : [`scripts/sync-mitre-bootstrap.sh`](scripts/sync-mitre-bootstrap.sh)
 - Helper de subtree de la suite : [`scripts/update-subtrees.sh`](scripts/update-subtrees.sh)
@@ -180,7 +180,7 @@ MarlinSpike est conçu pour remplacer le flux principal de cartographie passive 
 
 ### Limites assumées
 
-- MarlinSpike est un **outil d'analyse PCAP**, pas une plateforme de monitoring continu. Capturez avec votre propre outillage (Wireshark, tshark, un TAP, un port SPAN) et apportez le PCAP dans MarlinSpike pour l'analyse. Pour la capture live continue, la collecte multi-capteurs et le monitoring OT centralisé, voir [FATHOM](https://riverman.io/fathom).
+- MarlinSpike est un **outil d'analyse PCAP**, pas une plateforme de monitoring continu. Capturez avec votre propre outillage (Wireshark, tshark, un TAP, un port SPAN) et apportez le PCAP dans MarlinSpike pour l'analyse. Pour la capture live continue, la collecte multi-capteurs et le monitoring OT centralisé, voir [FATHOM](https://github.com/eris-ot).
 - MarlinSpike n'est pas un scanner actif.
 - MarlinSpike n'est pas un client desktop lourd permanent.
 - Le moteur DPI Rust autonome est un substrat de dissection, pas le produit complet.
@@ -203,7 +203,7 @@ MarlinSpike garde la dissection de paquets séparée du flux d'analyste.
 MarlinSpike peut actuellement exécuter le Stage 2 de deux façons :
 
 - Dissection Python/tshark intégrée via `_ms_engine.py`
-- Dissection Rust externe via [`marlinspike-dpi`](https://github.com/riverrisk/marlinspike-dpi)
+- Dissection Rust externe via [`marlinspike-dpi`](https://github.com/eris-ot/marlinspike-dpi)
 
 Le chemin Rust est volontairement scopé comme un moteur DPI autonome. MarlinSpike peut l'appeler comme un parseur Stage 2 externe, adapter sa sortie Bronze vers le pipeline de rapport actuel, et continuer à utiliser les couches existantes de topologie, triage et reporting. Cela garde le parseur de paquets réutilisable sans forcer le produit analyste à se réduire au parseur.
 
@@ -222,7 +222,7 @@ C'est délibéré. La valeur de MarlinSpike n'est pas seulement le décodage rap
 
 MarlinSpike utilise trois surfaces d'extension à dessein :
 
-- Moteurs Rust : composants face aux paquets ou fortement orientés événements, là où le débit, la sûreté mémoire et la réutilisation de parseur comptent le plus. Aujourd'hui cela signifie principalement des moteurs de type DPI comme [`marlinspike-dpi`](https://github.com/riverrisk/marlinspike-dpi).
+- Moteurs Rust : composants face aux paquets ou fortement orientés événements, là où le débit, la sûreté mémoire et la réutilisation de parseur comptent le plus. Aujourd'hui cela signifie principalement des moteurs de type DPI comme [`marlinspike-dpi`](https://github.com/eris-ot/marlinspike-dpi).
 - Plugins Python : analyse face au rapport, enrichissement, logique de triage et post-traitement qui opèrent sur l'artefact JSON portable de MarlinSpike plutôt que sur les paquets bruts.
 - Packs de règles YAML : mappings déclaratifs, contrôles d'activation, surcharges par site et autre contenu de politique utilisé par les plugins, sans transformer la configuration en un nouveau langage de programmation.
 
@@ -236,11 +236,11 @@ Cette séparation est volontaire. MarlinSpike n'est pas écrit en « Rust pour t
 
 Exemple actuellement livré :
 
-- `marlinspike-mitre` : dépôt sœur faisant autorité à `/Users/butterbones/marlinspike-mitre` ; l'image de l'application superpose maintenant les surfaces de plugin et de règles à l'exécution depuis le dépôt autonome épinglé vers [`plugins/marlinspike_mitre/`](plugins/marlinspike_mitre/) et [`rules/mitre/base.yaml`](rules/mitre/base.yaml) au moment du build. Les scans réussis peuvent émettre un artefact sidecar `-mitre.json`, et le visualiseur de l'atelier peut le charger depuis la surface `extensions` du rapport.
+- `marlinspike-mitre` : dépôt sœur faisant autorité à `marlinspike-mitre` ; l'image de l'application superpose maintenant les surfaces de plugin et de règles à l'exécution depuis le dépôt autonome épinglé vers [`plugins/marlinspike_mitre/`](plugins/marlinspike_mitre/) et [`rules/mitre/base.yaml`](rules/mitre/base.yaml) au moment du build. Les scans réussis peuvent émettre un artefact sidecar `-mitre.json`, et le visualiseur de l'atelier peut le charger depuis la surface `extensions` du rapport.
   Le runtime actuel expose les métadonnées et le versioning ATT&CK complets, les tactiques, les sous-techniques, les groupements de tactiques prêts pour la matrice, les mesures d'atténuation, les URLs ATT&CK et des recommandations de réponse riches dans le visualiseur.
   Les notes d'interprétation côté utilisateur vivent dans [docs/mitre-attack-guide.md](docs/mitre-attack-guide.md).
-- `marlinspike-malware` : dépôt sœur faisant autorité à `/Users/butterbones/marlinspike-malware`, avec `_ms_engine.py` qui l'invoque comme moteur Stage 4b optionnel. Quand `MARLINSPIKE_MALWARE_REPO` et `MARLINSPIKE_MALWARE_REF` sont fournis pendant le build de l'image, le binaire d'exécution est superposé dans `/opt/marlinspike-malware/bin/`.
-- `marlinspike-malware-rules` : dépôt sœur faisant autorité à `/Users/butterbones/marlinspike-malware-rules`, hébergeant le contenu publié `packs/`, `manifests/index.yaml` et les artefacts de bundle compilés. La surface publiée actuelle est de 30 packs et 921 règles. Quand `MARLINSPIKE_MALWARE_RULES_REPO` et `MARLINSPIKE_MALWARE_RULES_REF` sont fournis pendant le build de l'image, ces ressources sont superposées dans `/usr/share/marlinspike-malware/rules/`, et le moteur pointe vers `/usr/share/marlinspike-malware/rules/packs`.
+- `marlinspike-malware` : dépôt sœur faisant autorité à `marlinspike-malware`, avec `_ms_engine.py` qui l'invoque comme moteur Stage 4b optionnel. Quand `MARLINSPIKE_MALWARE_REPO` et `MARLINSPIKE_MALWARE_REF` sont fournis pendant le build de l'image, le binaire d'exécution est superposé dans `/opt/marlinspike-malware/bin/`.
+- `marlinspike-malware-rules` : dépôt sœur faisant autorité à `marlinspike-malware-rules`, hébergeant le contenu publié `packs/`, `manifests/index.yaml` et les artefacts de bundle compilés. La surface publiée actuelle est de 30 packs et 921 règles. Quand `MARLINSPIKE_MALWARE_RULES_REPO` et `MARLINSPIKE_MALWARE_RULES_REF` sont fournis pendant le build de l'image, ces ressources sont superposées dans `/usr/share/marlinspike-malware/rules/`, et le moteur pointe vers `/usr/share/marlinspike-malware/rules/packs`.
 
 Voir [`docs/extensibility-contracts.md`](docs/extensibility-contracts.md) pour les frontières de contrat concrètes des moteurs Rust, plugins Python et packs de règles YAML.
 
@@ -588,11 +588,11 @@ Voir [CONTRIBUTING.md](CONTRIBUTING.md) pour les directives de contribution, don
 
 ## Fathom
 
-MarlinSpike est le cœur open source de **Fathom**, la plateforme commerciale de sécurité OT de [River Risk Partners](https://riverriskpartners.com).
+MarlinSpike est le cœur open source de **Fathom**, la plateforme commerciale de sécurité OT de [Erisforge Ltd.](https://github.com/eris-ot/marlinspike).
 
 La plateforme commerciale Fathom ajoute des collecteurs distribués, de la hiérarchie, des diodes de données, le voyage forensique dans le temps et l'apprentissage de baseline à l'échelle entreprise. MarlinSpike est l'atelier open core léger que vous pouvez démarrer n'importe où.
 
-Pour en savoir plus : [riverriskpartners.com](https://riverriskpartners.com).
+Pour en savoir plus : [github.com/eris-ot/marlinspike](https://github.com/eris-ot/marlinspike).
 
 ## Remerciements
 

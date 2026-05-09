@@ -19,7 +19,7 @@ from playwright.async_api import async_playwright
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 TEMPLATE_DIR = ROOT_DIR / "templates"
-DEFAULT_REPORT_PATH = Path("/Users/butterbones/fathom-cloud/demo/demo-report.json")
+DEFAULT_REPORT_PATH = Path("./demo/demo-report.json")
 DEFAULT_OUTPUT_DIR = ROOT_DIR / "docs" / "screenshots"
 
 DOC_CAPTURE_STYLE = """

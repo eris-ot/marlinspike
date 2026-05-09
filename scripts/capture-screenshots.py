@@ -99,7 +99,7 @@ def seed():
         existing_tag = AssetTag.query.filter_by(project_id=proj.id, asset_key="10.0.0.5").first()
         if existing_tag is None:
             tag = AssetTag(project_id=proj.id, asset_key="10.0.0.5",
-                           owner="River Risk", criticality="critical",
+                           owner="Erisforge Ltd.", criticality="critical",
                            zone="process-control", business_function="DCS poller",
                            free_text="Tagged during screenshot pass",
                            updated_by=admin_id)
@@ -205,7 +205,7 @@ def reseed_with_real_report_data(app, project_id: int, user_id: int, report_path
             if existing is None:
                 tag = AssetTag(
                     project_id=project_id, asset_key=real_asset_key,
-                    owner="River Risk Partners", criticality="critical",
+                    owner="Erisforge Ltd.", criticality="critical",
                     zone="process-control", business_function="DCS poller",
                     free_text="Site-tagged after first triage. Vendor PSIRT contact: psirt@vendor.example.",
                     updated_by=user_id,

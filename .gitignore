@@ -20,6 +20,9 @@ data/reports/
 data/uploads/
 data/submissions/
 data/presets/
+data/anon/
+data/captures/
+data/instance/
 presets/**/*.pcap
 presets/**/*.pcapng
 presets/**/*.cap

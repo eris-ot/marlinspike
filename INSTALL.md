@@ -190,4 +190,4 @@ MarlinSpike is a PCAP analysis tool with optional live capture. Capture with you
 marlinspike --pcap /path/to/capture.pcap chain
 ```
 
-For continuous multi-sensor collection across many hosts and centralized OT network monitoring, see [FATHOM](https://riverman.io/fathom).
+For continuous multi-sensor collection across many hosts and centralized OT network monitoring, see [FATHOM](https://github.com/eris-ot).

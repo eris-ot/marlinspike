@@ -42,8 +42,8 @@ test = ["pytest>=7.0"]
 marlinspike = "marlinspike.engine:main"
 
 [project.urls]
-Homepage = "https://github.com/riverrisk/marlinspike"
-Issues = "https://github.com/riverrisk/marlinspike/issues"
+Homepage = "https://github.com/eris-ot/marlinspike"
+Issues = "https://github.com/eris-ot/marlinspike/issues"
 
 # The wheel ships the application package plus the top-level ``plugins``
 # namespace so that ``pip install marlinspike`` exposes ``plugins.marlinspike_*``

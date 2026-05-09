@@ -85,7 +85,7 @@ Planned subtree prefixes are:
 - `engines/`
 
 Today, `msengine/` is the first bootstrap prefix that actually exists in the suite. It contains a mirrored engine package plus packaging metadata for the future standalone repo.
-The MITRE plugin follows a sister-repo bootstrap pattern from `/Users/butterbones/marlinspike-mitre` into `plugins/marlinspike_mitre/` and `rules/mitre/`.
+The MITRE plugin follows a sister-repo bootstrap pattern from `marlinspike-mitre` into `plugins/marlinspike_mitre/` and `rules/mitre/`.
 
 ## Local Checks
 

@@ -12,10 +12,10 @@ declare -A PREFIXES=(
 )
 
 declare -A REPOS=(
-  [msengine]="git@github.com:riverrisk/marlinspike-msengine.git"
-  [workbench]="git@github.com:riverrisk/marlinspike-workbench.git"
-  [plugins]="git@github.com:riverrisk/marlinspike-plugins.git"
-  [engines]="git@github.com:riverrisk/marlinspike-engines.git"
+  [msengine]="git@github.com:eris-ot/marlinspike-msengine.git"
+  [workbench]="git@github.com:eris-ot/marlinspike-workbench.git"
+  [plugins]="git@github.com:eris-ot/marlinspike-plugins.git"
+  [engines]="git@github.com:eris-ot/marlinspike-engines.git"
 )
 
 usage() {

@@ -70,7 +70,7 @@ Until the cutover is complete, the root `_ms_engine.py` file remains the operati
 
 The MITRE plugin currently uses a similar bootstrap pattern, but with a standalone sibling repo instead of a subtree-managed monorepo:
 
-- authoritative source: `/Users/butterbones/marlinspike-mitre`
+- authoritative source: `marlinspike-mitre`
 - vendored runtime copy in this suite: `plugins/marlinspike_mitre/` and `rules/mitre/`
 - refresh helper: `scripts/sync-mitre-bootstrap.sh`
 

@@ -90,11 +90,11 @@ Record shape:
 
 ## Validation
 
-Use [`scripts/validate_bronze_passthrough.py`](/Users/butterbones/riverflow/marlinspike/scripts/validate_bronze_passthrough.py) with representative captures:
+Use [`scripts/validate_bronze_passthrough.py`](scripts/validate_bronze_passthrough.py) with representative captures:
 
 ```bash
 python3 scripts/validate_bronze_passthrough.py \
-  --dpi-binary /Users/butterbones/marlinspike-dpi/target/release/marlinspike-dpi \
+  --dpi-binary marlinspike-dpi/target/release/marlinspike-dpi \
   /path/to/MQTT.pcap \
   /path/to/RADIUS.pcap \
   /path/to/Syslog.pcap

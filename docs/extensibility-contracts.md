@@ -144,7 +144,7 @@ Status: target contract for report-facing extensions such as `marlinspike-mitre`
 
 Current suite implementation:
 
-- `marlinspike-mitre` is now authored in the standalone sibling repo at `/Users/butterbones/marlinspike-mitre`.
+- `marlinspike-mitre` is now authored in the standalone sibling repo at `marlinspike-mitre`.
 - This suite keeps a vendored runtime copy at `plugins/marlinspike_mitre/`.
 - Its default vendored rule pack lives at `rules/mitre/base.yaml`.
 - The workbench can auto-run it after a successful scan and load the resulting `-mitre.json` sidecar under `extensions.marlinspike-mitre`.

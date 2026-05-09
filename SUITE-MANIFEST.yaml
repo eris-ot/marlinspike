@@ -11,7 +11,7 @@ report_contract:
 components:
   msengine:
     status: bootstrap_present
-    target_repo: riverrisk/marlinspike-msengine
+    target_repo: eris-ot/marlinspike-msengine
     target_subtree: msengine
     current_source_paths:
       - _ms_engine.py
@@ -30,7 +30,7 @@ components:
 
   workbench:
     status: extraction_planned
-    target_repo: riverrisk/marlinspike-workbench
+    target_repo: eris-ot/marlinspike-workbench
     target_subtree: workbench
     current_source_paths:
       - app.py
@@ -49,7 +49,7 @@ components:
 
   plugins:
     status: planned
-    target_repo: riverrisk/marlinspike-plugins
+    target_repo: eris-ot/marlinspike-plugins
     target_subtree: plugins
     planned_components:
       - marlinspike-mitre
@@ -58,7 +58,7 @@ components:
 
   engines:
     status: partial
-    target_repo: riverrisk/marlinspike-engines
+    target_repo: eris-ot/marlinspike-engines
     target_subtree: engines
     current_source_paths:
       - marlinspike-dpi/

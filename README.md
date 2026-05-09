@@ -54,8 +54,8 @@ Interactive browser features can improve speed and convenience, but the core tri
 - Pip-installable Python package (v3.0.0): `pip install marlinspike` exposes `from marlinspike import create_app, db`; downstream wrappers (e.g. cloudmarlin) can extend the app without forking via the new `csrf_exempt` and `set_concurrent_check_fn` extension hooks
 - Optional **live capture** sidecar (`marlinspike-capd`, off by default, Linux only): unprivileged web app talks to a privileged daemon over a unix-domain socket; daemon supervises `dumpcap` with a 2 GB rolling ring, validates BPF filters live, enumerates physical NICs, and feeds rotated PCAPs into the existing analysis pipeline so reports accumulate in the project as the capture runs. Per-project saved-filter library, per-interface locking, admin-override stop. See [docs/live-capture.md](docs/live-capture.md)
 - Docker Compose deployment with PostgreSQL backing the application
-- Rust DPI engine via [`marlinspike-dpi`](https://github.com/riverrisk/marlinspike-dpi) enabled by default (`--dpi-engine auto`), built into the image from a pinned GitHub ref — 14x faster than the Python tshark fallback on large captures
-- MITRE ATT&CK runtime surfaces sourced from the standalone [`marlinspike-mitre`](https://github.com/riverrisk/marlinspike-mitre) repo at a pinned GitHub ref during image build
+- Rust DPI engine via [`marlinspike-dpi`](https://github.com/eris-ot/marlinspike-dpi) enabled by default (`--dpi-engine auto`), built into the image from a pinned GitHub ref — 14x faster than the Python tshark fallback on large captures
+- MITRE ATT&CK runtime surfaces sourced from the standalone [`marlinspike-mitre`](https://github.com/eris-ot/marlinspike-mitre) repo at a pinned GitHub ref during image build
 - Optional Stage 4b malware IOC runtime sourced from standalone `marlinspike-malware` and `marlinspike-malware-rules` repos when their build args are provided
 
 ## Quick Start
@@ -232,7 +232,7 @@ MarlinSpike is meant to replace the core passive-mapping workflow people histori
 
 ### Honest Boundaries
 
-- MarlinSpike is a **PCAP analysis tool**, not a continuous monitoring platform. Capture with your own tooling (Wireshark, tshark, a tap, a span port) and bring the PCAP into MarlinSpike for analysis. For continuous live capture, multi-sensor collection, and centralized OT network monitoring, see [FATHOM](https://riverman.io/fathom).
+- MarlinSpike is a **PCAP analysis tool**, not a continuous monitoring platform. Capture with your own tooling (Wireshark, tshark, a tap, a span port) and bring the PCAP into MarlinSpike for analysis. For continuous live capture, multi-sensor collection, and centralized OT network monitoring, see [FATHOM](https://github.com/eris-ot).
 - MarlinSpike is not an active scanner.
 - MarlinSpike is not a permanent desktop thick client.
 - The standalone Rust DPI engine is a dissection substrate, not the whole product.
@@ -255,7 +255,7 @@ MarlinSpike keeps packet dissection separate from analyst workflow.
 MarlinSpike can currently run Stage 2 in two ways:
 
 - Built-in Python/tshark-based dissection via `_ms_engine.py`
-- External Rust dissection via [`marlinspike-dpi`](https://github.com/riverrisk/marlinspike-dpi)
+- External Rust dissection via [`marlinspike-dpi`](https://github.com/eris-ot/marlinspike-dpi)
 
 The Rust path is intentionally scoped as a standalone DPI engine. MarlinSpike can call it as an external Stage 2 parser, adapt its Bronze output back into the current report pipeline, and continue using the existing topology, triage, and reporting layers. That keeps the packet parser reusable without forcing the analyst product to collapse into the parser.
 
@@ -274,7 +274,7 @@ That is deliberate. MarlinSpike's value is not just decoding packets quickly. It
 
 MarlinSpike uses three extension surfaces on purpose:
 
-- Rust engines: packet-facing or event-heavy components where throughput, memory safety, and parser reuse matter most. Today this primarily means DPI-style engines such as [`marlinspike-dpi`](https://github.com/riverrisk/marlinspike-dpi).
+- Rust engines: packet-facing or event-heavy components where throughput, memory safety, and parser reuse matter most. Today this primarily means DPI-style engines such as [`marlinspike-dpi`](https://github.com/eris-ot/marlinspike-dpi).
 - Python plugins: report-facing analysis, enrichment, triage logic, and post-processing that operate on the portable MarlinSpike JSON artifact rather than raw packets.
 - YAML rule packs: declarative mappings, enable/disable controls, site overrides, and other policy content used by plugins without turning configuration into another programming language.
 
@@ -288,11 +288,11 @@ This split is intentional. MarlinSpike is not written as "Rust for everything" b
 
 Current shipped example:
 
-- `marlinspike-mitre`: authoritative sister repo at `/Users/butterbones/marlinspike-mitre`, with the app image now overlaying the runtime plugin and rule surfaces from the pinned standalone repo into [`plugins/marlinspike_mitre/`](plugins/marlinspike_mitre/) and [`rules/mitre/base.yaml`](rules/mitre/base.yaml) during build. Successful scans can emit a `-mitre.json` sidecar artifact, and the workbench viewer can load it from the report `extensions` surface.
+- `marlinspike-mitre`: authoritative sister repo at `marlinspike-mitre`, with the app image now overlaying the runtime plugin and rule surfaces from the pinned standalone repo into [`plugins/marlinspike_mitre/`](plugins/marlinspike_mitre/) and [`rules/mitre/base.yaml`](rules/mitre/base.yaml) during build. Successful scans can emit a `-mitre.json` sidecar artifact, and the workbench viewer can load it from the report `extensions` surface.
   The current runtime exposes full ATT&CK metadata and versioning, tactics, sub-techniques, matrix-ready tactic groupings, mitigations, ATT&CK URLs, and rich response guidance in the viewer.
   User-facing interpretation notes live in [docs/mitre-attack-guide.md](docs/mitre-attack-guide.md).
-- `marlinspike-malware`: authoritative sister repo at `/Users/butterbones/marlinspike-malware`, with `_ms_engine.py` invoking it as an optional Stage 4b engine. When `MARLINSPIKE_MALWARE_REPO` and `MARLINSPIKE_MALWARE_REF` are supplied during image build, the runtime binary is layered into `/opt/marlinspike-malware/bin/`.
-- `marlinspike-malware-rules`: authoritative sister repo at `/Users/butterbones/marlinspike-malware-rules`, holding the published `packs/`, `manifests/index.yaml`, and compiled bundle artifacts. The current published surface is 30 packs and 921 rules. When `MARLINSPIKE_MALWARE_RULES_REPO` and `MARLINSPIKE_MALWARE_RULES_REF` are supplied during image build, those assets are layered into `/usr/share/marlinspike-malware/rules/`, and the engine points at `/usr/share/marlinspike-malware/rules/packs`.
+- `marlinspike-malware`: authoritative sister repo at `marlinspike-malware`, with `_ms_engine.py` invoking it as an optional Stage 4b engine. When `MARLINSPIKE_MALWARE_REPO` and `MARLINSPIKE_MALWARE_REF` are supplied during image build, the runtime binary is layered into `/opt/marlinspike-malware/bin/`.
+- `marlinspike-malware-rules`: authoritative sister repo at `marlinspike-malware-rules`, holding the published `packs/`, `manifests/index.yaml`, and compiled bundle artifacts. The current published surface is 30 packs and 921 rules. When `MARLINSPIKE_MALWARE_RULES_REPO` and `MARLINSPIKE_MALWARE_RULES_REF` are supplied during image build, those assets are layered into `/usr/share/marlinspike-malware/rules/`, and the engine points at `/usr/share/marlinspike-malware/rules/packs`.
 
 See [`docs/extensibility-contracts.md`](docs/extensibility-contracts.md) for the concrete contract boundaries for Rust engines, Python plugins, and YAML rule packs.
 
@@ -711,11 +711,11 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines, including on
 
 ## Fathom
 
-MarlinSpike is the open-source core of **Fathom**, the commercial OT security platform from [River Risk Partners](https://riverriskpartners.com).
+MarlinSpike is the open-source core of **Fathom**, the commercial OT security platform from [Erisforge Ltd.](https://github.com/eris-ot/marlinspike).
 
 The commercial Fathom platform adds distributed collectors, hierarchy, data diodes, forensic time-travel, and enterprise-scale baseline learning. MarlinSpike is the lightweight, open-core workbench you can spin up anywhere.
 
-Learn more at [riverriskpartners.com](https://riverriskpartners.com).
+Learn more at [github.com/eris-ot/marlinspike](https://github.com/eris-ot/marlinspike).
 
 ## Acknowledgments
 
