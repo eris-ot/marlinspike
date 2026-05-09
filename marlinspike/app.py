@@ -2910,6 +2910,13 @@ def create_app():
     def iocs_page():
         return render_template("iocs.html")
 
+    @app.route("/capture")
+    @login_required
+    def capture_page():
+        return render_template("capture.html",
+                               live_capture_enabled=config.LIVE_CAPTURE_ENABLED,
+                               live_capture_socket=config.LIVE_CAPTURE_SOCKET)
+
     @app.route("/capabilities")
     @login_required
     def capabilities_page():
@@ -4088,7 +4095,7 @@ def create_app():
             run = _run_registry.get(run_id)
         if not run:
             return "Run not found", 404
-        return render_template("live.html", run_id=run_id)
+        return render_template("scan_progress.html", run_id=run_id)
 
     # ── Reports ──────────────────────────────────────────────
 
@@ -5348,6 +5355,12 @@ def create_app():
             "entry_count": len(entries),
         }
         return jsonify(result)
+
+    # ── Live capture (capd) ──────────────────────────────────
+    # Blueprint mounts at /api/capture/* and degrades gracefully when
+    # LIVE_CAPTURE_ENABLED is false or capd is unreachable.
+    from marlinspike.capture.api import bp as capture_bp
+    app.register_blueprint(capture_bp)
 
     return app
 

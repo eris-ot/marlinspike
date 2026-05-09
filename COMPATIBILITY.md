@@ -118,3 +118,18 @@ Until the split is complete, the current repository effectively acts as:
 - workbench
 
 That is temporary. This file exists to make the future compatibility rules explicit before the extraction work lands.
+
+## Live Capture (`marlinspike-capd`)
+
+Live capture is delivered by an optional sidecar daemon and has a tighter platform matrix than the rest of the suite.
+
+| platform | live capture | notes |
+|---|---|---|
+| Linux (host) | supported | Native systemd unit or `network_mode: host` container. dumpcap + libpcap required. |
+| Linux (Docker, bridge net) | not supported | Bridged containers cannot see physical NICs. |
+| macOS | dev only | capd runs and BPF validation works, but Docker Desktop cannot expose physical interfaces. Useful for development of the IPC and UI; not for real captures inside a container. |
+| Windows | not supported | Live capture would require Npcap and a Windows-native dumpcap path that capd does not yet wrap. |
+
+The capd ↔ web-app contract is the **uds JSON-RPC** described in `marlinspike-capd/capd/server.py`. That protocol is the compatibility boundary between the privileged daemon and the unprivileged web app. We treat its method names and frame shapes as a stable contract; future capd releases must accept old web-app calls without warning, and the web app must tolerate new fields it doesn't recognize.
+
+If live capture is disabled (`LIVE_CAPTURE_ENABLED=false`, the default), capd is not required and the web app degrades gracefully — the workbench shows a banner instructing the operator how to enable capture, and `/api/capture/*` endpoints return 503 with a clear reason.

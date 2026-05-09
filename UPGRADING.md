@@ -194,3 +194,76 @@ python -m pytest tests/
 
 python -m marlinspike --help
 ```
+
+## v3.2.x → v3.3.0 — Live capture (opt-in)
+
+v3.3.0 adds the optional `marlinspike-capd` sidecar daemon for live
+PCAP capture from a SPAN port or tap. The web app's posture, the
+report contract, the engine, and every existing endpoint are
+unchanged. **You only need to act on this upgrade if you want live
+capture.** If you don't, the new feature is invisible and inert.
+
+### What's new
+
+- New sub-package `marlinspike-capd/` (privileged daemon, ~600 LOC,
+  one pip dep: `psutil`). Ships with a Dockerfile and a hardened
+  systemd unit.
+- New tables `capture_sessions` and `saved_filters`, materialised by
+  the existing `db.create_all()` on startup. No column-level
+  migration on existing tables.
+- New nav entry **Live Capture** (`/capture`). Visible to all users
+  but the start form is disabled when capd is not reachable.
+- `templates/live.html` renamed to `templates/scan_progress.html`
+  (used as the in-progress scan viewer at `/api/runs/<run_id>/live` —
+  URL unchanged, only the underlying template filename moved). If
+  you have a downstream fork that imports or references the template
+  by name, update the reference.
+
+### Activating live capture
+
+In the web app environment (e.g. `.env` for compose):
+
+```sh
+LIVE_CAPTURE_ENABLED=true
+LIVE_CAPTURE_SOCKET=/var/run/marlinspike-capd/marlinspike-capd.sock
+LIVE_CAPTURE_TIMEOUT_S=5
+LIVE_CAPTURE_MAX_CONCURRENT=2
+```
+
+Then bring up capd in one of three modes — see
+[INSTALL.md](INSTALL.md) for details. The shortest path:
+
+```sh
+docker compose --profile capture up -d --build
+```
+
+This boots capd as a sidecar with `cap_add: [NET_RAW, NET_ADMIN]` and
+`network_mode: host` (Linux only — Docker Desktop on macOS/Windows
+can't expose physical NICs to a container).
+
+### Leaving live capture off
+
+Do nothing. `LIVE_CAPTURE_ENABLED` defaults to `false`, capd is not
+required, and the new endpoints all return 503 with a clear reason.
+Old deploy scripts and existing compose stacks continue to work.
+
+### Smoke tests
+
+```sh
+# capd alone
+sudo -u marlinspike-capd marlinspike-capd list-interfaces
+sudo -u marlinspike-capd marlinspike-capd validate-bpf "tcp port 502"
+
+# Through the web app
+curl --cookie /tmp/c.txt http://127.0.0.1:5001/api/capture/health
+# {"enabled": true, "reachable": true, "libpcap": "libpcap version 1.10.x", ...}
+```
+
+### Why
+
+The GrassMarlin parity gap was live capture. We chose a
+sidecar-daemon split rather than granting the web app `CAP_NET_RAW`
+because the cost of a compromised web app jumping to "raw socket on
+the engagement network" was unacceptable. The uds JSON-RPC between
+capd and the web app is now a stable contract — see
+[COMPATIBILITY.md](COMPATIBILITY.md).

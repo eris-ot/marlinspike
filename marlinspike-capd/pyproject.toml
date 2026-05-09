@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "marlinspike-capd"
+version = "0.1.0"
+description = "Privileged sidecar capture daemon for MarlinSpike. Enumerates interfaces, validates BPF filters, supervises dumpcap with rotation, and serves a uds JSON-RPC API consumed by the unprivileged MarlinSpike web app."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "AGPL-3.0-or-later" }
+authors = [
+  { name = "River Caudle", email = "river@riverman.io" },
+]
+dependencies = [
+  "psutil>=5.9",
+]
+
+[project.scripts]
+marlinspike-capd = "capd.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["capd*"]

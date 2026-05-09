@@ -102,3 +102,11 @@ SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", default=False)
 
 # Run cleanup
 RUN_CLEANUP_SECONDS = 3600
+
+# Live capture (capd sidecar). Disabled by default; enable per-deployment.
+LIVE_CAPTURE_ENABLED = _env_bool("LIVE_CAPTURE_ENABLED", default=False)
+LIVE_CAPTURE_SOCKET = os.environ.get(
+    "LIVE_CAPTURE_SOCKET", "/var/run/marlinspike-capd.sock"
+)
+LIVE_CAPTURE_TIMEOUT_S = float(os.environ.get("LIVE_CAPTURE_TIMEOUT_S", "5"))
+LIVE_CAPTURE_MAX_CONCURRENT = int(os.environ.get("LIVE_CAPTURE_MAX_CONCURRENT", "2"))

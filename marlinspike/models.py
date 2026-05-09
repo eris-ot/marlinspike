@@ -174,3 +174,53 @@ class IocEntry(db.Model):
     severity = db.Column(db.String(20))
 
     __table_args__ = (db.UniqueConstraint("list_id", "ioc_type", "value", name="uq_ioc_entry"),)
+
+
+# ── Live Capture (capd-driven) ──────────────────────────────────
+
+class CaptureSession(db.Model):
+    __tablename__ = "capture_sessions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    session_uuid = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    interface = db.Column(db.String(64), nullable=False, index=True)
+    bpf_filter = db.Column(db.Text, default="", nullable=False)
+    ring_filesize_kb = db.Column(db.Integer, default=200_000, nullable=False)
+    ring_files = db.Column(db.Integer, default=10, nullable=False)
+    max_duration_s = db.Column(db.Integer, default=0, nullable=False)
+
+    # 'pending' | 'running' | 'stopping' | 'stopped' | 'failed'
+    status = db.Column(db.String(20), default="pending", nullable=False, index=True)
+    started_at = db.Column(db.DateTime)
+    stopped_at = db.Column(db.DateTime)
+
+    capture_dir = db.Column(db.Text)
+    bytes_captured = db.Column(db.BigInteger, default=0, nullable=False)
+    packets_captured = db.Column(db.BigInteger, default=0, nullable=False)
+    drop_count = db.Column(db.BigInteger, default=0, nullable=False)
+    rotation_count = db.Column(db.Integer, default=0, nullable=False)
+    error_tail = db.Column(db.Text)
+
+    user = db.relationship("User", backref="capture_sessions")
+    project = db.relationship("Project", backref="capture_sessions")
+
+
+class SavedFilter(db.Model):
+    """Per-project named BPF filter library."""
+
+    __tablename__ = "saved_filters"
+
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("projects.id", ondelete="CASCADE"),
+                           nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    name = db.Column(db.String(80), nullable=False)
+    expression = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        db.UniqueConstraint("project_id", "name", name="uq_saved_filter_project_name"),
+    )

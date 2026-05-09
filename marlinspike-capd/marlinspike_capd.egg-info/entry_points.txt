@@ -1,0 +1,2 @@
+[console_scripts]
+marlinspike-capd = capd.cli:main

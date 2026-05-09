@@ -1,0 +1,814 @@
+{% extends "base.html" %}
+{% block title %}MarlinSpike — {{ t('capture.title') }}{% endblock %}
+
+{% block head %}
+<style>
+.cap-page {
+  max-width: 1280px;
+  margin: 24px auto;
+  padding: 0 24px;
+}
+.cap-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.cap-header h1 {
+  font-size: 1.05em;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.cap-header h1 .brand-dot { color: var(--color-danger); }
+.cap-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.78em;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  background: var(--panel-alt);
+}
+.cap-status-pill .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+.cap-status-pill.ok .dot { background: var(--color-success); }
+.cap-status-pill.warn .dot { background: var(--color-warning); }
+.cap-status-pill.err .dot { background: var(--color-danger); }
+
+.cap-grid {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 980px) {
+  .cap-grid { grid-template-columns: 1fr; }
+}
+
+.cap-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.cap-panel-head {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-dim);
+  font-size: 0.82em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.cap-panel-body { padding: 14px 16px; }
+
+.cap-field { margin-bottom: 12px; }
+.cap-field label {
+  display: block;
+  font-size: 0.78em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+.cap-field .ms-input,
+.cap-field .ms-select { width: 100%; }
+.cap-field .help {
+  font-size: 0.78em;
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-family: var(--font-mono);
+}
+.cap-field .help.bpf-ok { color: var(--color-success); }
+.cap-field .help.bpf-bad { color: var(--color-danger); }
+
+.cap-row { display: flex; gap: 8px; }
+.cap-row > .cap-field { flex: 1; }
+
+.cap-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82em;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.cap-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--panel-alt);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 0.88em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.cap-btn:hover:not(:disabled) { border-color: var(--accent); }
+.cap-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.cap-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.cap-btn.primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+.cap-btn.danger {
+  background: transparent;
+  border-color: rgba(239,68,68,0.4);
+  color: var(--color-danger);
+}
+.cap-btn.danger:hover:not(:disabled) { border-color: var(--color-danger); background: rgba(239,68,68,0.08); }
+
+.cap-active-empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.88em;
+}
+
+.cap-session {
+  border-bottom: 1px solid var(--border-dim);
+  padding: 12px 16px;
+}
+.cap-session:last-child { border-bottom: none; }
+.cap-session-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.cap-session-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 0.92em;
+}
+.cap-session-title .pulse {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--color-danger);
+  animation: cap-pulse 1.6s ease-in-out infinite;
+}
+.cap-session-title.stopped .pulse { background: var(--text-muted); animation: none; }
+@keyframes cap-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+  50% { opacity: 0.55; box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+}
+.cap-session-meta {
+  font-family: var(--font-mono);
+  font-size: 0.78em;
+  color: var(--text-muted);
+}
+.cap-session-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+}
+@media (max-width: 720px) {
+  .cap-session-stats { grid-template-columns: repeat(2, 1fr); }
+}
+.cap-stat {
+  background: var(--panel-alt);
+  border: 1px solid var(--border-dim);
+  border-radius: 4px;
+  padding: 8px 10px;
+}
+.cap-stat-label {
+  font-size: 0.7em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.cap-stat-value {
+  font-family: var(--font-mono);
+  font-size: 1.05em;
+  font-weight: 600;
+  color: var(--text);
+  margin-top: 2px;
+}
+
+.cap-history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86em;
+}
+.cap-history-table th, .cap-history-table td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-dim);
+}
+.cap-history-table th {
+  font-weight: 600;
+  color: var(--text-dim);
+  font-size: 0.78em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.cap-history-table td.mono { font-family: var(--font-mono); color: var(--text-dim); }
+.cap-status-tag {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 3px;
+  font-size: 0.72em;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.cap-status-tag.running { background: rgba(239,68,68,0.15); color: var(--color-danger); }
+.cap-status-tag.stopping { background: rgba(245,158,11,0.15); color: var(--color-warning); }
+.cap-status-tag.stopped { background: rgba(120,130,150,0.15); color: var(--text-dim); }
+.cap-status-tag.failed { background: rgba(239,68,68,0.2); color: var(--color-danger); }
+.cap-status-tag.pending { background: rgba(91,138,240,0.15); color: var(--accent); }
+
+.cap-disabled-banner {
+  background: rgba(245,158,11,0.08);
+  border: 1px solid rgba(245,158,11,0.4);
+  border-radius: 6px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  font-size: 0.9em;
+  color: var(--text);
+}
+.cap-filter-row {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+.cap-filter-row .cap-filter-pick { flex: 1; min-width: 0; }
+.cap-filter-btn {
+  padding: 6px 10px;
+  font-size: 0.82em;
+  flex: 0 0 auto;
+}
+.cap-filter-del {
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: 1em;
+  line-height: 1;
+  color: var(--text-dim);
+}
+.cap-filter-del:not(:disabled):hover {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+.cap-disabled-banner code {
+  font-family: var(--font-mono);
+  background: var(--bg-deep);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.88em;
+}
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="cap-page">
+
+  <div class="cap-header">
+    <h1>{{ t('capture.title') }} <span class="brand-dot">.</span></h1>
+    <span class="cap-status-pill" id="capd-status">
+      <span class="dot"></span>
+      <span id="capd-status-text">{{ t('capture.status.checking') }}</span>
+    </span>
+  </div>
+
+  {% if not live_capture_enabled %}
+  <div class="cap-disabled-banner" role="status">
+    {{ t('capture.disabled.intro') }}
+    <code>LIVE_CAPTURE_ENABLED=true</code>
+    {{ t('capture.disabled.intro_2') }}
+    <code>{{ live_capture_socket }}</code>.
+    {{ t('capture.disabled.see_install') }}
+  </div>
+  {% endif %}
+
+  <div class="cap-grid">
+
+    <!-- ── New capture form ──────────────────────────── -->
+    <section class="cap-panel" aria-labelledby="cap-new-head">
+      <div class="cap-panel-head" id="cap-new-head">{{ t('capture.new.title') }}</div>
+      <div class="cap-panel-body">
+        <div class="cap-field">
+          <label for="cap-project">{{ t('capture.new.project') }}</label>
+          <select class="ms-select" id="cap-project"></select>
+        </div>
+
+        <div class="cap-field">
+          <label for="cap-iface">{{ t('capture.new.interface') }}</label>
+          <select class="ms-select" id="cap-iface" disabled>
+            <option>{{ t('capture.new.interface_loading') }}</option>
+          </select>
+          <label class="cap-toggle" style="margin-top: 6px;">
+            <input type="checkbox" id="cap-show-virtual"> {{ t('capture.new.show_virtual') }}
+          </label>
+        </div>
+
+        <div class="cap-field">
+          <label for="cap-bpf">{{ t('capture.new.bpf') }}</label>
+          <div class="cap-filter-row">
+            <select class="ms-select cap-filter-pick" id="cap-filter-pick"
+                    aria-label="{{ t('capture.filters.label') }}">
+              <option value="">{{ t('capture.filters.placeholder') }}</option>
+            </select>
+            <button type="button" class="cap-btn cap-filter-btn" id="cap-filter-save"
+                    title="{{ t('capture.filters.save') }}">{{ t('capture.filters.save') }}</button>
+            <button type="button" class="cap-btn cap-filter-btn cap-filter-del" id="cap-filter-del"
+                    disabled title="{{ t('capture.filters.delete') }}">×</button>
+          </div>
+          <input type="text" class="ms-input" id="cap-bpf"
+                 placeholder="tcp port 502 or tcp port 102 or udp port 47808"
+                 spellcheck="false" autocomplete="off"
+                 style="margin-top: 6px;">
+          <div class="help" id="cap-bpf-help">{{ t('capture.new.bpf_hint') }}</div>
+        </div>
+
+        <div class="cap-row">
+          <div class="cap-field">
+            <label for="cap-filesize">{{ t('capture.new.filesize_kb') }}</label>
+            <input type="number" class="ms-input" id="cap-filesize" value="200000" min="1024" step="1024">
+          </div>
+          <div class="cap-field">
+            <label for="cap-files">{{ t('capture.new.files_count') }}</label>
+            <input type="number" class="ms-input" id="cap-files" value="10" min="2" max="50">
+          </div>
+        </div>
+
+        <div class="cap-field">
+          <label for="cap-duration">{{ t('capture.new.max_duration_s') }}</label>
+          <input type="number" class="ms-input" id="cap-duration" value="0" min="0" step="60">
+          <div class="help">{{ t('capture.new.duration_hint') }}</div>
+        </div>
+
+        <button class="cap-btn primary" id="cap-start" disabled style="width:100%; justify-content:center;">
+          {{ t('capture.new.start') }}
+        </button>
+        <div class="help" style="margin-top:8px;" id="cap-start-help"></div>
+      </div>
+    </section>
+
+    <!-- ── Active sessions ───────────────────────────── -->
+    <section class="cap-panel">
+      <div class="cap-panel-head">
+        {{ t('capture.active.title') }}
+        <span class="cap-session-meta" id="cap-active-count">0</span>
+      </div>
+      <div id="cap-active-list">
+        <div class="cap-active-empty" id="cap-active-empty">{{ t('capture.active.empty') }}</div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ── History ───────────────────────────────────── -->
+  <section class="cap-panel" style="margin-top: 20px;">
+    <div class="cap-panel-head">{{ t('capture.history.title') }}</div>
+    <div class="cap-panel-body" style="padding: 0;">
+      <table class="cap-history-table" id="cap-history">
+        <thead>
+          <tr>
+            <th>{{ t('capture.history.col_when') }}</th>
+            <th>{{ t('capture.history.col_iface') }}</th>
+            <th>{{ t('capture.history.col_filter') }}</th>
+            <th>{{ t('capture.history.col_packets') }}</th>
+            <th>{{ t('capture.history.col_drops') }}</th>
+            <th>{{ t('capture.history.col_bytes') }}</th>
+            <th>{{ t('capture.history.col_status') }}</th>
+          </tr>
+        </thead>
+        <tbody id="cap-history-body">
+          <tr><td colspan="7" style="text-align:center; padding: 24px; color: var(--text-muted);">
+            {{ t('capture.history.empty') }}
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  var T = {
+    'reachable': "{{ t('capture.status.reachable') }}",
+    'unreachable': "{{ t('capture.status.unreachable') }}",
+    'disabled': "{{ t('capture.status.disabled') }}",
+    'bpf_ok': "{{ t('capture.bpf.ok') }}",
+    'bpf_invalid': "{{ t('capture.bpf.invalid') }}",
+    'starting': "{{ t('capture.action.starting') }}",
+    'stopping': "{{ t('capture.action.stopping') }}",
+    'start': "{{ t('capture.new.start') }}",
+    'stop': "{{ t('capture.action.stop') }}",
+    'no_active': "{{ t('capture.active.empty') }}",
+    'no_history': "{{ t('capture.history.empty') }}",
+    'filter_placeholder': "{{ t('capture.filters.placeholder') }}",
+    'filter_save_prompt': "{{ t('capture.filters.save_prompt') }}",
+    'filter_save_blank': "{{ t('capture.filters.save_blank') }}",
+    'filter_delete_confirm': "{{ t('capture.filters.delete_confirm') }}",
+  };
+
+  var streams = Object.create(null); // sessionId -> EventSource
+  var bpfDebounce = null;
+  var savedFilters = []; // [{id, name, expression}, ...] for the active project
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+  function fetchJson(url, init) {
+    return fetch(url, Object.assign({ credentials: 'same-origin' }, init || {}))
+      .then(function(r){
+        if (!r.ok) return r.text().then(function(t){ throw new Error(r.status + ' ' + t.slice(0,200)); });
+        if (r.status === 204) return null;
+        return r.json();
+      });
+  }
+  function postJson(url, body) {
+    return fetchJson(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || {}),
+    });
+  }
+  function fmtBytes(n) {
+    if (!n || n <= 0) return '0 B';
+    var u = ['B','KB','MB','GB','TB']; var i = 0; var v = n;
+    while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+    return v.toFixed(v >= 100 ? 0 : v >= 10 ? 1 : 2) + ' ' + u[i];
+  }
+  function fmtBps(n) { return fmtBytes(n) + '/s'; }
+  function fmtTs(iso) {
+    if (!iso) return '—';
+    try { var d = new Date(iso); return d.toLocaleString(); } catch (e) { return iso; }
+  }
+
+  // ── capd reachability ─────────────────────────────────────
+  function pollHealth() {
+    fetchJson('/api/capture/health').then(function(j){
+      var pill = document.getElementById('capd-status');
+      var txt = document.getElementById('capd-status-text');
+      pill.classList.remove('ok','warn','err');
+      if (!j.enabled) { pill.classList.add('warn'); txt.textContent = T.disabled; return; }
+      if (j.reachable) {
+        pill.classList.add('ok');
+        txt.textContent = T.reachable + (j.libpcap ? ' · ' + j.libpcap.split(' ')[2] || '' : '');
+      } else {
+        pill.classList.add('err');
+        txt.textContent = T.unreachable;
+      }
+    }).catch(function(){
+      var pill = document.getElementById('capd-status');
+      pill.classList.add('err');
+      document.getElementById('capd-status-text').textContent = T.unreachable;
+    });
+  }
+
+  // ── projects ──────────────────────────────────────────────
+  function loadProjects() {
+    return fetchJson('/api/projects').then(function(j){
+      var sel = document.getElementById('cap-project');
+      var ps = (j && j.projects) ? j.projects : [];
+      sel.innerHTML = ps.map(function(p){
+        return '<option value="' + p.id + '">' + esc(p.name) + '</option>';
+      }).join('');
+    });
+  }
+
+  function currentProjectId() {
+    var sel = document.getElementById('cap-project');
+    return parseInt(sel && sel.value, 10) || null;
+  }
+
+  // ── saved filters ─────────────────────────────────────────
+  function loadFilters() {
+    var pid = currentProjectId();
+    var sel = document.getElementById('cap-filter-pick');
+    var del = document.getElementById('cap-filter-del');
+    sel.innerHTML = '<option value="">' + esc(T.filter_placeholder) + '</option>';
+    del.disabled = true;
+    savedFilters = [];
+    if (pid == null) return Promise.resolve();
+    return fetchJson('/api/capture/filters?project_id=' + pid).then(function(j){
+      savedFilters = (j && j.filters) ? j.filters : [];
+      sel.innerHTML = '<option value="">' + esc(T.filter_placeholder) + '</option>'
+        + savedFilters.map(function(f){
+            return '<option value="' + f.id + '">' + esc(f.name) + '</option>';
+          }).join('');
+    }).catch(function(){
+      // 503 / project-not-found is fine — leave the picker empty.
+    });
+  }
+
+  function onFilterPick() {
+    var sel = document.getElementById('cap-filter-pick');
+    var del = document.getElementById('cap-filter-del');
+    var id = parseInt(sel.value, 10);
+    var f = savedFilters.find(function(x){ return x.id === id; });
+    del.disabled = !f;
+    if (!f) return;
+    document.getElementById('cap-bpf').value = f.expression;
+    validateBpf();
+  }
+
+  function onFilterSave() {
+    var pid = currentProjectId();
+    if (pid == null) return;
+    var current = (document.getElementById('cap-bpf').value || '').trim();
+    if (!current) {
+      alert(T.filter_save_blank);
+      return;
+    }
+    var name = (window.prompt(T.filter_save_prompt, '') || '').trim();
+    if (!name) return;
+    postJson('/api/capture/filters', {
+      project_id: pid, name: name, expression: current,
+    }).then(function(){
+      return loadFilters();
+    }).then(function(){
+      // Auto-select the just-saved entry so delete is available.
+      var match = savedFilters.find(function(x){ return x.name === name; });
+      if (match) {
+        document.getElementById('cap-filter-pick').value = String(match.id);
+        document.getElementById('cap-filter-del').disabled = false;
+      }
+    }).catch(function(e){
+      alert(String(e.message || e));
+    });
+  }
+
+  function onFilterDelete() {
+    var sel = document.getElementById('cap-filter-pick');
+    var id = parseInt(sel.value, 10);
+    var f = savedFilters.find(function(x){ return x.id === id; });
+    if (!f) return;
+    if (!window.confirm(T.filter_delete_confirm.replace('{name}', f.name))) return;
+    fetchJson('/api/capture/filters/' + id, { method: 'DELETE' })
+      .then(loadFilters)
+      .catch(function(e){ alert(String(e.message || e)); });
+  }
+
+  // ── interfaces ────────────────────────────────────────────
+  function loadInterfaces() {
+    var showVirtual = document.getElementById('cap-show-virtual').checked;
+    var url = '/api/capture/interfaces' + (showVirtual ? '?include_virtual=1' : '');
+    var sel = document.getElementById('cap-iface');
+    sel.disabled = true;
+    sel.innerHTML = '<option>…</option>';
+    fetchJson(url).then(function(j){
+      var ifaces = (j && j.interfaces) ? j.interfaces : [];
+      sel.innerHTML = ifaces.map(function(i){
+        var label = i.name;
+        if (i.ips && i.ips.length) label += ' — ' + i.ips[0];
+        if (!i.is_up) label += ' (down)';
+        return '<option value="' + esc(i.name) + '">' + esc(label) + '</option>';
+      }).join('') || '<option value="">(none)</option>';
+      sel.disabled = false;
+      maybeEnableStart();
+    }).catch(function(e){
+      sel.innerHTML = '<option value="">' + esc(e.message || String(e)) + '</option>';
+    });
+  }
+
+  // ── BPF live validation ───────────────────────────────────
+  function validateBpf() {
+    var help = document.getElementById('cap-bpf-help');
+    var v = document.getElementById('cap-bpf').value || '';
+    if (!v.trim()) {
+      help.textContent = '{{ t("capture.new.bpf_hint") }}';
+      help.classList.remove('bpf-ok','bpf-bad');
+      maybeEnableStart();
+      return;
+    }
+    postJson('/api/capture/validate-bpf', { filter: v }).then(function(j){
+      help.classList.remove('bpf-ok','bpf-bad');
+      if (j && j.ok) { help.classList.add('bpf-ok'); help.textContent = T.bpf_ok; }
+      else { help.classList.add('bpf-bad'); help.textContent = T.bpf_invalid + ': ' + (j && j.error || ''); }
+      maybeEnableStart();
+    }).catch(function(e){
+      help.classList.remove('bpf-ok'); help.classList.add('bpf-bad');
+      help.textContent = String(e.message || e);
+      maybeEnableStart();
+    });
+  }
+  function onBpfInput() {
+    if (bpfDebounce) clearTimeout(bpfDebounce);
+    bpfDebounce = setTimeout(validateBpf, 350);
+  }
+
+  function bpfOkOrEmpty() {
+    var v = document.getElementById('cap-bpf').value || '';
+    if (!v.trim()) return true;
+    return document.getElementById('cap-bpf-help').classList.contains('bpf-ok');
+  }
+  function maybeEnableStart() {
+    var sel = document.getElementById('cap-iface');
+    var enabled = !!sel.value && bpfOkOrEmpty();
+    document.getElementById('cap-start').disabled = !enabled;
+  }
+
+  // ── start / stop ──────────────────────────────────────────
+  function onStart() {
+    var btn = document.getElementById('cap-start');
+    var help = document.getElementById('cap-start-help');
+    btn.disabled = true; help.textContent = T.starting;
+    var body = {
+      project_id: parseInt(document.getElementById('cap-project').value, 10) || null,
+      interface: document.getElementById('cap-iface').value,
+      bpf_filter: document.getElementById('cap-bpf').value || '',
+      ring_filesize_kb: parseInt(document.getElementById('cap-filesize').value, 10) || 200000,
+      ring_files: parseInt(document.getElementById('cap-files').value, 10) || 10,
+      max_duration_s: parseInt(document.getElementById('cap-duration').value, 10) || 0,
+    };
+    postJson('/api/capture/sessions', body).then(function(j){
+      help.textContent = '';
+      btn.disabled = false;
+      refreshSessions();
+    }).catch(function(e){
+      help.textContent = String(e.message || e);
+      btn.disabled = false;
+    });
+  }
+
+  function onStop(sid) {
+    var btn = document.querySelector('button[data-stop="' + sid + '"]');
+    if (btn) { btn.disabled = true; btn.textContent = T.stopping; }
+    postJson('/api/capture/sessions/' + sid + '/stop', {}).then(function(){
+      closeStream(sid);
+      refreshSessions();
+    }).catch(function(e){
+      if (btn) { btn.disabled = false; btn.textContent = T.stop; }
+      alert(String(e.message || e));
+    });
+  }
+
+  // ── sessions list + SSE ───────────────────────────────────
+  function refreshSessions() {
+    fetchJson('/api/capture/sessions?limit=200').then(function(j){
+      var rows = (j && j.sessions) ? j.sessions : [];
+      var active = rows.filter(function(r){ return r.status === 'running' || r.status === 'pending' || r.status === 'stopping'; });
+      var history = rows.filter(function(r){ return r.status === 'stopped' || r.status === 'failed'; });
+      renderActive(active);
+      renderHistory(history);
+      // open SSE for any newly-running session.
+      active.forEach(function(s){
+        if (s.status === 'running' && !streams[s.id]) openStream(s);
+      });
+      // close streams for sessions that left active.
+      Object.keys(streams).forEach(function(sid){
+        if (!active.some(function(s){ return String(s.id) === String(sid); })) closeStream(sid);
+      });
+    });
+  }
+
+  function renderActive(active) {
+    var host = document.getElementById('cap-active-list');
+    document.getElementById('cap-active-count').textContent = active.length;
+    if (!active.length) {
+      host.innerHTML = '<div class="cap-active-empty">' + T.no_active + '</div>';
+      return;
+    }
+    host.innerHTML = active.map(renderActiveCard).join('');
+  }
+
+  function renderActiveCard(s) {
+    var stoppedClass = s.status === 'running' ? '' : 'stopped';
+    return [
+      '<div class="cap-session" id="cap-session-' + s.id + '" data-sid="' + s.id + '">',
+        '<div class="cap-session-head">',
+          '<div class="cap-session-title ' + stoppedClass + '">',
+            '<span class="pulse"></span>',
+            esc(s.interface),
+            '<span class="cap-status-tag ' + esc(s.status) + '">' + esc(s.status) + '</span>',
+          '</div>',
+          '<div>',
+            '<button class="cap-btn danger" data-stop="' + s.id + '">' + T.stop + '</button>',
+          '</div>',
+        '</div>',
+        '<div class="cap-session-meta">',
+          (s.bpf_filter ? esc(s.bpf_filter) : '<span style="color:var(--text-muted)">no filter</span>'),
+          ' · ', T.start_label || 'started', ' ', fmtTs(s.started_at),
+        '</div>',
+        '<div class="cap-session-stats">',
+          stat('packets', s.packets_captured || 0, 'pkt'),
+          stat('drops', s.drop_count || 0, 'pkt'),
+          stat('bytes', fmtBytes(s.bytes_captured || 0)),
+          stat('rate', '— /s', null, 'rate-' + s.id),
+        '</div>',
+      '</div>',
+    ].join('');
+  }
+
+  function stat(label, value, suffix, id) {
+    return [
+      '<div class="cap-stat">',
+        '<div class="cap-stat-label">' + esc(label) + '</div>',
+        '<div class="cap-stat-value"' + (id ? ' id="cap-' + id + '"' : '') + '>',
+          esc(String(value)) + (suffix ? ' <span style="font-size:0.78em;color:var(--text-muted)">' + esc(suffix) + '</span>' : ''),
+        '</div>',
+      '</div>',
+    ].join('');
+  }
+
+  function renderHistory(rows) {
+    var body = document.getElementById('cap-history-body');
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 24px; color: var(--text-muted);">' + T.no_history + '</td></tr>';
+      return;
+    }
+    body.innerHTML = rows.slice(0, 50).map(function(r){
+      return [
+        '<tr>',
+          '<td class="mono">' + esc(fmtTs(r.stopped_at || r.started_at)) + '</td>',
+          '<td class="mono">' + esc(r.interface) + '</td>',
+          '<td class="mono" style="max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="' + esc(r.bpf_filter || '') + '">',
+            esc(r.bpf_filter || '—'),
+          '</td>',
+          '<td class="mono">' + esc(String(r.packets_captured || 0)) + '</td>',
+          '<td class="mono">' + esc(String(r.drop_count || 0)) + '</td>',
+          '<td class="mono">' + esc(fmtBytes(r.bytes_captured || 0)) + '</td>',
+          '<td><span class="cap-status-tag ' + esc(r.status) + '">' + esc(r.status) + '</span></td>',
+        '</tr>',
+      ].join('');
+    }).join('');
+  }
+
+  function openStream(s) {
+    if (!window.EventSource) return;
+    try {
+      var es = new EventSource('/api/capture/sessions/' + s.id + '/stream');
+      streams[s.id] = es;
+      es.onmessage = function(ev){
+        var frame;
+        try { frame = JSON.parse(ev.data); } catch (e) { return; }
+        if (frame.type === 'keepalive') return;
+        var card = document.getElementById('cap-session-' + s.id);
+        if (!card) return;
+        var stats = card.querySelectorAll('.cap-stat-value');
+        // [packets, drops, bytes, rate]
+        if (stats[2]) stats[2].innerHTML = esc(fmtBytes(frame.bytes_total || 0));
+        if (stats[3]) stats[3].innerHTML = esc(fmtBps(frame.bytes_per_sec || 0));
+        if (frame.running === false) {
+          closeStream(s.id);
+          refreshSessions();
+        }
+      };
+      es.onerror = function(){
+        closeStream(s.id);
+        // The server may have closed the stream because the session ended; re-poll to confirm.
+        refreshSessions();
+      };
+    } catch (e) { /* ignore */ }
+  }
+
+  function closeStream(sid) {
+    var es = streams[sid];
+    if (!es) return;
+    try { es.close(); } catch (e) {}
+    delete streams[sid];
+  }
+
+  // ── wire ──────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', function(){
+    document.getElementById('cap-show-virtual').addEventListener('change', loadInterfaces);
+    document.getElementById('cap-iface').addEventListener('change', maybeEnableStart);
+    document.getElementById('cap-bpf').addEventListener('input', onBpfInput);
+    document.getElementById('cap-start').addEventListener('click', onStart);
+    document.getElementById('cap-project').addEventListener('change', loadFilters);
+    document.getElementById('cap-filter-pick').addEventListener('change', onFilterPick);
+    document.getElementById('cap-filter-save').addEventListener('click', onFilterSave);
+    document.getElementById('cap-filter-del').addEventListener('click', onFilterDelete);
+    document.body.addEventListener('click', function(ev){
+      var stopBtn = ev.target.closest && ev.target.closest('[data-stop]');
+      if (stopBtn) onStop(stopBtn.getAttribute('data-stop'));
+    });
+
+    pollHealth();
+    setInterval(pollHealth, 15000);
+
+    loadProjects().then(function(){
+      loadInterfaces();
+      loadFilters();
+      refreshSessions();
+      setInterval(refreshSessions, 8000);
+    });
+  });
+})();
+</script>
+{% endblock %}

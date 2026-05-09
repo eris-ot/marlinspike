@@ -52,6 +52,7 @@ Interactive browser features can improve speed and convenience, but the core tri
 - L2 / ARP anomaly surface in the workbench: bilgepump `mac_local` / `arp_spoof` / `mac_flap` detections grouped by anomaly type with per-bucket count, severity histogram, and representative samples; ARP observations rendered alongside
 - Project Overview tab as the default project landing surface: walks every report in a project, dedupes assets (MAC-keyed, IP fallback) and findings (`(category, sorted(affected_nodes), sorted(affected_edges))`) across captures, promotes finding severity to the highest seen, and renders one rolled-up KPI strip, severity bar, findings table, asset inventory, protocol list, and ATT&CK coverage chip set — pure compute, no schema migration
 - Pip-installable Python package (v3.0.0): `pip install marlinspike` exposes `from marlinspike import create_app, db`; downstream wrappers (e.g. cloudmarlin) can extend the app without forking via the new `csrf_exempt` and `set_concurrent_check_fn` extension hooks
+- Optional **live capture** sidecar (`marlinspike-capd`, off by default, Linux only): unprivileged web app talks to a privileged daemon over a unix-domain socket; daemon supervises `dumpcap` with a 2 GB rolling ring, validates BPF filters live, enumerates physical NICs, and feeds rotated PCAPs into the existing analysis pipeline so reports accumulate in the project as the capture runs. Per-project saved-filter library, per-interface locking, admin-override stop. See [docs/live-capture.md](docs/live-capture.md)
 - Docker Compose deployment with PostgreSQL backing the application
 - Rust DPI engine via [`marlinspike-dpi`](https://github.com/riverrisk/marlinspike-dpi) enabled by default (`--dpi-engine auto`), built into the image from a pinned GitHub ref — 14x faster than the Python tshark fallback on large captures
 - MITRE ATT&CK runtime surfaces sourced from the standalone [`marlinspike-mitre`](https://github.com/riverrisk/marlinspike-mitre) repo at a pinned GitHub ref during image build
@@ -86,25 +87,74 @@ See [INSTALL.md](INSTALL.md) for a generic deployment walkthrough.
 
 ## Documentation
 
-If you are looking for the main repository docs, start here:
+The full docs index is at **[docs/README.md](docs/README.md)** — it
+groups every document by intent (operator / admin / developer /
+architecture / research) and tells you where to start based on
+what you're trying to do.
 
-- Getting started: [INSTALL.md](INSTALL.md)
-- Repo family and suite structure: [docs/repo-family.md](docs/repo-family.md)
-- Compatibility model: [COMPATIBILITY.md](COMPATIBILITY.md)
-- Architecture and extension boundaries: [docs/extensibility-contracts.md](docs/extensibility-contracts.md)
-- Zipped report bundle format proposal: [docs/msbundle-format.md](docs/msbundle-format.md)
-- End-user ATT&CK guide: [docs/mitre-attack-guide.md](docs/mitre-attack-guide.md)
-- Shared MITRE plugin repo: `/Users/butterbones/marlinspike-mitre`
-- Vendored ATT&CK runtime copy: [`plugins/marlinspike_mitre/`](plugins/marlinspike_mitre/) and [`rules/mitre/base.yaml`](rules/mitre/base.yaml)
-- MITRE bootstrap sync helper: [`scripts/sync-mitre-bootstrap.sh`](scripts/sync-mitre-bootstrap.sh)
-- Suite subtree helper: [`scripts/update-subtrees.sh`](scripts/update-subtrees.sh)
-- Bootstrap engine sync helper: [`scripts/sync-msengine-bootstrap.sh`](scripts/sync-msengine-bootstrap.sh)
-- Contribution and development workflow: [CONTRIBUTING.md](CONTRIBUTING.md)
-- Engine and product release history: [releases.md](releases.md)
-- Live viewer and streaming release history: [releases-live.md](releases-live.md)
-- Analyst workspace product direction: [docs/analyst-workspace-roadmap.md](docs/analyst-workspace-roadmap.md)
-- Public fingerprinting research corpus: [docs/public-fingerprint-corpus.md](docs/public-fingerprint-corpus.md)
-- Preset sample library notes: [presets/README.md](presets/README.md)
+The most-used entry points:
+
+**Operator (analyst-facing)**
+
+- [docs/triage-methodology.md](docs/triage-methodology.md) — the
+  analyst loop, eight-step flow, read first.
+- [docs/workbench-guide.md](docs/workbench-guide.md) — every pane
+  in the report viewer.
+- [docs/projects-and-engagements.md](docs/projects-and-engagements.md)
+  — project model, Project Overview, multi-capture workflow.
+- [docs/asset-context.md](docs/asset-context.md) — asset tagging,
+  finding notes, contextual-severity overlay.
+- [docs/asset-baselines.md](docs/asset-baselines.md) — per-asset
+  longitudinal page, novelty-vs-baseline.
+- [docs/time-scrubbing-and-extract.md](docs/time-scrubbing-and-extract.md)
+  — time-window selection and sub-PCAP carve-out.
+- [docs/ioc-threat-hunting.md](docs/ioc-threat-hunting.md) —
+  `/iocs` page workflow.
+- [docs/live-capture.md](docs/live-capture.md) — optional capd
+  sidecar (Linux only).
+- [docs/mitre-attack-guide.md](docs/mitre-attack-guide.md) — ATT&CK
+  in the workbench.
+- [docs/i18n-and-locale.md](docs/i18n-and-locale.md) — bilingual
+  workflow (EN/FR).
+
+**Admin / deployment**
+
+- [INSTALL.md](INSTALL.md) — install, env vars, deployment modes.
+- [docs/admin-and-audit.md](docs/admin-and-audit.md) — `/users`,
+  `/audit`, password reset, session invalidation.
+- [UPGRADING.md](UPGRADING.md) — version-to-version migration.
+
+**Developer / integrator**
+
+- [docs/cli-and-headless.md](docs/cli-and-headless.md) — running
+  the engine without the web app.
+- [docs/extensibility-contracts.md](docs/extensibility-contracts.md)
+  — the three extension boundaries.
+- [docs/bronze-consumer-contract.md](docs/bronze-consumer-contract.md)
+  — DPI engine's Bronze event contract.
+- [docs/msbundle-format.md](docs/msbundle-format.md) — proposed
+  zipped bundle format.
+
+**Architecture / direction**
+
+- [COMPATIBILITY.md](COMPATIBILITY.md) — compatibility model,
+  contract boundaries.
+- [docs/repo-family.md](docs/repo-family.md) — suite + component
+  repos model.
+- [docs/analyst-workspace-roadmap.md](docs/analyst-workspace-roadmap.md)
+  / [docs/defender-features-roadmap.md](docs/defender-features-roadmap.md)
+  — product direction.
+
+**Other**
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — contribution workflow.
+- [releases.md](releases.md) — release history.
+- [presets/README.md](presets/README.md) — preset sample library.
+- Component repos: [`plugins/marlinspike_mitre/`](plugins/marlinspike_mitre/),
+  [`rules/mitre/base.yaml`](rules/mitre/base.yaml),
+  [`scripts/sync-mitre-bootstrap.sh`](scripts/sync-mitre-bootstrap.sh),
+  [`scripts/update-subtrees.sh`](scripts/update-subtrees.sh),
+  [`scripts/sync-msengine-bootstrap.sh`](scripts/sync-msengine-bootstrap.sh).
 
 The key extensibility terminology in this repository is:
 
@@ -352,6 +402,77 @@ This screenshot was captured against the 4SICS benchmark project after running t
       </a>
       <br>
       <sub>Project Overview after rolling up four 4SICS reports — 4 reports, 48 unique assets, 96 distinct findings, 15 protocols, 2 ATT&CK techniques mapped. Findings table shows occurrence counts as `seen in N of M` and is sorted by severity then occurrences.</sub>
+    </td>
+  </tr>
+</table>
+
+### v3.x Workflow Surfaces
+
+The features added across v3.0 → v3.3, captured against a 4-report 4SICS engagement. Each links to its operator guide.
+
+<table>
+  <tr>
+    <td width="50%">
+      <a href="docs/screenshots/29-capture-page.png">
+        <img src="docs/screenshots/29-capture-page.png" alt="Live capture page — capd-status pill, project picker, interface dropdown, debounced BPF validation, ring config, saved-filter library" width="100%">
+      </a>
+      <br>
+      <sub><strong>Live Capture (<a href="docs/live-capture.md">guide</a>)</strong> — optional <code>marlinspike-capd</code> sidecar daemon (Linux only). Enumerates physical NICs, validates BPF against the active interface's DLT, supervises <code>dumpcap</code> with a 2 GB rolling ring, and feeds rotated PCAPs into the existing analysis pipeline. Per-project saved-filter library, per-interface locking, admin-override stop.</sub>
+    </td>
+    <td width="50%">
+      <a href="docs/screenshots/30-iocs-page.png">
+        <img src="docs/screenshots/30-iocs-page.png" alt="IOC threat-hunting — list manager with bulk-paste import showing eight typed indicators (ip / domain / mac / oui / sha256) with severity tags" width="100%">
+      </a>
+      <br>
+      <sub><strong>IOC Threat-Hunting (<a href="docs/ioc-threat-hunting.md">guide</a>)</strong> — per-project IOC lists with bulk-paste import (auto-detects IPv4/v6, MAC, OUI, sha256, md5, domain). Cross-report scan walks every report in the project and matches against nodes, conversations, c2_indicators, risk_findings, dns_queries, and malware_findings.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <a href="docs/screenshots/46-ioc-scan-hits.png">
+        <img src="docs/screenshots/46-ioc-scan-hits.png" alt="IOC scan results — hit table with matches across multiple reports showing match surface, indicator value, label, and severity" width="100%">
+      </a>
+      <br>
+      <sub><strong>IOC scan results</strong> — cross-report hit table with match surface (node / conversation / c2_indicator), report attribution, severity, and label. Capped at 1000 hits per scan.</sub>
+    </td>
+    <td width="50%">
+      <a href="docs/screenshots/44-asset-baseline.png">
+        <img src="docs/screenshots/44-asset-baseline.png" alt="Per-asset baseline page — identity timeline, novelty-vs-baseline card, protocol-mix history per report, peer set with first/last seen, finding cadence" width="100%">
+      </a>
+      <br>
+      <sub><strong>Per-asset baselines (<a href="docs/asset-baselines.md">guide</a>)</strong> — longitudinal profile across every report in a project for one asset. Identity drift detection on vendor / role / device-type, protocol-mix history, peer first-seen / last-seen attribution, finding cadence buckets, anomaly cadence, and the headline novelty-vs-baseline card flagging what's new in the latest capture.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <a href="docs/screenshots/47-time-scrubber-window.png">
+        <img src="docs/screenshots/47-time-scrubber-window.png" alt="Time-scrubber drag-selection active across the histogram — Traffic pane below filters live to the chosen window" width="100%">
+      </a>
+      <br>
+      <sub><strong>Time-window scrubbing + sub-PCAP extract (<a href="docs/time-scrubbing-and-extract.md">guide</a>)</strong> — adaptive packet-rate histogram below the workbench toolbar. Drag to select a window; every conversation-driven pane filters live. Per-conversation Extract button carves out a sub-PCAP scoped to the window for Wireshark-level inspection.</sub>
+    </td>
+    <td width="50%">
+      <a href="docs/screenshots/45-workbench-selected-asset.png">
+        <img src="docs/screenshots/45-workbench-selected-asset.png" alt="Workbench Map mode with a node clicked — Selected Asset sidebar populated with identity, behavioral evidence, peer set, vendor, asset context section" width="100%">
+      </a>
+      <br>
+      <sub><strong>Asset context (<a href="docs/asset-context.md">guide</a>)</strong> — site-specific tagging (owner, criticality, zone, business function) drives a contextual-severity overlay on findings. Tagging an asset <code>critical</code> bumps every finding touching it one tier; tagging <code>low</code> drops all-low findings one tier.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <a href="docs/screenshots/31-audit-page.png">
+        <img src="docs/screenshots/31-audit-page.png" alt="Audit log page — paginated table of auth and capture events with filter inputs and color-coded success/failure badges" width="100%">
+      </a>
+      <br>
+      <sub><strong>Audit log (<a href="docs/admin-and-audit.md">guide</a>)</strong> — admin-only view of every <code>auth.*</code> and <code>capture.*</code> event the app emits. Filters by event type, username, status. Color-coded success / failure pills. Tracks actor user + role + IP at time of event.</sub>
+    </td>
+    <td width="50%">
+      <a href="docs/screenshots/43-workbench-intel.png">
+        <img src="docs/screenshots/43-workbench-intel.png" alt="Workbench Intel mode — protocol coverage KPIs, port surface table, ATT&CK technique detail with response guidance and IEC 62443 alignment" width="100%">
+      </a>
+      <br>
+      <sub><strong>Workbench Intel mode (<a href="docs/workbench-guide.md#intel">guide</a>)</strong> — protocol coverage chips, ATT&CK technique detail with response guidance and IEC 62443 alignment, per-tactic detection coverage. Both Enterprise ATT&CK and ICS ATT&CK are loaded.</sub>
     </td>
   </tr>
 </table>

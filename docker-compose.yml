@@ -23,14 +23,48 @@ services:
       - MARLINSPIKE_DPI_BIN=/usr/local/bin/marlinspike-dpi
       - MARLINSPIKE_MALWARE_BIN=/opt/marlinspike-malware/bin/marlinspike-malware
       - MARLINSPIKE_MALWARE_RULES=/usr/share/marlinspike-malware/rules/packs
+      - LIVE_CAPTURE_ENABLED=${LIVE_CAPTURE_ENABLED:-false}
+      - LIVE_CAPTURE_SOCKET=/var/run/marlinspike-capd/marlinspike-capd.sock
     depends_on:
       db:
         condition: service_healthy
     volumes:
       - marlinspike-data:/app/data
+      - capd-socket:/var/run/marlinspike-capd
+      - capd-captures:/var/lib/marlinspike/captures:ro
     networks:
       - internal
     mem_limit: 3g
+
+  # Live-capture sidecar (Linux only). Off by default — opt in with:
+  #   docker compose --profile capture up -d
+  # capd needs CAP_NET_RAW + CAP_NET_ADMIN and must run on the host
+  # network namespace so it can see physical NICs. The web app stays
+  # unprivileged on the internal bridge and talks to capd over a
+  # shared unix socket.
+  capd:
+    profiles: ["capture"]
+    build:
+      context: ./marlinspike-capd
+    container_name: marlinspike-capd
+    restart: unless-stopped
+    user: "0:0"   # needs root for CAP_NET_RAW; drops privileges via dumpcap
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+    network_mode: host
+    volumes:
+      - capd-socket:/var/run/marlinspike-capd
+      - capd-captures:/var/lib/marlinspike/captures
+    command:
+      - python
+      - -m
+      - capd
+      - serve
+      - --socket=/var/run/marlinspike-capd/marlinspike-capd.sock
+      - --capture-root=/var/lib/marlinspike/captures
+      - --allow-uid=${LIVE_CAPTURE_ALLOW_UID:-0}
+    mem_limit: 256m
 
   db:
     image: postgres:16-alpine
@@ -54,6 +88,8 @@ services:
 volumes:
   marlinspike-data:
   marlinspike-pgdata:
+  capd-socket:
+  capd-captures:
 
 networks:
   internal:

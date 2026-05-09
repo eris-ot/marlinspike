@@ -1,0 +1,49 @@
+[Unit]
+Description=MarlinSpike capture daemon (sidecar for live PCAP capture)
+Documentation=https://github.com/eris-ot/marlinspike
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=marlinspike-capd
+Group=marlinspike-capd
+
+# Grant only the caps capd actually needs. dumpcap inherits them.
+AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
+CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN
+NoNewPrivileges=true
+
+# Hardening — capd doesn't need any of these.
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+PrivateDevices=false
+PrivateTmp=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK AF_PACKET
+
+# Writable paths.
+RuntimeDirectory=marlinspike-capd
+RuntimeDirectoryMode=0750
+StateDirectory=marlinspike/captures
+StateDirectoryMode=0750
+ReadWritePaths=/var/run/marlinspike-capd /var/lib/marlinspike/captures
+
+Environment=PYTHONUNBUFFERED=1
+
+ExecStart=/usr/local/bin/marlinspike-capd serve \
+    --socket=/var/run/marlinspike-capd/marlinspike-capd.sock \
+    --capture-root=/var/lib/marlinspike/captures
+
+Restart=on-failure
+RestartSec=2s
+
+[Install]
+WantedBy=multi-user.target

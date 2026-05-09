@@ -111,12 +111,83 @@ For a staging target:
 REMOTE=deploy@staging-host ./deploy-dev.sh
 ```
 
+## Live Capture (optional, Linux only)
+
+MarlinSpike can drive its own live capture from a SPAN port or tap via the optional `marlinspike-capd` sidecar. The web app stays unprivileged; capd holds `CAP_NET_RAW` and supervises `dumpcap` with ring-buffer rotation. Each rotated PCAP is consumed by the existing analysis pipeline and reports accumulate in the project workbench.
+
+There are three deployment modes:
+
+### 1. No live capture (default)
+
+Don't install or enable capd. The web app boots normally. The `Live Capture` nav link shows a banner explaining how to enable it. No elevated capabilities anywhere in the stack.
+
+### 2. Bundled (Docker Compose)
+
+```bash
+# In .env
+LIVE_CAPTURE_ENABLED=true
+
+# Start the stack with the capture profile.
+docker compose --profile capture up -d --build
+```
+
+This launches `marlinspike-capd` alongside `app` and `db`. Compose creates two shared volumes:
+
+- `capd-socket` — the unix-domain socket the web app connects to
+- `capd-captures` — rotated PCAPs (read-only mount in `app`, read-write in `capd`)
+
+The capd container runs with `cap_add: [NET_RAW, NET_ADMIN]` and `network_mode: host` so it can see the physical NICs. The web container is unchanged.
+
+> **Linux only.** Docker Desktop on macOS / Windows cannot expose physical interfaces to a container, so live capture is a no-op there.
+
+### 3. Native systemd
+
+Install capd directly on the engagement host alongside a containerised or native MarlinSpike web app.
+
+```bash
+cd marlinspike-capd
+pip install .
+sudo ./systemd/install.sh
+```
+
+Then in the web app environment:
+
+```bash
+LIVE_CAPTURE_ENABLED=true
+LIVE_CAPTURE_SOCKET=/var/run/marlinspike-capd/marlinspike-capd.sock
+```
+
+The web app's process group must be able to read the socket — the install script provisions a `marlinspike` group; add the user the web app runs as to that group, or override with `SOCK_GROUP=...` when running the installer.
+
+### Verifying live capture
+
+```bash
+# capd direct
+sudo -u marlinspike-capd marlinspike-capd list-interfaces
+sudo -u marlinspike-capd marlinspike-capd validate-bpf "tcp port 502"
+
+# From the web app
+curl --cookie-jar /tmp/c.txt -d 'username=admin&password=...' http://127.0.0.1:5001/login
+curl --cookie /tmp/c.txt http://127.0.0.1:5001/api/capture/health
+```
+
+A reachable capd reports `{"reachable": true, "libpcap": "libpcap version ..."}`.
+
+### Live-capture environment variables
+
+| variable | default | description |
+|---|---|---|
+| `LIVE_CAPTURE_ENABLED` | `false` | Master switch. Off by default. |
+| `LIVE_CAPTURE_SOCKET` | `/var/run/marlinspike-capd.sock` | uds path; both processes must agree. |
+| `LIVE_CAPTURE_TIMEOUT_S` | `5` | Per-RPC timeout in seconds. |
+| `LIVE_CAPTURE_MAX_CONCURRENT` | `2` | Per-host cap on active capture sessions. |
+
 ## Scope
 
-MarlinSpike is a PCAP analysis tool. Capture with your own tooling (Wireshark, tshark, a tap, a span port) and upload the PCAP through the web UI, or pass it on the CLI:
+MarlinSpike is a PCAP analysis tool with optional live capture. Capture with your own tooling (Wireshark, tshark, a tap, a span port) and upload PCAPs through the web UI, drive the engine from the CLI, or use the live-capture mode above to feed captures directly from an interface.
 
 ```bash
 marlinspike --pcap /path/to/capture.pcap chain
 ```
 
-For continuous live capture, multi-sensor collection, and centralized OT network monitoring, see [FATHOM](https://riverman.io/fathom).
+For continuous multi-sensor collection across many hosts and centralized OT network monitoring, see [FATHOM](https://riverman.io/fathom).

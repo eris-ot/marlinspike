@@ -18,6 +18,8 @@ MarlinSpike is moving from a single mixed repository toward a repo family with o
   Rust engine workspace for packet-facing and event-heavy components such as DPI and malware/event matching.
   - `marlinspike-dpi`: deep packet inspection engine
   - `marlinspike-malware`: IOC/signature matching engine consuming Bronze-derived observables, invoked in Stage 4b
+- `marlinspike-capd`
+  Optional privileged sidecar daemon for live PCAP capture (Linux only). Currently lives at `marlinspike-capd/` inside the suite repo as a sub-package — Python, ~600 LOC, holds `CAP_NET_RAW`, supervises `dumpcap` with ring-buffer rotation, and exposes a uds JSON-RPC to the unprivileged workbench. The protocol between capd and the workbench is the **second** stable contract in the suite (the first being the report artifact); see [COMPATIBILITY.md](../COMPATIBILITY.md). Operator guide: [docs/live-capture.md](live-capture.md).
 
 ## One Clone For Everything
 
@@ -46,6 +48,8 @@ The MarlinSpike report artifact remains the core handoff:
 4. Rust engines may produce upstream artifacts or event streams that feed `msengine` or other components.
 
 The workbench is intentionally usable without a local engine binary if reports were generated elsewhere.
+
+`marlinspike-capd` introduces a **second** contract surface: the uds JSON-RPC between the privileged capture daemon and the unprivileged workbench. New capd versions must accept old workbench calls; the workbench must tolerate fields it doesn't recognize. The contract is documented inline in `marlinspike-capd/capd/server.py` and reflected in `marlinspike/capture/client.py`.
 
 ## Current Transition State
 
