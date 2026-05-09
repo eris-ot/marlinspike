@@ -1,5 +1,6 @@
 {% extends "base.html" %}
-{% block title %}MarlinSpike — {{ t('iocs.title') }}{% endblock %}
+{% from "_macros.html" import tax_chip, sev_chip %}
+{% block title %}MarlinSpike — {{ t('taxonomy.ioc_list.label_plural') }}{% endblock %}
 
 {% block head %}
 <style nonce="{{ csp_nonce }}">
@@ -44,28 +45,37 @@
 .iocs-list-item-name { font-weight: 600; }
 .iocs-list-item-meta { font-size: 0.78em; color: var(--text-muted); font-family: var(--font-mono); }
 .iocs-create {
-  margin-top: 16px;
-  padding: 10px;
+  margin-top: 14px;
+  padding: 10px 12px;
   border: 1px dashed var(--border);
-  border-radius: 4px;
+  border-radius: 5px;
+  background: rgba(0,0,0,0.12);
+  transition: border-color 0.15s;
+}
+.iocs-create:focus-within {
+  border-color: rgba(91,138,240,0.4);
 }
 .iocs-create input,
 .iocs-create textarea,
 .iocs-import textarea {
   width: 100%;
-  padding: 6px 8px;
+  padding: 6px 9px;
   margin-bottom: 8px;
-  background: rgba(10, 18, 29, 0.7);
+  background: var(--bg-deep);
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text);
   font-family: var(--font-ui);
   font-size: 0.86em;
+  transition: border-color 0.15s;
 }
+.iocs-create input:focus,
+.iocs-import textarea:focus { border-color: var(--accent); outline: none; }
 .iocs-import textarea {
   font-family: var(--font-mono);
   font-size: 0.82em;
-  min-height: 90px;
+  min-height: 96px;
+  line-height: 1.45;
 }
 .iocs-detail-meta {
   display: grid;
@@ -75,10 +85,13 @@
 }
 .iocs-stat {
   background: var(--panel-alt);
-  padding: 8px 10px;
-  border-radius: 4px;
+  padding: 8px 12px;
+  border-radius: 5px;
+  border: 1px solid var(--border-dim);
   border-left: 2px solid var(--accent-cyan);
+  transition: border-color 0.15s;
 }
+.iocs-stat:hover { border-color: var(--border); border-left-color: var(--accent-cyan); }
 .iocs-stat .label { font-size: 0.72em; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.06em; }
 .iocs-stat .value { font-family: var(--font-mono); font-size: 1.05em; color: var(--text); }
 .iocs-entries-table {
@@ -95,20 +108,26 @@
 }
 .iocs-entries-table th { color: var(--text-dim); font-weight: 600; text-transform: uppercase; font-size: 0.72em; letter-spacing: 0.06em; }
 .iocs-entries-table td.mono { font-family: var(--font-mono); }
+/* ioc type chip: derived from taxonomy ioc_entry chip_class (chip-muted) + sub-type inline */
 .iocs-type-chip {
-  display: inline-block;
-  padding: 1px 6px;
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
   border-radius: 3px;
   font-size: 0.72em;
+  font-weight: 700;
   text-transform: uppercase;
-  background: rgba(50, 184, 198, 0.12);
-  color: var(--accent-cyan);
-  border: 1px solid rgba(50, 184, 198, 0.28);
+  letter-spacing: 0.4px;
+  font-family: var(--font-mono);
+  background: var(--sev-info-bg);
+  color: var(--accent-amber);
+  border: 1px solid var(--sev-info-border);
 }
-.iocs-sev-low { color: var(--accent-green); }
-.iocs-sev-medium { color: var(--accent-amber); }
-.iocs-sev-high { color: var(--accent-amber); font-weight: 600; }
-.iocs-sev-critical { color: var(--color-danger); font-weight: 700; }
+/* Severity colours aligned with canonical token system */
+.iocs-sev-low      { color: var(--sev-low,      var(--accent-green)); }
+.iocs-sev-medium   { color: var(--sev-medium,   var(--color-warning)); }
+.iocs-sev-high     { color: var(--sev-high,     var(--color-warning)); font-weight: 600; }
+.iocs-sev-critical { color: var(--sev-critical, var(--color-danger));  font-weight: 700; }
 .iocs-actions {
   display: flex;
   gap: 8px;
@@ -146,7 +165,7 @@
 <div class="ms-content">
   <div class="panel">
     <div class="panel-header">
-      <h2>{{ t('iocs.title') }}</h2>
+      <h2>{{ t('iocs.title') }} <span style="font-weight:400;font-size:0.85em;color:var(--text-dim)">{{ t('taxonomy.ioc_list.label_plural') }}</span></h2>
       <div class="page-toolbar">
         <select id="ioc-project-filter" onchange="IOC.onProjectChange()">
           <option value="">{{ t('common.loading') }}</option>
@@ -298,10 +317,11 @@ var IOC = (function() {
         + '<th>' + tjs('iocs.col_severity') + '</th>'
         + '</tr></thead><tbody>';
       entries.slice(0, 200).forEach(function(e) {
+        var sevHtml = e.severity ? window.msSevChip(e.severity) : '';
         html += '<tr><td><span class="iocs-type-chip">' + esc(e.ioc_type) + '</span></td>'
           + '<td class="mono">' + esc(e.value) + '</td>'
           + '<td>' + esc(e.label || '') + '</td>'
-          + '<td class="iocs-sev-' + esc(e.severity || '') + '">' + esc(e.severity || '') + '</td></tr>';
+          + '<td>' + sevHtml + '</td></tr>';
       });
       if (entries.length > 200) {
         html += '<tr><td colspan="4" style="text-align:center;color:var(--text-muted)">' + esc(tjs('iocs.entries_truncated', {count: 200}).replace('{count}', '200')) + '</td></tr>';
@@ -405,7 +425,7 @@ var IOC = (function() {
         j.hits.slice(0, 200).forEach(function(h) {
           html += '<div class="iocs-hit-row">'
             + '<strong>' + esc(h.ioc.value) + '</strong> '
-            + '<span class="iocs-type-chip">' + esc(h.ioc.ioc_type) + '</span>'
+            + '<span class="iocs-type-chip">' + esc(h.ioc.ioc_type) + '</span> ' + window.msEntityChip('ioc_entry')
             + (h.ioc.label ? ' — ' + esc(h.ioc.label) : '')
             + '<div class="iocs-hit-meta">' + esc(h.report) + ' · ' + (h.matches || []).length + ' match(es): '
             + (h.matches || []).slice(0, 3).map(function(m) { return esc(m.location); }).join(', ')

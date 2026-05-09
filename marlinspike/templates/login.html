@@ -20,19 +20,19 @@
   src: url(/static/fonts/fira-code-latin.woff2) format('woff2');
 }
 :root {
-  --bg: #0f1923;
-  --bg-deep: #0b1420;
-  --bg-surface: #111b2b;
-  --panel: #162233;
-  --border: #243447;
-  --border-dim: #141e32;
-  --text: #d4dce6;
-  --text-dim: #7a8a9e;
-  --text-muted: #384560;
-  --accent: #5b8af0;
+  --bg:       #0d1720;
+  --bg-deep:  #090e18;
+  --panel:    #14202f;
+  --border:   #1f3048;
+  --border-dim: #111d30;
+  --text:     #cdd8e3;
+  --text-dim: #6e7f96;
+  --text-muted: #344056;
+  --accent:   #5b8af0;
+  --accent-hover: #4a75d4;
   --color-danger: #ef4444;
   --font-mono: 'Fira Code','Cascadia Code','Consolas','Courier New', monospace;
-  --font-ui: 'Inter','Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-ui:   'Inter','Segoe UI', system-ui, -apple-system, sans-serif;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -45,119 +45,198 @@ body {
   align-items: center;
   justify-content: center;
   -webkit-font-smoothing: antialiased;
+  /* Ambient glow in background */
+  background-image:
+    radial-gradient(ellipse 55% 45% at 50% 0%, rgba(91,138,240,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 35% at 15% 80%, rgba(47,181,196,0.05) 0%, transparent 50%);
 }
 
-/* Subtle grid */
+/* ── Grid texture ── */
 .bg-grid {
   position: fixed;
   inset: 0;
   background-image:
-    linear-gradient(rgba(36,52,71,0.3) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(36,52,71,0.3) 1px, transparent 1px);
-  background-size: 48px 48px;
+    linear-gradient(rgba(31,48,72,0.35) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(31,48,72,0.35) 1px, transparent 1px);
+  background-size: 44px 44px;
   pointer-events: none;
   z-index: 0;
-  mask-image: radial-gradient(ellipse 60% 60% at 50% 50%, black 10%, transparent 70%);
-  -webkit-mask-image: radial-gradient(ellipse 60% 60% at 50% 50%, black 10%, transparent 70%);
+  mask-image: radial-gradient(ellipse 65% 55% at 50% 45%, black 5%, transparent 72%);
+  -webkit-mask-image: radial-gradient(ellipse 65% 55% at 50% 45%, black 5%, transparent 72%);
 }
 
+/* ── Scan-line overlay (very subtle) ── */
+.bg-scanlines {
+  position: fixed;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Login card ── */
 .login-card {
   position: relative;
   z-index: 1;
-  width: 360px;
+  width: 368px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 32px;
+  border-radius: 10px;
+  padding: 36px 32px 28px;
+  /* Subtle top accent that mirrors the nav bar treatment */
+  box-shadow:
+    inset 0 2px 0 rgba(91,138,240,0.22),
+    0 0 0 1px rgba(255,255,255,0.03),
+    0 24px 64px rgba(0,0,0,0.55);
 }
+
+/* ── Brand lockup ── */
 .login-brand {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: 10px;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 .login-brand .brand-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  background: #0b1420;
-  border: 1.5px solid #ef444488;
-  font-size: 0.65em;
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+  background: var(--bg-deep);
+  border: 1.5px solid rgba(239,68,68,0.52);
+  font-size: 0.75em;
   font-weight: 800;
   color: #ef4444;
   letter-spacing: -0.5px;
-  box-shadow: 0 0 8px rgba(239,68,68,0.25);
-  text-shadow: 0 0 6px rgba(239,68,68,0.5);
+  box-shadow: 0 0 16px rgba(239,68,68,0.2), inset 0 1px 0 rgba(255,255,255,0.04);
+  text-shadow: 0 0 8px rgba(239,68,68,0.55);
+  position: relative;
+  font-family: var(--font-mono);
 }
-.login-card h1 {
-  font-size: 1.3em;
+.login-brand .brand-icon::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(239,68,68,0.22) 0%, transparent 45%, rgba(91,138,240,0.15) 100%);
+  pointer-events: none;
+}
+.login-brand h1 {
+  font-size: 1.25em;
   font-weight: 700;
   text-align: center;
+  letter-spacing: -0.01em;
 }
-.login-card h1 span { color: var(--color-danger); }
+.login-brand h1 span { color: var(--color-danger); }
+
 .login-sub {
   text-align: center;
   color: var(--text-muted);
-  font-size: 0.78em;
+  font-size: 0.76em;
   font-family: var(--font-mono);
-  margin-bottom: 24px;
-  letter-spacing: 0.3px;
+  margin-bottom: 28px;
+  letter-spacing: 0.35px;
+  padding: 0 4px;
 }
-.login-field {
-  margin-bottom: 14px;
+
+/* ── Error state ── */
+.login-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  background: rgba(239,68,68,0.08);
+  border: 1px solid rgba(239,68,68,0.28);
+  border-radius: 5px;
+  color: #f87171;
+  font-size: 0.84em;
+  margin-bottom: 16px;
+  line-height: 1.4;
 }
+.login-error::before {
+  content: '!';
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(239,68,68,0.55);
+  font-size: 0.72em;
+  font-weight: 700;
+  font-style: normal;
+  flex-shrink: 0;
+}
+
+/* ── Form fields ── */
+.login-field { margin-bottom: 14px; }
 .login-field label {
   display: block;
-  font-size: 0.75em;
+  font-size: 0.72em;
   color: var(--text-dim);
   text-transform: uppercase;
   font-weight: 600;
-  margin-bottom: 4px;
-  letter-spacing: 0.3px;
+  margin-bottom: 5px;
+  letter-spacing: 0.4px;
 }
 .login-field input {
   width: 100%;
   padding: 9px 12px;
   background: var(--bg-deep);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 5px;
   color: var(--text);
   font-family: var(--font-ui);
-  font-size: 0.95em;
+  font-size: 0.94em;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-.login-field input { transition: border-color 0.15s; }
-.login-field input:focus { border-color: var(--accent); outline: none; }
+.login-field input:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(91,138,240,0.12);
+}
+
+/* ── Submit button ── */
 .login-btn {
   width: 100%;
   padding: 10px;
   background: var(--accent);
-  border: none;
-  border-radius: 4px;
+  border: 1px solid rgba(91,138,240,0.55);
+  border-radius: 5px;
   color: #fff;
-  font-size: 0.95em;
+  font-size: 0.92em;
   font-weight: 600;
   cursor: pointer;
-  margin-top: 8px;
+  margin-top: 10px;
   font-family: var(--font-ui);
-  transition: background 0.15s;
+  transition: background 0.15s, box-shadow 0.15s;
+  box-shadow: 0 2px 8px rgba(91,138,240,0.2);
 }
-.login-btn:hover { background: #4a75d4; }
-.login-error {
-  color: var(--color-danger);
-  font-size: 0.85em;
-  text-align: center;
-  margin-bottom: 12px;
+.login-btn:hover {
+  background: var(--accent-hover);
+  box-shadow: 0 4px 16px rgba(91,138,240,0.32);
 }
+.login-btn:active {
+  background: #3d64c2;
+  transform: translateY(1px);
+}
+
+/* ── Divider ── */
 .login-divider {
   display: flex;
   align-items: center;
-  margin: 18px 0;
+  margin: 20px 0;
   color: var(--text-muted);
-  font-size: 0.75em;
+  font-size: 0.72em;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -169,7 +248,9 @@ body {
   background: var(--border-dim);
 }
 .login-divider::before { margin-right: 12px; }
-.login-divider::after { margin-left: 12px; }
+.login-divider::after  { margin-left: 12px; }
+
+/* ── Google SSO ── */
 .google-btn {
   display: flex;
   align-items: center;
@@ -179,34 +260,44 @@ body {
   padding: 10px;
   background: var(--bg-deep);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 5px;
   color: var(--text);
-  font-size: 0.95em;
+  font-size: 0.92em;
   font-weight: 600;
   font-family: var(--font-ui);
   text-decoration: none;
   cursor: pointer;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, background 0.15s;
 }
-.google-btn:hover { border-color: var(--accent); }
+.google-btn:hover { border-color: var(--accent); background: rgba(91,138,240,0.05); }
 .google-btn svg { flex-shrink: 0; }
+
+/* ── Footer links ── */
 .login-footer {
   position: relative;
   z-index: 1;
-  margin-top: 16px;
-  font-size: 0.82em;
+  margin-top: 18px;
+  font-size: 0.80em;
   color: var(--text-muted);
+  text-align: center;
 }
 .login-footer a {
   color: var(--text-dim);
   text-decoration: none;
-  margin: 0 8px;
+  margin: 0 6px;
+  transition: color 0.12s;
 }
 .login-footer a:hover { color: var(--text); }
+.login-footer .sep { opacity: 0.35; margin: 0 4px; }
+.login-footer .locale-active {
+  color: var(--text);
+  margin: 0 6px;
+}
 </style>
 </head>
 <body>
 <div class="bg-grid"></div>
+<div class="bg-scanlines"></div>
 <div class="login-card">
   <div class="login-brand">
     <div class="brand-icon">MS</div>
@@ -218,12 +309,12 @@ body {
   {% endif %}
   <form method="POST" action="/login">
     <div class="login-field">
-      <label>{{ t('login.username') }}</label>
-      <input type="text" name="username" autocomplete="username" autofocus required>
+      <label for="login-username">{{ t('login.username') }}</label>
+      <input type="text" id="login-username" name="username" autocomplete="username" autofocus required>
     </div>
     <div class="login-field">
-      <label>{{ t('login.password') }}</label>
-      <input type="password" name="password" autocomplete="current-password" required>
+      <label for="login-password">{{ t('login.password') }}</label>
+      <input type="password" id="login-password" name="password" autocomplete="current-password" required>
     </div>
     <button type="submit" class="login-btn">{{ t('login.submit') }}</button>
   </form>
@@ -231,12 +322,12 @@ body {
 <div class="login-footer">
   <a href="/">{{ t('login.home') }}</a>
   <a href="/about">{{ t('login.about') }}</a>
-  <span style="opacity:0.4; margin: 0 6px;">·</span>
+  <span class="sep">·</span>
   {% for lc in supported_locales %}
     {% if lc != locale %}
     <a href="/i18n/set/{{ lc }}?next=/login">{{ locale_labels[lc] }}</a>
     {% else %}
-    <span style="color: var(--text); margin: 0 8px;">{{ locale_labels[lc] }}</span>
+    <span class="locale-active">{{ locale_labels[lc] }}</span>
     {% endif %}
   {% endfor %}
 </div>

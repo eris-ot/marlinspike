@@ -23,18 +23,22 @@
 .audit-toolbar input:focus,
 .audit-toolbar select:focus { border-color: var(--accent); outline: none; }
 .audit-toolbar input { min-width: 160px; }
+/* Audit badges: extend base .chip vocabulary for semantic consistency */
 .audit-badge {
-  display: inline-block;
-  padding: 2px 7px;
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
   border-radius: 3px;
   font-size: 0.72em;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 0.35px;
   font-family: var(--font-mono);
+  border: 1px solid transparent;
 }
-.audit-badge-success { background: rgba(34,197,94,0.12); color: var(--color-success); }
-.audit-badge-failure { background: rgba(239,68,68,0.12); color: var(--color-danger); }
-.audit-badge-warning { background: rgba(245,158,11,0.12); color: var(--color-warning); }
+.audit-badge-success { background: rgba(34,197,94,0.09);  color: var(--color-success); border-color: rgba(34,197,94,0.22); }
+.audit-badge-failure { background: var(--sev-critical-bg); color: var(--sev-critical); border-color: var(--sev-critical-border); }
+.audit-badge-warning { background: var(--sev-medium-bg);   color: var(--sev-medium);   border-color: var(--sev-medium-border); }
 .audit-event { font-family: var(--font-mono); font-size: 0.88em; }
 .audit-detail {
   max-width: 300px;
@@ -162,7 +166,11 @@ var AL = (function() {
       var html = '';
       d.entries.forEach(function(e) {
         var target = '';
-        if (e.target_type) target = esc(e.target_type) + (e.target_id ? ':' + esc(e.target_id) : '');
+        if (e.target_type) {
+          var spec = window.MS_TAXONOMY && window.MS_TAXONOMY[e.target_type];
+          var typeLabel = spec ? window.msEntityChip(e.target_type) : '<span class="chip chip-muted">' + esc(e.target_type) + '</span>';
+          target = typeLabel + (e.target_id ? ' <span class="mono dim">:' + esc(e.target_id) + '</span>' : '');
+        }
         var detail = e.detail || '';
         html += '<tr>'
           + '<td class="mono dim" style="white-space:nowrap;">' + fmtTime(e.created_at) + '</td>'

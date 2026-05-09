@@ -1,0 +1,35 @@
+{#
+  MarlinSpike — shared Jinja2 macros
+  ===================================
+  Import with:
+    {% from "_macros.html" import tax_chip, sev_chip %}
+
+  tax_chip(entity_key, label_override=None, count=None)
+  ──────────────────────────────────────────────────────
+  Renders a taxonomy-aware chip for an entity type.
+
+    entity_key     — string matching EntityType.value (e.g. "asset", "finding")
+    label_override — override the i18n label with a literal string
+    count          — optional integer appended after the label
+
+  Requires the `taxonomy_entities` and `severity_chip_class` context variables
+  injected by the `inject_taxonomy` context processor in app.py.
+
+  sev_chip(severity)
+  ──────────────────
+  Renders a severity chip using the taxonomy severity mapping.
+
+    severity — string: CRITICAL / HIGH / MEDIUM / LOW / INFO (case-insensitive)
+#}
+
+{% macro tax_chip(entity_key, label_override=None, count=None) %}
+{%- set _e = taxonomy_entities.get(entity_key, {}) -%}
+{%- set _cls = _e.get('chip_class', 'chip-muted') -%}
+{%- set _lbl = label_override if label_override is not none else t(_e.get('i18n_label_key', entity_key)) -%}
+<span class="chip {{ _cls }}" data-entity="{{ entity_key }}">{{ _lbl }}{% if count is not none %} <span class="chip-count">{{ count }}</span>{% endif %}</span>
+{%- endmacro %}
+
+{% macro sev_chip(severity) %}
+{%- set _cls = severity | severity_chip_class -%}
+<span class="chip {{ _cls }}">{{ severity | upper }}</span>
+{%- endmacro %}

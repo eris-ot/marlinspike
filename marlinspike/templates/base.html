@@ -20,27 +20,162 @@
   src: url(/static/fonts/fira-code-latin.woff2) format('woff2');
 }
 :root {
-  --bg: #0f1923;
-  --bg-deep: #0b1420;
-  --bg-surface: #111b2b;
-  --panel: #162233;
-  --panel-alt: #111b2b;
-  --border: #243447;
-  --border-dim: #141e32;
-  --text: #d4dce6;
-  --text-dim: #7a8a9e;
-  --text-muted: #384560;
+  /* ── Surface stack ── */
+  --bg: #0d1720;
+  --bg-deep: #090e18;
+  --bg-surface: #101928;
+  --panel: #14202f;
+  --panel-alt: #101928;
+  --panel-strong: #192434;
+  /* ── Borders ── */
+  --border: #1f3048;
+  --border-dim: #111d30;
+  --border-bright: #2d4560;
+  /* ── Text ── */
+  --text: #cdd8e3;
+  --text-dim: #6e7f96;
+  --text-muted: #344056;
+  /* ── Brand accent (blue) ── */
   --accent: #5b8af0;
   --accent-hover: #4a75d4;
   --accent-dim: rgba(91,138,240,0.08);
-  --accent-cyan: #32b8c6;
-  --accent-green: #3aad6b;
+  --accent-glow: rgba(91,138,240,0.18);
+  /* ── Semantic accents ── */
+  --accent-cyan: #2fb5c4;
+  --accent-green: #38a868;
   --accent-rose: #c75070;
-  --color-danger: #ef4444;
-  --color-warning: #f59e0b;
+  --accent-amber: #c8893a;
+  /* ── Severity ── */
+  --sev-critical: #ef4444;
+  --sev-critical-bg: rgba(239,68,68,0.10);
+  --sev-critical-border: rgba(239,68,68,0.28);
+  --sev-high: #f97316;
+  --sev-high-bg: rgba(249,115,22,0.10);
+  --sev-high-border: rgba(249,115,22,0.28);
+  --sev-medium: #f59e0b;
+  --sev-medium-bg: rgba(245,158,11,0.10);
+  --sev-medium-border: rgba(245,158,11,0.28);
+  --sev-low: #3b82f6;
+  --sev-low-bg: rgba(59,130,246,0.10);
+  --sev-low-border: rgba(59,130,246,0.28);
+  --sev-info: #64748b;
+  --sev-info-bg: rgba(100,116,139,0.10);
+  --sev-info-border: rgba(100,116,139,0.25);
+  /* ── Status colours (aliased for clarity) ── */
+  --color-danger: var(--sev-critical);
+  --color-warning: var(--sev-medium);
   --color-success: #22c55e;
+  /* ── Typography ── */
   --font-mono: 'Fira Code','Cascadia Code','Consolas','Courier New', monospace;
   --font-ui: 'Inter','Segoe UI', system-ui, -apple-system, sans-serif;
+  /* ── Spacing scale (4-based) ── */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+  /* ── Radius ── */
+  --r-sm: 3px;
+  --r-md: 5px;
+  --r-lg: 8px;
+  --r-xl: 12px;
+  --r-pill: 999px;
+  /* ── Transitions ── */
+  --t-fast: 0.12s ease;
+  --t-base: 0.18s ease;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * HP-HMI mode (ISA-101 / ASM Consortium / Hollifield 2008).
+ *
+ * Color is reserved for abnormal-condition signals only. Equipment, normal
+ * traffic, identity chips, lens icons, and Purdue level coding all desaturate
+ * to gray. CRITICAL / HIGH severity colors stay loud; MEDIUM / LOW / INFO
+ * desaturate to gray (they're informational, not actionable).
+ *
+ * Toggled via [data-hmi="on"] on <html>. Persisted in localStorage.
+ * ────────────────────────────────────────────────────────────────────────── */
+html[data-hmi="on"] {
+  /* Brand accents drop to gray — interactive UI uses contrast, not color */
+  --accent: #8294aa;
+  --accent-hover: #a4b5cb;
+  --accent-dim: rgba(130,148,170,0.08);
+  --accent-glow: rgba(130,148,170,0.18);
+  --accent-cyan: #8294aa;
+  --accent-green: #8294aa;
+  --accent-rose: #8294aa;
+  --accent-amber: #8294aa;
+  /* Lower-severity tiers: information, not alarm. Desaturate. */
+  --sev-medium: #8294aa;
+  --sev-medium-bg: rgba(130,148,170,0.08);
+  --sev-medium-border: rgba(130,148,170,0.20);
+  --sev-low: #6e7f96;
+  --sev-low-bg: rgba(110,127,150,0.06);
+  --sev-low-border: rgba(110,127,150,0.18);
+  --sev-info: #4a5568;
+  --sev-info-bg: rgba(74,85,104,0.06);
+  --sev-info-border: rgba(74,85,104,0.18);
+  /* CRITICAL + HIGH stay loud — these are alarm colors. */
+}
+html[data-hmi="on"] .ms-finding-chip,
+html[data-hmi="on"] .ms-chip {
+  background: rgba(255,255,255,0.02);
+  border-color: rgba(255,255,255,0.08);
+  color: var(--text-dim);
+}
+html[data-hmi="on"] .chip-critical,
+html[data-hmi="on"] .chip-high {
+  /* alarm colors retain — only critical/high are "actionable abnormality" */
+}
+html[data-hmi="on"] .chip-medium,
+html[data-hmi="on"] .chip-low,
+html[data-hmi="on"] .chip-info {
+  background: rgba(255,255,255,0.02);
+  border-color: rgba(255,255,255,0.08);
+  color: var(--text-dim);
+}
+/* Lens chips desaturate when not active. The active lens is the only color. */
+html[data-hmi="on"] .ms-lens-btn {
+  color: var(--text-dim);
+  border-color: rgba(255,255,255,0.06);
+}
+html[data-hmi="on"] .ms-lens-btn.active {
+  color: var(--text);
+  border-color: var(--text-dim);
+  background: rgba(255,255,255,0.04);
+}
+/* Severity bars / KPI cards: tone down INFO/LOW/MEDIUM */
+html[data-hmi="on"] [data-sev="INFO"],
+html[data-hmi="on"] [data-sev="LOW"],
+html[data-hmi="on"] [data-sev="MEDIUM"] {
+  filter: saturate(0.2) opacity(0.85);
+}
+/* HP-HMI toggle button styling */
+.ms-hmi-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 4px 10px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.74em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: var(--t-fast);
+}
+.ms-hmi-btn:hover {
+  border-color: var(--border-bright);
+  color: var(--text);
+}
+html[data-hmi="on"] .ms-hmi-btn {
+  background: rgba(255,255,255,0.04);
+  color: var(--text);
+  border-color: var(--text-dim);
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -64,6 +199,8 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
+  /* Subtle top accent line — positions MarlinSpike as a serious tool */
+  box-shadow: inset 0 2px 0 rgba(91,138,240,0.18), 0 1px 0 var(--border-dim);
 }
 .ms-nav-brand {
   display: flex;
@@ -212,67 +349,83 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 16px;
+  padding: 6px 14px;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--r-md);
   background: var(--panel-alt);
   color: var(--text);
-  font-size: 0.85em;
+  font-size: 0.84em;
   font-weight: 500;
   cursor: pointer;
   font-family: var(--font-ui);
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color var(--t-fast), background var(--t-fast), color var(--t-fast);
+  text-decoration: none;
+  white-space: nowrap;
+  min-height: 32px;
 }
-.btn:hover { border-color: var(--accent); background: var(--bg-surface); }
-.btn-primary { border-color: var(--accent); background: rgba(91,138,240,0.12); color: var(--accent); }
-.btn-primary:hover { background: rgba(91,138,240,0.2); }
-.btn-danger { border-color: var(--color-danger); color: var(--color-danger); }
-.btn-danger:hover { background: rgba(239,68,68,0.1); }
-.btn-success { border-color: var(--color-success); color: var(--color-success); }
-.btn-success:hover { background: rgba(34,197,94,0.1); }
-.btn-sm { padding: 4px 10px; font-size: 0.82em; }
+.btn:hover { border-color: var(--border-bright); background: var(--bg-surface); color: var(--text); }
+.btn-primary { border-color: rgba(91,138,240,0.45); background: rgba(91,138,240,0.10); color: var(--accent); }
+.btn-primary:hover { border-color: var(--accent); background: rgba(91,138,240,0.18); }
+.btn-danger  { border-color: var(--sev-critical-border); color: var(--sev-critical); background: transparent; }
+.btn-danger:hover  { background: var(--sev-critical-bg); border-color: var(--sev-critical); }
+.btn-success { border-color: rgba(34,197,94,0.35); color: var(--color-success); background: transparent; }
+.btn-success:hover { background: rgba(34,197,94,0.10); border-color: var(--color-success); }
+.btn-sm { padding: 4px 10px; font-size: 0.80em; min-height: 28px; }
+.btn-xs { padding: 2px 8px;  font-size: 0.75em; min-height: 24px; }
 
 /* ── Panels ── */
 .panel {
   background: var(--panel);
   border: 1px solid var(--border-dim);
-  border-radius: 6px;
-  margin-bottom: 16px;
+  border-radius: var(--r-lg);
+  margin-bottom: var(--sp-4);
+  overflow: hidden;
 }
 .panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: var(--sp-3) var(--sp-4);
   border-bottom: 1px solid var(--border-dim);
+  background: linear-gradient(180deg, rgba(255,255,255,0.018) 0%, transparent 100%);
 }
 .panel-header h2 {
   font-size: 0.88em;
   font-weight: 600;
-  letter-spacing: 0.2px;
+  letter-spacing: 0.15px;
+  color: var(--text);
 }
-.panel-body { padding: 16px; }
+.panel-body { padding: var(--sp-4); }
 
 /* ── Tables ── */
-.ms-table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+.ms-table { width: 100%; border-collapse: collapse; font-size: 0.84em; }
+.ms-table thead tr {
+  background: linear-gradient(180deg, rgba(255,255,255,0.012) 0%, transparent 100%);
+}
 .ms-table th {
   text-align: left;
-  padding: 8px 12px;
+  padding: 7px 12px;
   color: var(--text-muted);
   font-size: 0.72em;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-weight: 600;
+  letter-spacing: 0.55px;
+  font-weight: 700;
   border-bottom: 1px solid var(--border);
+  white-space: nowrap;
 }
 .ms-table td {
   padding: 8px 12px;
   border-bottom: 1px solid var(--border-dim);
+  vertical-align: middle;
 }
 .ms-table tr:last-child td { border-bottom: none; }
-.ms-table tr:hover td { background: rgba(91,138,240,0.02); }
-.ms-table .mono { font-family: var(--font-mono); font-size: 0.92em; }
+.ms-table tbody tr { transition: background var(--t-fast); }
+.ms-table tbody tr:hover td { background: rgba(91,138,240,0.028); }
+.ms-table .mono { font-family: var(--font-mono); font-size: 0.91em; }
 .ms-table .dim { color: var(--text-dim); }
+/* Clickable row affordance */
+.ms-table tbody tr.clickable { cursor: pointer; }
+.ms-table tbody tr.clickable:hover td { background: rgba(91,138,240,0.05); }
 
 /* ── Loading spinner ── */
 @keyframes ms-spin { to { transform: rotate(360deg); } }
@@ -401,30 +554,32 @@ body {
 .ms-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.55);
+  background: rgba(5,8,16,0.72);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
   z-index: 1000;
   display: none;
   align-items: center;
   justify-content: center;
-  animation: ms-fade-in 0.15s ease;
+  animation: ms-fade-in 0.12s ease;
 }
 .ms-modal-backdrop.open { display: flex; }
 @keyframes ms-fade-in { from { opacity: 0; } to { opacity: 1; } }
 .ms-modal {
-  background: var(--panel);
+  background: var(--panel-strong);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+  border-radius: var(--r-lg);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.03);
   min-width: 340px;
   max-width: 560px;
   width: 100%;
   max-height: 85vh;
   overflow-y: auto;
-  animation: ms-modal-slide 0.2s ease;
+  animation: ms-modal-slide 0.18s ease;
 }
 @keyframes ms-modal-slide {
-  from { transform: translateY(-12px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from { transform: translateY(-10px) scale(0.98); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
 }
 .ms-modal-header {
   display: flex;
@@ -432,49 +587,142 @@ body {
   justify-content: space-between;
   padding: 14px 20px;
   border-bottom: 1px solid var(--border-dim);
+  background: linear-gradient(180deg, rgba(255,255,255,0.018) 0%, transparent 100%);
 }
 .ms-modal-header h3 {
   font-size: 0.92em;
   font-weight: 600;
+  color: var(--text);
 }
 .ms-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
   background: none;
-  border: none;
+  border: 1px solid transparent;
   color: var(--text-dim);
-  font-size: 1.2em;
+  font-size: 1.1em;
   cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   line-height: 1;
-  transition: color 0.15s, background 0.15s;
+  transition: color var(--t-fast), background var(--t-fast), border-color var(--t-fast);
 }
-.ms-modal-close:hover { color: var(--text); background: var(--bg-surface); }
+.ms-modal-close:hover { color: var(--text); background: var(--bg-surface); border-color: var(--border); }
 .ms-modal-body { padding: 20px; }
 .ms-modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--sp-2);
   padding: 12px 20px;
   border-top: 1px solid var(--border-dim);
+  background: rgba(0,0,0,0.08);
 }
 
 /* ── Status badges ── */
 .badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   padding: 2px 8px;
-  border-radius: 3px;
+  border-radius: var(--r-sm);
   font-size: 0.72em;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.4px;
   font-family: var(--font-mono);
+  border: 1px solid transparent;
 }
-.badge-running { background: rgba(91,138,240,0.12); color: var(--accent); }
-.badge-completed { background: rgba(34,197,94,0.12); color: var(--color-success); }
-.badge-failed { background: rgba(239,68,68,0.12); color: var(--color-danger); }
-.badge-stopped { background: rgba(100,116,139,0.12); color: var(--text-dim); }
-.badge-interrupted { background: rgba(245,158,11,0.12); color: var(--color-warning); }
-.badge-pending { background: rgba(100,116,139,0.12); color: var(--text-dim); }
+.badge-running  { background: rgba(91,138,240,0.12); color: var(--accent);         border-color: rgba(91,138,240,0.25); }
+.badge-completed{ background: rgba(34,197,94,0.10);  color: var(--color-success);  border-color: rgba(34,197,94,0.22); }
+.badge-failed   { background: var(--sev-critical-bg); color: var(--sev-critical);  border-color: var(--sev-critical-border); }
+.badge-stopped  { background: var(--sev-info-bg);    color: var(--text-dim);       border-color: var(--sev-info-border); }
+.badge-interrupted { background: var(--sev-medium-bg); color: var(--color-warning); border-color: var(--sev-medium-border); }
+.badge-pending  { background: var(--sev-info-bg);    color: var(--text-dim);       border-color: var(--sev-info-border); }
+
+/* ── Severity chips — canonical one-line component ── */
+/* Usage: <span class="chip chip-critical">CRITICAL</span> */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: var(--r-sm);
+  font-size: 0.72em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-family: var(--font-mono);
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.chip-critical { background: var(--sev-critical-bg); color: var(--sev-critical); border-color: var(--sev-critical-border); }
+.chip-high     { background: var(--sev-high-bg);     color: var(--sev-high);     border-color: var(--sev-high-border); }
+.chip-medium   { background: var(--sev-medium-bg);   color: var(--sev-medium);   border-color: var(--sev-medium-border); }
+.chip-low      { background: var(--sev-low-bg);      color: var(--sev-low);      border-color: var(--sev-low-border); }
+.chip-info     { background: var(--sev-info-bg);     color: var(--sev-info);     border-color: var(--sev-info-border); }
+.chip-accent   { background: rgba(91,138,240,0.12);  color: var(--accent);       border-color: rgba(91,138,240,0.28); }
+.chip-cyan     { background: rgba(47,181,196,0.10);  color: var(--accent-cyan);  border-color: rgba(47,181,196,0.25); }
+.chip-success  { background: rgba(34,197,94,0.10);   color: var(--color-success); border-color: rgba(34,197,94,0.22); }
+.chip-muted    { background: var(--sev-info-bg);     color: var(--text-dim);     border-color: var(--sev-info-border); }
+
+/* ── Form field wrapper (canonical — use to unify ad-hoc label+input stacks) ── */
+.ms-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+.ms-field label {
+  font-size: 0.74em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-dim);
+}
+.ms-field .ms-hint {
+  font-size: 0.76em;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+.ms-field .ms-hint.ok  { color: var(--color-success); }
+.ms-field .ms-hint.err { color: var(--sev-critical); }
+
+/* ── Status dot (inline pulse indicator) ── */
+.ms-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+.ms-dot-live {
+  background: var(--sev-critical);
+  animation: ms-dot-pulse 1.6s ease-in-out infinite;
+}
+.ms-dot-ok   { background: var(--color-success); }
+.ms-dot-warn { background: var(--color-warning); }
+@keyframes ms-dot-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239,68,68,0.45); }
+  50%       { opacity: 0.6; box-shadow: 0 0 0 5px rgba(239,68,68,0); }
+}
+
+/* ── Toolbar strip (canonical page-level toolbar) ── */
+.ms-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+/* ── Separator ── */
+.ms-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  flex-shrink: 0;
+}
 
 /* ── Info hint tooltip ── */
 .info-hint {
@@ -543,6 +791,7 @@ body {
 {% block head %}{% endblock %}
 </head>
 <body>
+{% from "_macros.html" import tax_chip, sev_chip %}
 
 <nav class="ms-nav">
   <a href="/dashboard" class="ms-nav-brand">
@@ -565,6 +814,9 @@ body {
     {% endif %}
   </div>
   <div class="ms-nav-right">
+    <button type="button" class="ms-hmi-btn" id="ms-hmi-btn"
+            title="{{ t('nav.hmi.tooltip') }}"
+            aria-pressed="false">{{ t('nav.hmi.label') }}</button>
     <div class="ms-lang-picker" id="ms-lang-picker">
       <button type="button" class="ms-lang-btn" id="ms-lang-btn" aria-haspopup="true" aria-expanded="false" aria-label="{{ t('lang.label') }}">
         {{ locale_labels[locale] }}
@@ -592,6 +844,59 @@ body {
 </div>
 
 <script nonce="{{ csp_nonce }}">
+/** Taxonomy: entity visual specs for client-side chip / graph rendering.
+ *  Keyed by entity_type value (e.g. "asset", "finding").
+ *  Each entry: { entity_type, color_var, node_shape, chip_class,
+ *               i18n_label_key, i18n_plural_key, icon } */
+window.MS_TAXONOMY = {{ taxonomy_entities | tojson }};
+/** Convenience: resolve chip class for a severity string */
+window.msSevChipClass = function(sev) {
+  var MAP = { CRITICAL: 'chip-critical', HIGH: 'chip-high', MEDIUM: 'chip-medium', LOW: 'chip-low', INFO: 'chip-info' };
+  return MAP[(sev || '').toUpperCase()] || 'chip-info';
+};
+/** Render a taxonomy chip HTML string for an entity type.
+ *  msEntityChip('asset') → '<span class="chip chip-cyan" data-entity="asset">Asset</span>'
+ *  msEntityChip('finding', 'HIGH') → uses label_override instead of i18n label */
+window.msEntityChip = function(entityKey, labelOverride) {
+  var spec = window.MS_TAXONOMY[entityKey] || {};
+  var cls = spec.chip_class || 'chip-muted';
+  var lbl = labelOverride || (window.MS_T && window.MS_T[spec.i18n_label_key]) || entityKey;
+  return '<span class="chip ' + cls + '" data-entity="' + entityKey + '">' + lbl + '</span>';
+};
+/** Render a severity chip HTML string.
+ *  msSevChip('CRITICAL') → '<span class="chip chip-critical">CRITICAL</span>' */
+window.msSevChip = function(sev) {
+  return '<span class="chip ' + window.msSevChipClass(sev) + '">' + (sev || '').toUpperCase() + '</span>';
+};
+
+/** HP-HMI mode (ISA-101 / ASM Consortium). Toggle: localStorage key 'ms_hmi'.
+ *  When on, color reserved for CRITICAL/HIGH alarm signals only — equipment,
+ *  normal traffic, identity chips, lens icons, Purdue level coding desaturate.
+ *  Pages that render SVG nodes / ad-hoc colors (e.g. viewer.html) read
+ *  window.msHmiActive() to branch their rendering. */
+window.msHmiActive = function() {
+  return document.documentElement.getAttribute('data-hmi') === 'on';
+};
+window.msSetHmi = function(on) {
+  document.documentElement.setAttribute('data-hmi', on ? 'on' : 'off');
+  try { localStorage.setItem('ms_hmi', on ? '1' : '0'); } catch (e) {}
+  var btn = document.getElementById('ms-hmi-btn');
+  if (btn) btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  document.dispatchEvent(new CustomEvent('ms:hmi-changed', { detail: { active: on } }));
+};
+(function applyHmiOnLoad() {
+  var stored = '0';
+  try { stored = localStorage.getItem('ms_hmi') || '0'; } catch (e) {}
+  document.documentElement.setAttribute('data-hmi', stored === '1' ? 'on' : 'off');
+})();
+document.addEventListener('DOMContentLoaded', function() {
+  var btn = document.getElementById('ms-hmi-btn');
+  if (!btn) return;
+  btn.setAttribute('aria-pressed', window.msHmiActive() ? 'true' : 'false');
+  btn.addEventListener('click', function() {
+    window.msSetHmi(!window.msHmiActive());
+  });
+});
 /** i18n: server-rendered string table for client-side rendering.
  *  Use as MS_T['nav.reports'] || 'fallback'. Add keys here as templates
  *  surface JS-rendered strings; missing keys fall back to the key itself. */
@@ -629,6 +934,14 @@ window.MS_T = {
   "scans.hide": {{ t('scans.hide') | tojson }},
   "scans.retry_started": {{ t('scans.retry_started') | tojson }},
   "scans.retry_failed": {{ t('scans.retry_failed') | tojson }},
+  "scans.recovery.reattached": {{ t('scans.recovery.reattached') | tojson }},
+  "scans.recovery.reaped_completed": {{ t('scans.recovery.reaped_completed') | tojson }},
+  "scans.recovery.reaped_failed": {{ t('scans.recovery.reaped_failed') | tojson }},
+  "scans.recovery.reaped_abandoned": {{ t('scans.recovery.reaped_abandoned') | tojson }},
+  "scans.recovery.tip_reattached": {{ t('scans.recovery.tip_reattached') | tojson }},
+  "scans.recovery.tip_reaped_completed": {{ t('scans.recovery.tip_reaped_completed') | tojson }},
+  "scans.recovery.tip_reaped_failed": {{ t('scans.recovery.tip_reaped_failed') | tojson }},
+  "scans.recovery.tip_reaped_abandoned": {{ t('scans.recovery.tip_reaped_abandoned') | tojson }},
   "projects.overview_empty": {{ t('projects.overview_empty') | tojson }},
   "profile.username": {{ t('profile.username') | tojson }},
   "profile.role": {{ t('profile.role') | tojson }},

@@ -33,18 +33,55 @@
 .page-toolbar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
-.page-toolbar select {
-  padding: 7px 10px;
-  background: var(--panel-alt);
+/* Recovery state indicators — built on base .chip vocabulary */
+.recovery-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 5px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.69em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+  font-family: var(--font-mono);
+  vertical-align: middle;
+  cursor: default;
+  position: relative;
+  border: 1px solid transparent;
+}
+/* Aligned with base.html token system */
+.recovery-chip-reattached       { background: rgba(91,138,240,0.10);  color: var(--accent);         border-color: rgba(91,138,240,0.28); }
+.recovery-chip-reaped_completed { background: rgba(34,197,94,0.09);   color: var(--color-success);  border-color: rgba(34,197,94,0.22); }
+.recovery-chip-reaped_failed    { background: var(--sev-critical-bg); color: var(--sev-critical);   border-color: var(--sev-critical-border); }
+.recovery-chip-reaped_abandoned { background: var(--sev-medium-bg);   color: var(--sev-medium);     border-color: var(--sev-medium-border); }
+.recovery-chip .recovery-tip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 244px;
+  padding: 8px 10px;
+  background: var(--panel-strong, var(--panel));
   border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--text);
+  border-radius: 6px;
   font-family: var(--font-ui);
-  font-size: 0.9em;
+  font-size: 11.5px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  line-height: 1.45;
+  color: var(--text);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+  z-index: 50;
+  white-space: normal;
+  pointer-events: none;
 }
-.page-toolbar select:focus { border-color: var(--accent); outline: none; }
+.recovery-chip:hover .recovery-tip { display: block; }
 /* empty states handled by base.html .ms-empty */
 @media (max-width: 768px) {
   .page-toolbar { flex-wrap: wrap; gap: 8px; }
@@ -156,7 +193,7 @@ var SH = (function() {
           + '<td>' + esc(s.user) + '</td>'
           + '<td>' + esc(displayCommand(s.command, s.scan_profile)) + '</td>'
           + '<td class="mono dim" style="font-size:0.8em;max-width:200px;overflow:hidden;text-overflow:ellipsis;">' + esc(s.pcap_source || '--') + '</td>'
-          + '<td><span class="badge badge-' + esc(s.status) + '">' + esc(s.status) + '</span></td>'
+          + '<td><span class="badge badge-' + esc(s.status) + '">' + esc(s.status) + '</span>' + recoveryChip(s.recovery_state) + '</td>'
           + '<td class="mono dim">' + nodeEdge + '</td>'
           + '<td class="dim">' + formatDate(s.started_at) + '</td>'
           + '<td>' + actions + '</td>';
@@ -210,6 +247,27 @@ var SH = (function() {
     var d = document.createElement('div');
     d.textContent = String(s);
     return d.innerHTML;
+  }
+  function recoveryChip(state) {
+    if (!state) return '';
+    var labels = {
+      'reattached':       msT('scans.recovery.reattached',       'reattached'),
+      'reaped_completed': msT('scans.recovery.reaped_completed',  'recovered'),
+      'reaped_failed':    msT('scans.recovery.reaped_failed',     'reaped'),
+      'reaped_abandoned': msT('scans.recovery.reaped_abandoned',  'abandoned')
+    };
+    var tips = {
+      'reattached':       msT('scans.recovery.tip_reattached',       'Engine survived Flask restart; watcher re-attached and run completed normally.'),
+      'reaped_completed': msT('scans.recovery.tip_reaped_completed',  'Engine finished while Flask was down. Report ingested on next boot.'),
+      'reaped_failed':    msT('scans.recovery.tip_reaped_failed',     'Engine crashed mid-scan. No report available; marked failed on recovery.'),
+      'reaped_abandoned': msT('scans.recovery.tip_reaped_abandoned',  'Scan exceeded its timeout deadline and was abandoned on recovery.')
+    };
+    var label = labels[state] || esc(state);
+    var tip   = tips[state]   || '';
+    return '<span class="recovery-chip recovery-chip-' + esc(state) + '">'
+      + label
+      + '<span class="recovery-tip">' + esc(tip) + '</span>'
+      + '</span>';
   }
   function displayCommand(command, scanProfile) {
     return command + ((scanProfile && scanProfile !== 'full') ? ' (' + scanProfile + ')' : '');

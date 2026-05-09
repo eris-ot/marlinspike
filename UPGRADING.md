@@ -1,5 +1,92 @@
 # Upgrading MarlinSpike
 
+## v3.3.0 → v3.4.0 — Mid-scan recovery
+
+v3.4.0 fixes a long-standing reliability gap: when the Flask process
+died mid-scan (deploy, OOM, container restart, host reboot), in-flight
+``scan_history`` rows were stuck in ``running`` forever. The engine
+subprocess was reparented to ``init`` / ``launchd`` and usually ran to
+completion — but marlinspike had no way to find it again, and the only
+recovery was a manual SQL update.
+
+v3.4.0 ships a startup reaper that walks ``scan_history`` on every
+``create_app()`` boot and reconciles each row.
+
+### What's new
+
+- New module ``marlinspike/run_store.py`` — persists the recovery
+  essentials (engine PID, engine argv, deadline) on ``scan_history``.
+- New module ``marlinspike/recovery.py`` — boot-time reaper +
+  PID-reuse defense + watcher thread for re-attached engines.
+- ``scan_history`` gains five nullable columns: ``pcap_path``,
+  ``engine_pid``, ``engine_argv``, ``timeout_at``, ``recovery_state``.
+  Materialised by the existing ``db.create_all()`` plus per-column
+  ``ALTER TABLE … ADD COLUMN`` migration loop in ``create_app()`` — no
+  Alembic step.
+- Two new env vars (both safe defaults):
+  - ``MARLINSPIKE_RUN_STORE`` (``memory`` / ``db``, default ``memory``)
+  - ``MARLINSPIKE_SCAN_TIMEOUT_S`` (default ``3600``)
+
+See [docs/run-store-and-recovery.md](docs/run-store-and-recovery.md)
+for the operator-facing reference.
+
+### Breaking changes
+
+**None for the standalone path.** Defaults preserve v3.3.x behaviour:
+- ``MARLINSPIKE_RUN_STORE=memory`` → existing ``_run_registry`` flow.
+- New columns are nullable; existing rows untouched.
+- The blanket "mark all running scans as interrupted on boot"
+  behaviour is **replaced** by per-row reconciliation. If you were
+  relying on the blanket interruption (e.g. tests that assumed every
+  surviving ``running`` row would flip to ``interrupted``), you'll
+  now see those rows transition to ``failed`` /
+  ``completed`` / stay ``running`` based on actual engine state.
+
+### Wrapper / cloudmarlin guidance
+
+If you run multiple Gunicorn workers (cloudmarlin's horizontal-scale
+target), set:
+
+```sh
+MARLINSPIKE_RUN_STORE=db
+```
+
+This routes ``_get_active_runs(user_id=...)`` through ``scan_history``
+instead of the per-worker ``_run_registry`` dict — required for
+cross-worker per-tier concurrency limits to be correct. Without it,
+a user can run ``tier_limit × num_workers`` concurrent scans because
+each worker only sees its own runs.
+
+The concurrency hook contract (``set_concurrent_check_fn``) is
+unchanged; only the underlying active-run lookup switches backend.
+
+### Smoke test
+
+```sh
+# Start a long-running scan via the UI.
+ps aux | grep "python.*-m marlinspike --pcap"   # note the engine PID
+
+# Kill Flask only (leave the engine running):
+docker restart marlinspike-web                  # or systemctl restart
+
+# Observe the reaper on restart:
+docker logs marlinspike-web 2>&1 | grep recovery
+# Expected: "recovery: 1 scan(s) left running from previous boot"
+#           "recovery: re-attached watcher to live engine pid=NNN ..."
+
+# Scan completes normally; status flips to 'completed' once engine exits.
+```
+
+### Migration checklist
+
+- [ ] Update ``marlinspike`` package to v3.4.0
+- [ ] Confirm ``scan_history`` has the new columns (``\d scan_history``
+      in psql, or ``PRAGMA table_info(scan_history)`` in sqlite)
+- [ ] If running ``-w >1``: set ``MARLINSPIKE_RUN_STORE=db``
+- [ ] Optional: tune ``MARLINSPIKE_SCAN_TIMEOUT_S`` for your largest
+      expected scan (default 1 hour). Set to ``0`` to disable
+      abandonment reaping entirely.
+
 ## v3.2.0 → v3.2.1 — CSP nonce migration
 
 All `<style>` and `<script>` block elements in the 18 standard templates now

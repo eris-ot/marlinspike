@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import tax_chip, sev_chip %}
 {% block title %}MarlinSpike — {{ t('findings.title') }}{% endblock %}
 
 {% block head %}
@@ -401,7 +402,7 @@
           <span class="entry-badge source-{{ entry.source }}">{{ entry.source|replace('-', ' ') }}</span>
           <span class="entry-badge">{{ entry.type|replace('-', ' ') }}</span>
           {% if entry.severity %}
-          <span class="entry-badge sev-{{ entry.severity }}">{{ entry.severity }}</span>
+          {{ sev_chip(entry.severity) }}
           {% endif %}
         </div>
       </div>

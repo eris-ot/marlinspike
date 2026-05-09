@@ -100,11 +100,13 @@
 }
 .workspace-kpi {
   padding: 14px 16px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.015), transparent 45%), var(--panel);
+  background: linear-gradient(180deg, rgba(255,255,255,0.018), transparent 50%), var(--panel);
   border: 1px solid var(--border-dim);
   border-radius: 8px;
   min-width: 0;
+  transition: border-color 0.15s;
 }
+.workspace-kpi:hover { border-color: var(--border); }
 .workspace-kpi-label {
   font-size: 0.72em;
   text-transform: uppercase;
@@ -1406,7 +1408,7 @@ var MS = (function() {
         var tr = document.createElement('tr');
         tr.innerHTML =
           '<td><input type="checkbox" class="compare-cb" data-fn="' + esc(r.filename) + '" onchange="MS.toggleCompare(this)"></td>'
-          + '<td class="mono">' + esc(r.filename) + '</td>'
+          + '<td class="mono">' + window.msEntityChip('report') + ' ' + esc(r.filename) + '</td>'
           + '<td class="dim">' + formatSize(r.size) + '</td>'
           + '<td class="dim">' + formatDate(r.modified) + '</td>'
           + '<td class="report-actions">'

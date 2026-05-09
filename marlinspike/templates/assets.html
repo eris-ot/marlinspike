@@ -20,17 +20,24 @@
   src: url(/static/fonts/fira-code-latin.woff2) format('woff2');
 }
 :root {
-  --bg: #0f1923;
-  --bg-deep: #0b1420;
-  --panel: #162233;
-  --panel-alt: #111b2b;
-  --border: #243447;
-  --border-dim: #141e32;
-  --text: #d4dce6;
-  --text-dim: #7a8a9e;
-  --text-muted: #384560;
+  --bg: #0d1720;
+  --bg-deep: #090e18;
+  --bg-surface: #101928;
+  --panel: #14202f;
+  --panel-alt: #101928;
+  --border: #1f3048;
+  --border-dim: #111d30;
+  --text: #cdd8e3;
+  --text-dim: #6e7f96;
+  --text-muted: #344056;
   --accent: #5b8af0;
-  --accent-cyan: #32b8c6;
+  --accent-cyan: #2fb5c4;
+  --sev-critical: #ef4444;
+  --sev-critical-bg: rgba(239,68,68,0.10);
+  --sev-critical-border: rgba(239,68,68,0.28);
+  --sev-high: #f97316;
+  --sev-medium: #f59e0b;
+  --sev-low: #3b82f6;
   --color-danger: #ef4444;
   --color-warning: #f59e0b;
   --color-success: #22c55e;
@@ -138,6 +145,13 @@ tr.detail-row td {
 .conn-line { padding: 2px 0; font-size: 0.85em; }
 .risk-line { padding: 2px 0; font-size: 0.85em; }
 
+/* Taxonomy severity chips — mirrors base.html .chip family */
+.chip { display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px; border-radius: 3px; font-size: 0.72em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; font-family: 'Fira Code','Cascadia Code','Consolas','Courier New',monospace; border: 1px solid transparent; white-space: nowrap; }
+.chip-critical { background: var(--sev-critical-bg); color: var(--sev-critical); border-color: var(--sev-critical-border); }
+.chip-high     { background: rgba(249,115,22,0.10); color: #f97316; border-color: rgba(249,115,22,0.28); }
+.chip-medium   { background: rgba(245,158,11,0.10); color: #f59e0b; border-color: rgba(245,158,11,0.28); }
+.chip-low      { background: rgba(59,130,246,0.10); color: #3b82f6; border-color: rgba(59,130,246,0.28); }
+.chip-info     { background: rgba(100,116,139,0.10); color: #64748b; border-color: rgba(100,116,139,0.25); }
 .ephemeral-toggle {
   display: inline-block; padding: 1px 6px; margin: 1px; border-radius: 2px;
   font-size: 0.72em; border: 1px solid #64748b44; background: #64748b08;
@@ -205,6 +219,13 @@ tr.detail-row td {
 <script nonce="{{ csp_nonce }}">
 var REPORT = {{ report_json | tojson }};
 var FILENAME = {{ filename | tojson }};
+
+/* Taxonomy severity chip renderer (standalone page — no base.html) */
+var _SEV_CHIP_MAP = { CRITICAL: 'chip-critical', HIGH: 'chip-high', MEDIUM: 'chip-medium', LOW: 'chip-low', INFO: 'chip-info' };
+function msSevChipInline(sev) {
+  var cls = _SEV_CHIP_MAP[(sev || '').toUpperCase()] || 'chip-info';
+  return '<span class="chip ' + cls + '">' + esc(String(sev || '').toUpperCase()) + '</span>';
+}
 
 var PURDUE = { '-1':'Unknown','0':'L0 Physical','1':'L1 Control','2':'L2 Supervisory','3':'L3 Operations','4':'L4 Enterprise','5':'L5 DMZ' };
 var PURDUE_C = { '-1':'#64748b','0':'#f59e0b','1':'#22c55e','2':'#3b82f6','3':'#a855f7','4':'#ef4444','5':'#ec4899' };
@@ -489,10 +510,9 @@ function appendDetailRow(tbody, n) {
 
   var nodeRisks = risksByIp[n._ip] || [];
   if (nodeRisks.length) {
-    html += '<div style="margin:8px 0 4px;font-weight:600;font-size:0.82em;color:var(--color-danger);text-transform:uppercase">Risk Findings ('+nodeRisks.length+')</div>';
+    html += '<div style="margin:8px 0 4px;font-weight:600;font-size:0.82em;color:var(--color-danger);text-transform:uppercase">{{ t('taxonomy.finding.label_plural') }} ('+nodeRisks.length+')</div>';
     nodeRisks.forEach(function(r) {
-      var sc = r.severity==='CRITICAL'?'#ef4444':r.severity==='HIGH'?'#f59e0b':'var(--text-dim)';
-      html += '<div class="risk-line"><span style="font-weight:600;color:'+sc+'">'+esc(r.severity)+'</span> '+esc(r.description);
+      html += '<div class="risk-line">' + msSevChipInline(r.severity) + ' ' + esc(r.description);
       if (r.remediation) html += '<br><span style="color:var(--accent);font-size:0.9em">Rec: '+esc(r.remediation)+'</span>';
       html += '</div>';
     });

@@ -16,11 +16,13 @@
   gap: 12px;
 }
 .stat-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.018) 0%, transparent 55%), var(--panel);
+  border: 1px solid var(--border-dim);
+  border-radius: 8px;
   padding: 14px 16px;
+  transition: border-color 0.15s;
 }
+.stat-card:hover { border-color: var(--border); }
 .stat-label {
   font-size: 0.7em;
   font-weight: 600;
@@ -92,6 +94,11 @@
   font-size: 0.88em;
   color: var(--text);
 }
+.profile-form-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
 </style>
 {% endblock %}
 
@@ -113,7 +120,7 @@
       <h2>{{ t('profile.title') }}</h2>
       <button class="btn btn-primary" onclick="PRF.save()">{{ t('profile.save') }}</button>
     </div>
-    <div class="panel-body" style="display:flex;flex-direction:column;gap:14px;">
+    <div class="panel-body profile-form-body">
       <div class="field-row">
         <div class="field-group">
           <label>{{ t('profile.full_name') }}</label>

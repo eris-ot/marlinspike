@@ -74,6 +74,15 @@ class ScanHistory(db.Model):
     edge_count = db.Column(db.Integer, default=0)
     error_tail = db.Column(db.Text)  # last ~10 output lines on failure
 
+    # Recovery essentials — populated at scan launch, consulted by
+    # marlinspike.recovery on every boot to reconcile in-flight scans
+    # whose Flask parent died.
+    pcap_path = db.Column(db.Text)               # absolute path (re-launch on retry)
+    engine_pid = db.Column(db.Integer)           # subprocess PID; cleared on terminal
+    engine_argv = db.Column(db.Text)             # JSON-encoded argv (PID-reuse defense)
+    timeout_at = db.Column(db.DateTime)          # hard deadline for abandonment reaping
+    recovery_state = db.Column(db.String(20))   # NULL / reattached / reaped_*
+
     project = db.relationship("Project", backref="scans")
 
 

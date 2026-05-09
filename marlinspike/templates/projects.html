@@ -164,11 +164,13 @@
 }
 .proj-summary-card {
   padding: 14px 16px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.015), transparent 45%), var(--panel);
+  background: linear-gradient(180deg, rgba(255,255,255,0.018), transparent 50%), var(--panel);
   border: 1px solid var(--border-dim);
   border-radius: 8px;
   min-width: 0;
+  transition: border-color 0.15s;
 }
+.proj-summary-card:hover { border-color: var(--border); }
 .proj-summary-label {
   font-size: 0.72em;
   text-transform: uppercase;
@@ -541,20 +543,8 @@
 }
 .ov-table-scroll.tight { max-height: 380px; }
 
-.ov-sev-pill {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 0.72em;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  font-family: var(--font-mono, monospace);
-}
-.ov-sev-pill.CRITICAL { background: rgba(239,68,68,0.14); color: #ef4444; }
-.ov-sev-pill.HIGH     { background: rgba(245,158,11,0.14); color: #f59e0b; }
-.ov-sev-pill.MEDIUM   { background: rgba(91,138,240,0.14); color: var(--accent); }
-.ov-sev-pill.LOW      { background: rgba(50,184,198,0.14); color: var(--accent-cyan); }
-.ov-sev-pill.INFO     { background: rgba(100,116,139,0.14); color: var(--text-dim); }
+/* ov-sev-pill — alias for canonical taxonomy chip; kept for selector compat */
+.ov-sev-pill { /* use chip chip-* classes from base.html token system */ }
 
 .ov-finding-row td { vertical-align: top; padding: 10px 12px; }
 .ov-finding-cat { font-weight: 600; font-size: 0.86em; }
@@ -1729,7 +1719,7 @@ var PROJ = (function() {
       var tr = document.createElement('tr');
       tr.className = 'ov-finding-row';
       tr.innerHTML =
-        '<td><span class="ov-sev-pill ' + esc(f.severity) + '">' + esc(f.severity) + '</span></td>'
+        '<td>' + window.msSevChip(f.severity) + '</td>'
         + '<td><span class="ov-finding-cat">' + esc(f.category) + '</span>' + src
         + '<div class="ov-finding-desc">' + esc(desc.slice(0, 180)) + (desc.length > 180 ? '…' : '') + '</div></td>'
         + '<td class="mono" style="font-size:0.8em;">' + (nodes || '<span class="dim">—</span>') + '</td>'

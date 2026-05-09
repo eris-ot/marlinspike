@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import tax_chip, sev_chip %}
 {% block title %}MarlinSpike — {{ t('capture.title') }}{% endblock %}
 
 {% block head %}
@@ -161,12 +162,13 @@
 .cap-session-title .pulse {
   width: 8px; height: 8px; border-radius: 50%;
   background: var(--color-danger);
+  flex-shrink: 0;
   animation: cap-pulse 1.6s ease-in-out infinite;
 }
 .cap-session-title.stopped .pulse { background: var(--text-muted); animation: none; }
 @keyframes cap-pulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
-  50% { opacity: 0.55; box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+  55% { opacity: 0.5; box-shadow: 0 0 0 7px rgba(239,68,68,0); }
 }
 .cap-session-meta {
   font-family: var(--font-mono);
@@ -185,21 +187,36 @@
 .cap-stat {
   background: var(--panel-alt);
   border: 1px solid var(--border-dim);
-  border-radius: 4px;
+  border-radius: 5px;
   padding: 8px 10px;
+  transition: border-color 0.25s;
+}
+/* Live update: JS adds .cap-stat--tick, removed after 600ms */
+.cap-stat--tick {
+  border-color: rgba(91,138,240,0.35);
 }
 .cap-stat-label {
-  font-size: 0.7em;
+  font-size: 0.68em;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
   color: var(--text-muted);
+  font-weight: 600;
 }
 .cap-stat-value {
   font-family: var(--font-mono);
   font-size: 1.05em;
   font-weight: 600;
   color: var(--text);
-  margin-top: 2px;
+  margin-top: 3px;
+  transition: color 0.2s;
+}
+/* Momentary highlight when value changes */
+.cap-stat--tick .cap-stat-value {
+  color: var(--accent);
+}
+@keyframes cap-stat-flash {
+  0%   { color: var(--accent); }
+  100% { color: var(--text); }
 }
 
 .cap-history-table {
@@ -220,20 +237,26 @@
   letter-spacing: 0.06em;
 }
 .cap-history-table td.mono { font-family: var(--font-mono); color: var(--text-dim); }
+/* cap-status-tag: intentionally mirrors base .chip for consistency */
 .cap-status-tag {
-  display: inline-block;
-  padding: 1px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
   border-radius: 3px;
   font-size: 0.72em;
   font-family: var(--font-mono);
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.4px;
+  border: 1px solid transparent;
+  white-space: nowrap;
 }
-.cap-status-tag.running { background: rgba(239,68,68,0.15); color: var(--color-danger); }
-.cap-status-tag.stopping { background: rgba(245,158,11,0.15); color: var(--color-warning); }
-.cap-status-tag.stopped { background: rgba(120,130,150,0.15); color: var(--text-dim); }
-.cap-status-tag.failed { background: rgba(239,68,68,0.2); color: var(--color-danger); }
-.cap-status-tag.pending { background: rgba(91,138,240,0.15); color: var(--accent); }
+.cap-status-tag.running  { background: var(--sev-critical-bg); color: var(--sev-critical); border-color: var(--sev-critical-border); }
+.cap-status-tag.stopping { background: var(--sev-medium-bg);   color: var(--sev-medium);   border-color: var(--sev-medium-border); }
+.cap-status-tag.stopped  { background: var(--sev-info-bg);     color: var(--text-dim);     border-color: var(--sev-info-border); }
+.cap-status-tag.failed   { background: var(--sev-critical-bg); color: var(--sev-critical); border-color: var(--sev-critical-border); }
+.cap-status-tag.pending  { background: rgba(91,138,240,0.10);  color: var(--accent);       border-color: rgba(91,138,240,0.25); }
 
 .cap-disabled-banner {
   background: rgba(245,158,11,0.08);
@@ -364,7 +387,7 @@
     <!-- ── Active sessions ───────────────────────────── -->
     <section class="cap-panel">
       <div class="cap-panel-head">
-        {{ t('capture.active.title') }}
+        {{ tax_chip('capture_session') }} {{ t('capture.active.title') }}
         <span class="cap-session-meta" id="cap-active-count">0</span>
       </div>
       <div id="cap-active-list">

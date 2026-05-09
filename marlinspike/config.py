@@ -103,6 +103,18 @@ SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", default=False)
 # Run cleanup
 RUN_CLEANUP_SECONDS = 3600
 
+# Run state backend. ``memory`` (legacy) tracks active runs in a
+# process-local dict — fine for single-worker deployments. ``db``
+# routes the active-run count and concurrency check through
+# ``scan_history`` so multiple Gunicorn workers share a consistent view.
+# See ``docs/run-store-and-recovery.md``.
+MARLINSPIKE_RUN_STORE = os.environ.get("MARLINSPIKE_RUN_STORE", "memory").lower()
+
+# Per-scan deadline. The recovery reaper marks rows still ``running``
+# past this many seconds since ``started_at`` as ``failed`` with an
+# abandoned reason. Set to 0 to disable (unbounded scans).
+MARLINSPIKE_SCAN_TIMEOUT_S = int(os.environ.get("MARLINSPIKE_SCAN_TIMEOUT_S", "3600"))
+
 # Live capture (capd sidecar). Disabled by default; enable per-deployment.
 LIVE_CAPTURE_ENABLED = _env_bool("LIVE_CAPTURE_ENABLED", default=False)
 LIVE_CAPTURE_SOCKET = os.environ.get(

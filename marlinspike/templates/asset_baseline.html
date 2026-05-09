@@ -62,20 +62,22 @@
 /* ── Report count stat strip ── */
 .bl-meta-strip {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
   margin-bottom: 16px;
 }
 .bl-stat {
-  background: var(--panel-alt);
+  background: linear-gradient(180deg, rgba(255,255,255,0.015) 0%, transparent 60%), var(--panel-alt);
   border: 1px solid var(--border-dim);
   border-left: 2px solid var(--accent-cyan);
-  border-radius: 4px;
-  padding: 7px 12px;
+  border-radius: 5px;
+  padding: 8px 14px;
   min-width: 110px;
+  transition: border-color 0.15s;
 }
-.bl-stat .label { font-size: 0.7em; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
-.bl-stat .value { font-family: var(--font-mono); font-size: 1.05em; color: var(--text); margin-top: 2px; }
+.bl-stat:hover { border-color: var(--border); }
+.bl-stat .label { font-size: 0.69em; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); font-weight: 700; }
+.bl-stat .value { font-family: var(--font-mono); font-size: 1.08em; font-weight: 600; color: var(--text); margin-top: 3px; }
 
 /* ── Section headings ── */
 .bl-section { margin-bottom: 16px; }
@@ -261,10 +263,10 @@
 /* ── Error and loading states ── */
 .bl-error-banner {
   padding: 10px 14px;
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: 4px;
-  color: var(--color-danger);
+  background: var(--sev-critical-bg, rgba(239,68,68,0.08));
+  border: 1px solid var(--sev-critical-border, rgba(239,68,68,0.28));
+  border-radius: 5px;
+  color: var(--sev-critical, #ef4444);
   font-size: 0.88em;
   margin-bottom: 16px;
 }
@@ -549,7 +551,7 @@
       });
 
       html += '<tr>';
-      html += '<td class="bl-proto-name">' + esc(proto);
+      html += '<td class="bl-proto-name">' + window.msEntityChip('protocol', esc(proto));
       if (isNewProto) html += newChip();
       html += '</td>';
       reports.forEach(function(rep) {
@@ -584,7 +586,7 @@
 
     peers.forEach(function(p) {
       html += '<tr>'
-        + '<td class="mono">' + esc(p.peer) + '</td>'
+        + '<td class="mono">' + window.msEntityChip('asset') + ' ' + esc(p.peer) + '</td>'
         + '<td class="dim">' + esc(p.first_seen_report || '—') + '</td>'
         + '<td class="dim">' + esc(p.last_seen_report || '—') + '</td>'
         + '<td>' + esc(p.report_count != null ? p.report_count : '—') + '</td>'
@@ -612,7 +614,7 @@
     findings.forEach(function(f) {
       var inReportsText = tjs('baseline.report_count_n', { n: f.in_reports }) + ' / ' + tjs('baseline.report_count_n', { n: reportCount });
       html += '<tr>'
-        + '<td><span class="iocs-type-chip">' + esc(f.category) + '</span></td>'
+        + '<td>' + window.msEntityChip('finding', esc(f.category)) + '</td>'
         + '<td class="dim mono">' + esc(f.first_seen_report || '—') + '</td>'
         + '<td class="dim mono">' + esc(f.last_seen_report || '—') + '</td>'
         + '<td>' + esc(inReportsText) + '</td>'

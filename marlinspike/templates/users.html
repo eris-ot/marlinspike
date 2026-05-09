@@ -1,6 +1,42 @@
 {% extends "base.html" %}
 {% block title %}MarlinSpike — {{ t('users.title') }}{% endblock %}
 
+{% block head %}
+<style nonce="{{ csp_nonce }}">
+/* Modal form field — eliminates repeated inline style stacks */
+.modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.modal-field label {
+  font-size: 0.74em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-dim);
+}
+.modal-form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.modal-form-row {
+  display: flex;
+  gap: 12px;
+}
+.modal-form-row .modal-field { flex: 1; }
+/* Own-password section */
+.own-pw-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.own-pw-row .modal-field { flex: 1; min-width: 160px; }
+</style>
+{% endblock %}
+
 {% block body %}
 <div class="ms-content">
 
@@ -35,25 +71,25 @@
         <button class="ms-modal-close" onclick="msModal.close('modal-add-user')">&times;</button>
       </div>
       <div class="ms-modal-body">
-        <div style="display:flex;flex-direction:column;gap:14px;">
-          <div style="display:flex;flex-direction:column;gap:4px;">
-            <label style="font-size:0.75em;color:var(--text-dim);text-transform:uppercase;font-weight:600;">{{ t('users.column_username') }}</label>
+        <div class="modal-form-grid">
+          <div class="modal-field">
+            <label for="new-username">{{ t('users.column_username') }}</label>
             <input type="text" id="new-username" class="ms-input" placeholder="{{ t('users.username_placeholder') }}">
           </div>
-          <div style="display:flex;flex-direction:column;gap:4px;">
-            <label style="font-size:0.75em;color:var(--text-dim);text-transform:uppercase;font-weight:600;">{{ t('login.password') }}</label>
+          <div class="modal-field">
+            <label for="new-password">{{ t('login.password') }}</label>
             <input type="password" id="new-password" class="ms-input" placeholder="{{ t('users.password_placeholder') }}">
           </div>
-          <div style="display:flex;gap:12px;">
-            <div style="display:flex;flex-direction:column;gap:4px;flex:1;">
-              <label style="font-size:0.75em;color:var(--text-dim);text-transform:uppercase;font-weight:600;">{{ t('users.column_role') }}</label>
+          <div class="modal-form-row">
+            <div class="modal-field">
+              <label for="new-role">{{ t('users.column_role') }}</label>
               <select id="new-role" class="ms-input">
                 <option value="user">{{ t('users.role_user') }}</option>
                 <option value="admin">{{ t('users.role_admin') }}</option>
               </select>
             </div>
-            <div style="display:flex;flex-direction:column;gap:4px;flex:1;">
-              <label style="font-size:0.75em;color:var(--text-dim);text-transform:uppercase;font-weight:600;">{{ t('users.column_upload_limit') }}</label>
+            <div class="modal-field">
+              <label for="new-upload-limit">{{ t('users.column_upload_limit') }}</label>
               <input type="number" id="new-upload-limit" class="ms-input" min="1" max="10000" value="200">
             </div>
           </div>
@@ -74,8 +110,8 @@
         <button class="ms-modal-close" onclick="msModal.close('modal-limits')">&times;</button>
       </div>
       <div class="ms-modal-body">
-        <div style="display:flex;flex-direction:column;gap:4px;">
-          <label style="font-size:0.75em;color:var(--text-dim);text-transform:uppercase;font-weight:600;">{{ t('users.column_upload_limit') }}</label>
+        <div class="modal-field">
+          <label for="limits-upload">{{ t('users.column_upload_limit') }}</label>
           <input type="number" id="limits-upload" class="ms-input" min="1" max="10000">
         </div>
       </div>
@@ -94,8 +130,8 @@
         <button class="ms-modal-close" onclick="msModal.close('modal-chpass')">&times;</button>
       </div>
       <div class="ms-modal-body">
-        <div style="display:flex;flex-direction:column;gap:4px;">
-          <label style="font-size:0.75em;color:var(--text-dim);text-transform:uppercase;font-weight:600;">{{ t('profile.new_password') }}</label>
+        <div class="modal-field">
+          <label for="chpass-password">{{ t('profile.new_password') }}</label>
           <input type="password" id="chpass-password" class="ms-input" placeholder="{{ t('users.new_password_placeholder') }}">
         </div>
       </div>
@@ -112,14 +148,14 @@
       <h2>{{ t('users.change_my_password') }}</h2>
     </div>
     <div class="panel-body">
-      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
-        <div style="display:flex;flex-direction:column;gap:4px;">
-          <label style="font-size:0.75em;color:var(--text-dim);text-transform:uppercase;font-weight:600;">{{ t('profile.current_password') }}</label>
-          <input type="password" id="my-current" class="ms-input" style="min-width:160px;">
+      <div class="own-pw-row">
+        <div class="modal-field">
+          <label for="my-current">{{ t('profile.current_password') }}</label>
+          <input type="password" id="my-current" class="ms-input">
         </div>
-        <div style="display:flex;flex-direction:column;gap:4px;">
-          <label style="font-size:0.75em;color:var(--text-dim);text-transform:uppercase;font-weight:600;">{{ t('profile.new_password') }}</label>
-          <input type="password" id="my-new" class="ms-input" style="min-width:160px;">
+        <div class="modal-field">
+          <label for="my-new">{{ t('profile.new_password') }}</label>
+          <input type="password" id="my-new" class="ms-input">
         </div>
         <button class="btn btn-primary" onclick="USR.changeMyPassword()">{{ t('profile.update') }}</button>
       </div>

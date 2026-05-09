@@ -15,8 +15,17 @@ These cover *how to use* MarlinSpike during an engagement.
 - **[triage-methodology.md](triage-methodology.md)** — the analyst
   loop. Read first if you're new. The eight-step flow that ties
   every workbench surface together.
-- **[workbench-guide.md](workbench-guide.md)** — every pane in the
-  report viewer. Reference doc you come back to.
+- **[workbench-guide.md](workbench-guide.md)** — every surface of the
+  report viewer (v3.5 map-first reshape: lens chip strip, dockable
+  inspector, slide-up drawer with seven tabbed tables, **HP-HMI
+  mode** for ISA-101 control-room rendering). Reference doc you come
+  back to.
+- **[taxonomy.md](taxonomy.md)** — the formal entity / relationship
+  vocabulary the platform uses (12 entities, 12 relationships) and
+  the visual key that propagates through every chip, badge, table
+  column, and graph node. Read if you're extending the platform or
+  trying to understand why a particular UI surface looks the way it
+  does.
 - **[projects-and-engagements.md](projects-and-engagements.md)** —
   project model, Project Overview tab, multi-capture engagement
   workflow, per-user upload limits.
@@ -45,6 +54,10 @@ For the person operating the MarlinSpike instance.
 - **[admin-and-audit.md](admin-and-audit.md)** — `/users`,
   `/audit`, `/system`, password reset flow, session invalidation,
   admin-override on capture sessions.
+- **[run-store-and-recovery.md](run-store-and-recovery.md)** — what
+  happens to in-flight scans when Flask restarts (v3.4.0+); the
+  startup reaper, PID-reuse defense, and the
+  `MARLINSPIKE_RUN_STORE` cross-worker concurrency knob.
 - **[../INSTALL.md](../INSTALL.md)** — deployment, env vars, three
   live-capture deployment modes, verification.
 - **[../UPGRADING.md](../UPGRADING.md)** — version-to-version

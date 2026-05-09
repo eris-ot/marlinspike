@@ -323,6 +323,48 @@ The loop above gets you through one capture. An engagement is many.
 
 ---
 
+## When to flip into HP-HMI mode
+
+The default workbench renders Purdue level coloring across every
+asset. That's informative when you're learning the network shape —
+seeing the Level 5 / Level 4 / Level 2 / Level 1 stratification at a
+glance is the point of step 2 (Inventory).
+
+But once you're past the orientation phase and into actual triage,
+all that color is noise. The question is no longer *"what's here?"*
+but *"what needs attention?"* — and ISA-101's HP-HMI discipline
+answers that better than rainbow-coded equipment does.
+
+Flip HP-HMI on (button in the lens-strip control bar, next to Risk
+Overlay / Assessment Report) when:
+
+- **You're doing multi-asset triage on a dense network.** 50+ nodes,
+  many of them benign. HP-HMI desaturates the benign so the eye
+  finds the alarm-state assets in <1 second.
+- **The screen is going on a NOC display or wall-mount.** Defenders
+  glancing between tasks need the HP-HMI discipline — color reserved
+  for actionable abnormality only.
+- **You're working alongside ICS engineering teams.** They're trained
+  on ISA-101. Flipping HP-HMI on is a credibility statement.
+- **Step 7 onward (IOC overlay, finding prioritization).** By this
+  point in the loop you know what's there. The signal you want is
+  *which of these is bad*. HP-HMI is the right rendering for that.
+
+Flip it back off when:
+
+- **You're in step 1 or 2 (provenance, inventory).** Purdue coloring
+  is signal at this stage, not noise.
+- **You're capturing screenshots for a deliverable.** Default mode
+  is more legible in printed PDFs and slide decks.
+- **You're training someone on the platform.** Colored topology is
+  more readable for someone learning what they're looking at.
+
+The toggle is per-browser and persists across sessions. See
+[workbench-guide.md#hp-hmi-mode](workbench-guide.md#hp-hmi-mode)
+for the full discipline reference.
+
+---
+
 ## Common anti-patterns
 
 These are the failure modes we keep watching analysts run into.

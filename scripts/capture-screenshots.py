@@ -486,40 +486,181 @@ def main():
             pass
         time.sleep(2.0)
 
-        # Default Dashboard mode.
-        page.screenshot(path=str(out_dir / "38-workbench-dashboard.png"),
+        # v3.4 workbench: map is always visible, lens strip replaces old nav rail.
+        # Default view — Comms lens (map renders immediately after load).
+        time.sleep(3.0)  # let SVG2D layout settle
+        page.screenshot(path=str(out_dir / "38-workbench-comms-lens.png"),
                         full_page=False)
 
-        # Map mode.
+        # HP-HMI mode toggle — desaturates everything except alarm-state assets.
+        # Capture HP-HMI versions of each lens so docs can show the discipline
+        # applied across the workbench, not just the Comms lens.
         try:
-            page.click("button[data-mode='map']", timeout=3_000)
-            time.sleep(3.0)  # let force-directed layout settle
-            page.screenshot(path=str(out_dir / "39-workbench-map.png"), full_page=False)
-        except Exception as exc:
-            print(f"    map mode click failed: {exc}")
-
-        # Map mode with a node selected (populates the Selected Asset sidebar
-        # — and now shows the seeded asset tag in the Asset Context section).
-        try:
+            page.evaluate("window.msSetHmi(true)")
+            time.sleep(2.0)  # SVG re-renders on ms:hmi-changed
+            page.screenshot(path=str(out_dir / "51-workbench-hp-hmi-comms.png"),
+                            full_page=False)
+            # Findings lens, HP-HMI
+            page.click("button[data-lens='findings']", timeout=3_000)
+            time.sleep(1.5)
+            page.screenshot(path=str(out_dir / "52-workbench-hp-hmi-findings.png"),
+                            full_page=False)
+            # IOC lens, HP-HMI
+            page.click("button[data-lens='ioc']", timeout=3_000)
+            time.sleep(1.5)
+            page.screenshot(path=str(out_dir / "53-workbench-hp-hmi-ioc.png"),
+                            full_page=False)
+            # ATT&CK lens, HP-HMI
+            page.click("button[data-lens='attck']", timeout=3_000)
+            time.sleep(1.5)
+            page.screenshot(path=str(out_dir / "54-workbench-hp-hmi-attck.png"),
+                            full_page=False)
+            # Peers lens, HP-HMI
+            page.click("button[data-lens='peers']", timeout=3_000)
+            time.sleep(1.5)
+            page.screenshot(path=str(out_dir / "55-workbench-hp-hmi-peers.png"),
+                            full_page=False)
+            # Back to Comms + select a node so inspector shows in HP-HMI
+            page.click("button[data-lens='comms']", timeout=3_000)
+            time.sleep(1.0)
             page.evaluate("""
               () => {
-                const node = document.querySelector('#ms-svg-container g.node, .ms-node, circle.node');
+                const node = document.querySelector('#ms-svg-container g circle');
                 if (node) node.dispatchEvent(new MouseEvent('click', {bubbles: true}));
               }
             """)
             time.sleep(1.5)
+            page.screenshot(path=str(out_dir / "56-workbench-hp-hmi-inspector.png"),
+                            full_page=False)
+            page.evaluate("window.msSetHmi(false)")
+            time.sleep(1.0)
+        except Exception as exc:
+            print(f"    HP-HMI toggle failed: {exc}")
+
+        # Node selected — inspector panel populated on the right.
+        try:
+            page.evaluate("""
+              () => {
+                const node = document.querySelector('#ms-svg-container g circle');
+                if (node) node.dispatchEvent(new MouseEvent('click', {bubbles: true}));
+              }
+            """)
+            time.sleep(1.5)
+            page.screenshot(path=str(out_dir / "39-workbench-inspector.png"),
+                            full_page=False)
+        except Exception as exc:
+            print(f"    inspector click failed: {exc}")
+
+        # Deselect / clear inspector.
+        try:
+            page.evaluate("() => MS.deselectNode()")
+            time.sleep(0.5)
+        except Exception:
+            pass
+
+        # Findings lens.
+        try:
+            page.click("button[data-lens='findings']", timeout=3_000)
+            time.sleep(1.5)
+            page.screenshot(path=str(out_dir / "40-workbench-findings-lens.png"),
+                            full_page=False)
+        except Exception as exc:
+            print(f"    findings lens click failed: {exc}")
+
+        # IOC lens.
+        try:
+            page.click("button[data-lens='ioc']", timeout=3_000)
+            time.sleep(1.5)
+            page.screenshot(path=str(out_dir / "41-workbench-ioc-lens.png"),
+                            full_page=False)
+        except Exception as exc:
+            print(f"    IOC lens click failed: {exc}")
+
+        # ATT&CK lens (real, marlinspike-mitre output).
+        try:
+            page.click("button[data-lens='attck']", timeout=3_000)
+            time.sleep(1.5)
+            page.screenshot(path=str(out_dir / "48-workbench-attck-lens.png"),
+                            full_page=False)
+        except Exception as exc:
+            print(f"    ATT&CK lens click failed: {exc}")
+
+        # Baseline lens (per-asset novelty, async fetches).
+        try:
+            page.click("button[data-lens='baseline']", timeout=3_000)
+            time.sleep(3.0)  # allow baseline fetches to land
+            page.screenshot(path=str(out_dir / "49-workbench-baseline-lens.png"),
+                            full_page=False)
+        except Exception as exc:
+            print(f"    Baseline lens click failed: {exc}")
+
+        # Peers lens (role/vendor/Purdue grouping + anomalous-by-context).
+        try:
+            page.click("button[data-lens='peers']", timeout=3_000)
+            time.sleep(1.5)
+            page.screenshot(path=str(out_dir / "50-workbench-peers-lens.png"),
+                            full_page=False)
+        except Exception as exc:
+            print(f"    Peers lens click failed: {exc}")
+
+        # Return to Comms lens.
+        try:
+            page.click("button[data-lens='comms']", timeout=3_000)
+            time.sleep(1.5)
+        except Exception:
+            pass
+
+        # Bottom drawer — open it and screenshot Findings tab.
+        try:
+            page.click("#ms-drawer-handle", timeout=3_000)
+            time.sleep(1.0)
+            page.screenshot(path=str(out_dir / "42-workbench-drawer-findings.png"),
+                            full_page=False)
+        except Exception as exc:
+            print(f"    drawer open failed: {exc}")
+
+        # Drawer — Conversations tab.
+        try:
+            page.click(".ms-drawer-tab[data-tab='conversations']", timeout=3_000)
+            time.sleep(1.0)
+            page.screenshot(path=str(out_dir / "43-workbench-drawer-conversations.png"),
+                            full_page=False)
+        except Exception as exc:
+            print(f"    conversations tab failed: {exc}")
+
+        # Drawer — Assets tab.
+        try:
+            page.click(".ms-drawer-tab[data-tab='assets']", timeout=3_000)
+            time.sleep(1.0)
+            page.screenshot(path=str(out_dir / "44-workbench-drawer-assets.png"),
+                            full_page=False)
+        except Exception as exc:
+            print(f"    assets tab failed: {exc}")
+
+        # Close drawer.
+        try:
+            page.click("#ms-drawer-handle", timeout=3_000)
+            time.sleep(0.5)
+        except Exception:
+            pass
+
+        # Node selected with drawer open — map + inspector + drawer all visible.
+        try:
+            page.evaluate("""
+              () => {
+                const node = document.querySelector('#ms-svg-container g circle');
+                if (node) node.dispatchEvent(new MouseEvent('click', {bubbles: true}));
+              }
+            """)
+            time.sleep(1.0)
             page.screenshot(path=str(out_dir / "45-workbench-selected-asset.png"),
                             full_page=False)
         except Exception as exc:
             print(f"    selected-asset click failed: {exc}")
 
-        # Time-scrubber drag — select a window in the histogram below the
-        # toolbar. We dispatch real mouse events to span ~25% of the histogram
-        # width starting at 30% so the highlighted region is visually obvious.
+        # Time-scrubber drag on the timeline bar row.
         try:
-            page.click("button[data-mode='traffic']", timeout=3_000)
-            time.sleep(1.5)
-            histo = page.query_selector("#ms-timeline, .ms-timeline, canvas#ms-timeline-canvas")
+            histo = page.query_selector("#ms-timeline-canvas")
             if histo is not None:
                 box = histo.bounding_box()
                 if box:
@@ -537,45 +678,9 @@ def main():
                 else:
                     print("    timeline element had no bounding box")
             else:
-                print("    timeline element not found")
+                print("    timeline element not found (timeline may be hidden if no data)")
         except Exception as exc:
             print(f"    time-scrubber drag failed: {exc}")
-
-        # Traffic mode.
-        try:
-            page.click("button[data-mode='traffic']", timeout=3_000)
-            time.sleep(1.5)
-            page.screenshot(path=str(out_dir / "40-workbench-traffic.png"),
-                            full_page=False)
-        except Exception as exc:
-            print(f"    traffic mode click failed: {exc}")
-
-        # Findings mode.
-        try:
-            page.click("button[data-mode='findings']", timeout=3_000)
-            time.sleep(1.5)
-            page.screenshot(path=str(out_dir / "41-workbench-findings.png"),
-                            full_page=False)
-        except Exception as exc:
-            print(f"    findings mode click failed: {exc}")
-
-        # Protocols mode.
-        try:
-            page.click("button[data-mode='protocols']", timeout=3_000)
-            time.sleep(1.5)
-            page.screenshot(path=str(out_dir / "42-workbench-protocols.png"),
-                            full_page=False)
-        except Exception as exc:
-            print(f"    protocols mode click failed: {exc}")
-
-        # Intel mode.
-        try:
-            page.click("button[data-mode='intel']", timeout=3_000)
-            time.sleep(1.5)
-            page.screenshot(path=str(out_dir / "43-workbench-intel.png"),
-                            full_page=False)
-        except Exception as exc:
-            print(f"    intel mode click failed: {exc}")
 
         # ── per-asset baseline page ─────────────────────────
         # The seeded asset 10.0.0.5 might not exist in this report. Use whichever

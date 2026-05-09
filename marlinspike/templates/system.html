@@ -5,53 +5,56 @@
 <style nonce="{{ csp_nonce }}">
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 12px;
   margin-bottom: 16px;
 }
 .stat-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.018) 0%, transparent 55%), var(--panel);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--r-lg, 8px);
+  padding: 15px 16px;
+  transition: border-color 0.15s;
 }
+.stat-card:hover { border-color: var(--border-bright, #2d4560); }
 .stat-label {
-  font-size: 0.72em;
-  font-weight: 600;
+  font-size: 0.70em;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-dim);
+  letter-spacing: 0.55px;
+  color: var(--text-muted);
   margin-bottom: 6px;
 }
 .stat-value {
-  font-size: 1.6em;
+  font-size: 1.55em;
   font-weight: 700;
   font-family: var(--font-mono);
   color: var(--text);
   line-height: 1.2;
 }
 .stat-sub {
-  font-size: 0.78em;
+  font-size: 0.76em;
   color: var(--text-dim);
   margin-top: 4px;
   font-family: var(--font-mono);
 }
+/* Usage bar — terminal-style gauge */
 .usage-bar {
-  height: 6px;
+  height: 5px;
   border-radius: 3px;
   background: var(--bg-deep);
-  margin-top: 8px;
+  margin-top: 10px;
   overflow: hidden;
 }
 .usage-bar-fill {
   height: 100%;
   border-radius: 3px;
-  transition: width 0.4s ease;
+  transition: width 0.5s ease;
 }
-.fill-blue { background: var(--accent); }
-.fill-green { background: var(--accent-green); }
+.fill-blue  { background: var(--accent); }
+.fill-green { background: var(--accent-green, #38a868); }
 .fill-amber { background: var(--color-warning); }
-.fill-red { background: var(--color-danger); }
+.fill-red   { background: var(--sev-critical, #ef4444); }
 .info-row {
   display: flex;
   justify-content: space-between;

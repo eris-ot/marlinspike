@@ -795,9 +795,42 @@ MAX_CONCURRENT_SCANS = 1
 def _get_active_runs(user_id=None):
     """Return list of (run_id, run_state) for active runs.
 
-    If ``user_id`` is given, restrict to runs owned by that user (used by the
-    per-user concurrency hook). Without it, returns every active run.
+    Default ``memory`` backend reads ``_run_registry`` (host-local).
+    With ``MARLINSPIKE_RUN_STORE=db`` set, reads from ``scan_history``
+    so multiple Gunicorn workers share a consistent active-run view —
+    required for cross-worker per-tier concurrency limits.
+
+    The ``run_state`` returned in ``db`` mode is a degraded dict
+    (no Popen handle, no live output) — sufficient for the
+    concurrency hook and admin diagnostics, not for live tail.
     """
+    if config.MARLINSPIKE_RUN_STORE == "db":
+        from marlinspike import run_store as _run_store
+        active = []
+        for rec in ScanHistory.query.filter_by(status="running").all():
+            if user_id is not None and rec.user_id != user_id:
+                continue
+            # Build a minimal run_state shaped like the in-memory one.
+            run_state = {
+                "status": rec.status,
+                "user_id": rec.user_id,
+                "project_id": rec.project_id,
+                "command": rec.command,
+                "scan_profile": rec.scan_profile,
+                "started_at": rec.started_at.isoformat() if rec.started_at else None,
+                "finished_at": rec.completed_at.isoformat() if rec.completed_at else None,
+                "report_path": rec.report_path,
+                "report_filename": os.path.basename(rec.report_path or ""),
+                "stage": 0,
+                "stage_name": "",
+                "stages": [],
+                "output": [],
+                "return_code": None,
+                "artifacts_produced": {},
+            }
+            active.append((rec.run_id, run_state))
+        return active
+
     active = []
     for run_id, run in _run_registry.items():
         if run["status"] not in ("pending", "running"):
@@ -2610,6 +2643,17 @@ def create_app():
             "scan_profile VARCHAR(12) NOT NULL DEFAULT 'full'",
         )
 
+        # v3.4.0 — recovery columns. Nullable, so existing rows
+        # are unaffected; new rows populate them at scan launch.
+        for column_name, ddl_fragment in [
+            ("pcap_path", "pcap_path TEXT"),
+            ("engine_pid", "engine_pid INTEGER"),
+            ("engine_argv", "engine_argv TEXT"),
+            ("timeout_at", "timeout_at TIMESTAMP"),
+            ("recovery_state", "recovery_state VARCHAR(20)"),
+        ]:
+            _add_column_if_missing("scan_history", column_name, ddl_fragment)
+
         # Migrate: add user profile columns if missing
         for column_name, ddl_fragment in [
             ("full_name", "full_name VARCHAR(120)"),
@@ -2649,15 +2693,17 @@ def create_app():
     # Bootstrap admin
     bootstrap_admin(app)
 
-    # Mark stale "running" scans as interrupted (from previous container lifecycle)
-    with app.app_context():
-        stale = ScanHistory.query.filter_by(status="running").all()
-        for s in stale:
-            s.status = "interrupted"
-            s.completed_at = datetime.now(timezone.utc)
-        if stale:
-            db.session.commit()
-            log.info("Marked %d stale running scans as interrupted", len(stale))
+    # Mid-scan recovery — reconcile any scan_history rows still 'running'
+    # from a previous boot. Engine subprocesses are reparented to init
+    # when Flask dies and usually keep running; the reaper finds them via
+    # saved PID + argv (PID-reuse defense), then re-attaches a watcher
+    # for live ones, or marks failed/completed for dead ones.
+    # See marlinspike.recovery and docs/run-store-and-recovery.md.
+    from marlinspike import recovery as _recovery
+    try:
+        _recovery.reap_orphan_runs(app)
+    except Exception as exc:
+        log.warning("Mid-scan recovery encountered an error: %s", exc, exc_info=True)
 
     # One-time migration: copy baked-in presets to data volume
     if os.path.isdir(config.PRESETS_BAKED_DIR) and config.PRESETS_BAKED_DIR != config.PRESETS_DIR:
@@ -2785,6 +2831,28 @@ def create_app():
             "supported_locales": SUPPORTED_LOCALES,
             "locale_labels": LOCALE_LABELS,
         }
+
+    # ── Taxonomy context processor ────────────────────────────
+    @app.context_processor
+    def inject_taxonomy():
+        from marlinspike import taxonomy as _tax
+        return {
+            "taxonomy_entities": _tax.taxonomy_export()["entity_types"],
+            "taxonomy_chip": _tax.chip_for,
+            "severity_chip_class": _tax.severity_chip_class,
+        }
+
+    # Jinja filter: severity string → chip CSS class
+    @app.template_filter("severity_chip_class")
+    def _sev_chip_filter(value):
+        from marlinspike import taxonomy as _tax
+        return _tax.severity_chip_class(value)
+
+    # ── /api/taxonomy ─────────────────────────────────────────
+    @app.route("/api/taxonomy")
+    def api_taxonomy():
+        from marlinspike import taxonomy as _tax
+        return jsonify(_tax.taxonomy_export())
 
     # ── CSRF origin check ─────────────────────────────────────
 
@@ -3724,20 +3792,24 @@ def create_app():
         with _runs_lock:
             _run_registry[run_id] = run_state
 
-        # Persist to scan_history
-        scan_record = ScanHistory(
-            run_id=run_id,
+        # Persist to scan_history with recovery essentials (engine_pid,
+        # engine_argv, timeout_at). For chunked scans, proc is None here;
+        # the chunked supervisor calls run_store.update_pid as it spawns
+        # each child so recovery sees the currently-running subprocess.
+        from marlinspike import run_store as _run_store
+        _run_store.record_start(
+            run_id,
             user_id=session["user_id"],
             project_id=project_id,
             command=command,
             scan_profile=scan_profile,
             pcap_source=pcap_source,
             pcap_hash=pcap_hash,
-            status="running",
+            pcap_path=pcap_path,
             report_path=report_path,
+            engine_pid=(proc.pid if proc is not None else None),
+            engine_argv=args,
         )
-        db.session.add(scan_record)
-        db.session.commit()
 
         def _reader():
             for line in proc.stdout:
@@ -3765,6 +3837,15 @@ def create_app():
                     cwd=cwd or config.REPORTS_DIR,
                 )
                 run_state["process"] = child
+                # Surface the currently-running child's PID + argv to
+                # scan_history so the recovery reaper finds the right
+                # process if Flask dies mid-chunk.
+                try:
+                    from marlinspike import run_store as _run_store
+                    with app.app_context():
+                        _run_store.update_pid(run_id, child.pid, child_args)
+                except Exception:
+                    pass
                 try:
                     for raw_line in child.stdout:
                         raw_line = raw_line.rstrip()
@@ -3974,8 +4055,32 @@ def create_app():
     def api_run_status(run_id):
         with _runs_lock:
             run = _run_registry.get(run_id)
+        # Fall back to ScanHistory when the run isn't in the in-memory
+        # registry — typically after Flask restart where the engine was
+        # re-attached but the live state is gone.
         if not run:
-            return jsonify({"error": "Run not found"}), 404
+            from marlinspike import run_store as _run_store
+            durable = _run_store.get(run_id)
+            if not durable:
+                return jsonify({"error": "Run not found"}), 404
+            return jsonify({
+                "run_id": run_id,
+                "status": durable["status"],
+                "stage": 0,
+                "stage_name": "",
+                "stages": [],
+                "command": durable["command"],
+                "scan_profile": durable["scan_profile"],
+                "started_at": durable["started_at"],
+                "finished_at": durable["finished_at"],
+                "return_code": None,
+                "output_lines": 0,
+                "report_filename": os.path.basename(durable["report_path"] or ""),
+                "project_id": durable["project_id"],
+                "artifacts_produced": {},
+                "recovered": True,
+                "recovery_state": durable["recovery_state"],
+            })
         artifacts = {
             str(key): os.path.basename(str(path))
             for key, path in (run.get("artifacts_produced", {}) or {}).items()
@@ -4094,8 +4199,24 @@ def create_app():
         with _runs_lock:
             run = _run_registry.get(run_id)
         if not run:
-            return "Run not found", 404
-        return render_template("scan_progress.html", run_id=run_id)
+            # Fall back to durable store — covers re-attached / reaped runs
+            # whose in-memory state was lost across a Flask restart.
+            from marlinspike import run_store as _run_store
+            durable = _run_store.get(run_id)
+            if not durable:
+                return "Run not found", 404
+            return render_template(
+                "scan_progress.html",
+                run_id=run_id,
+                recovered=True,
+                recovery_state=durable.get("recovery_state") or "",
+            )
+        return render_template(
+            "scan_progress.html",
+            run_id=run_id,
+            recovered=False,
+            recovery_state="",
+        )
 
     # ── Reports ──────────────────────────────────────────────
 
@@ -4579,6 +4700,7 @@ def create_app():
                 "error_tail": s.error_tail,
                 "project_id": s.project_id,
                 "project_name": s.project.name if s.project else None,
+                "recovery_state": s.recovery_state,
             }
             for s in scans
         ]})

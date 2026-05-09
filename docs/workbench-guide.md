@@ -1,16 +1,17 @@
 # Workbench Guide
 
 The workbench is what you spend an engagement inside. It's the screen
-that opens when you click any report — `/api/reports/<filename>` —
-and it's where MarlinSpike turns a PCAP into something an analyst can
-actually triage.
+that opens when you click any report — `/api/reports/<filename>/viewer`
+— and it's where MarlinSpike turns a PCAP into something an analyst
+can actually triage.
 
-This guide walks every surface of the workbench. It's long because
-the workbench is dense: ten left-rail modes, an interactive topology
-canvas, a right-side sidebar with seven stacked panels, a time
-scrubber, an assessment-report drawer, and a per-asset baseline
-shortcut. Read it once start-to-finish so you know what's where; come
-back for individual sections when you need a refresher.
+> **v3.5 — major reshape.** The workbench was rebuilt around a
+> persistent **map canvas** with a **lens chip strip** at the top,
+> a **dockable inspector** on the right, and a **slide-up drawer**
+> at the bottom for tables. The old left-rail mode model is gone.
+> If you're coming from v3.4 or earlier, the [Layout](#layout) section
+> below is the new shape; map your old mental model onto it once and
+> the rest of the guide makes sense.
 
 For the analyst loop that *uses* these surfaces, see
 [triage-methodology.md](triage-methodology.md). For project-level
@@ -19,42 +20,205 @@ aggregation across many reports, see
 
 ---
 
-![MarlinSpike workbench — Findings mode](screenshots/41-workbench-findings.png)
+![Workbench — Comms lens, the default landing view](screenshots/v3.5-after/38-workbench-comms-lens.png)
 
 ## Layout
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│ [global nav]  Dashboard | Reports | Scans | Live Capture | …            │
-├─────────────────────────────────────────────────────────────────────────┤
-│ left rail │   topology canvas / pane content   │  sidebar (right)       │
-│ ──────────│ ───────────────────────────────────│ ───────────────────────│
-│ Dashboard │                                    │ Selected Asset         │
-│ Map       │   [interactive viewport with a]    │ Operator Snapshot      │
-│ Traffic   │   [Purdue-banded topology, panes]  │ Priority Targets       │
-│ Findings  │   [or table renderings depending]  │ Auth Gaps              │
-│ Protocols │   [on the active rail mode]        │ Write-capable Paths    │
-│ Evidence  │                                    │ L2/ARP Anomalies       │
-│ Assets    │   ┌──── time scrubber histogram ───┐ Suspicious External   │
-│ Intel     │   │ packet rate over capture span │ Protocol Mix           │
-│ Risk      │   └────────────────────────────────┘ Legend                 │
-│ Reports   │                                    │                        │
-│           │   [provenance chips above content] │                        │
-│ Utilities │                                    │                        │
-│ ─Risk     │                                    │                        │
-│ ─Report   │                                    │                        │
-│ ─Print    │                                    │                        │
-│ ─PNG      │                                    │                        │
-│ ─CSV asse│                                     │                        │
-│ ─CSV find│                                     │                        │
-└─────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  TOP BAR                                                                      │
+│  [report meta] [time scrubber timeline]                              [mode ▼] │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  LENS STRIP                                                                   │
+│  [Comms] [Findings] [IOC] [ATT&CK] [Baseline] [Peers]    Risk · Report · HP-HMI│
+├────────────────────────────────────────────────────────┬───────────────────────┤
+│                                                        │                       │
+│                                                        │   INSPECTOR           │
+│                                                        │   (collapsible)       │
+│                                                        │                       │
+│              MAP CANVAS                                │   • selected entity   │
+│              (the primary surface)                     │   • taxonomy chips    │
+│                                                        │   • neighbor list     │
+│                                                        │   • findings affecting│
+│                                                        │   • tags / notes      │
+│                                                        │   • pivot strip       │
+│                                                        │                       │
+├────────────────────────────────────────────────────────┴───────────────────────┤
+│  ▲ INVESTIGATION TABLES — N findings    (drag handle to expand)               │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                ▲
+              click the handle, the drawer slides up:
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  [Findings] [Conversations] [Assets] [IOCs] [Anomalies] [ATT&CK] [DNS]        │
+│                                                                               │
+│  ┌─ active table ──────────────────────────────────────────────────────────┐ │
+│  │ click any row → highlights the corresponding nodes/edges on the map     │ │
+│  └─────────────────────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-The center viewport changes based on the **left-rail mode** you pick.
-Some modes show the topology graph (Map, Risk overlay), others
-replace the canvas with a stacked content view (Traffic, Findings,
-Protocols, etc.). The right-side sidebar is always present and
-context-tracks whatever you click.
+The map is the truth. Everything else is a lens or projection onto
+it. The lens chip strip switches what edge type the map renders;
+the inspector shows context for whatever entity you've selected; the
+drawer is where you grep for the table view of the same data when
+that's what you need.
+
+---
+
+## Lens chip strip
+
+The lens strip sits across the top of the canvas zone and switches
+what relationship the map is rendering. Same data, different edge
+lens. Click any chip to flip; the active lens has a colored treatment
+and everything else is muted.
+
+| Chip | What the map shows | Source data |
+|---|---|---|
+| **Comms** (default) | Asset–asset conversations, edge weight by bytes, color by the most-severe finding involving the edge | `report.nodes` + `report.edges` |
+| **Findings** | Severity-sorted finding cards in the overlay; clicking the affected-asset chips highlights nodes on the map | `report.risk_findings` |
+| **IOC** | Halo on assets that match any IOC in the active list; per-match cards in the overlay | `viewer_context.ioc_matches` |
+| **ATT&CK** | Tactic-grouped technique grid for ICS + Enterprise ATT&CK; click a technique to highlight affected assets. Live data from the `marlinspike-mitre` plugin output. | `viewer_context.mitre_classifications` + `mitre_matrix_domains` |
+| **Baseline** | Per-asset cards (top 12 by connection count) showing novelty vs. project baseline — `+N peers`, `+N protocols`, `+N findings`, `−N lost peers`. Each card fetches `/api/projects/<pid>/assets/<key>/baseline` async. Severity-colored border tracks novelty intensity. | Per-asset baseline endpoint |
+| **Peers** | Group chips by Role / Vendor / Purdue Level. Anomalous-by-context section flags assets whose role is unique at their Purdue level. | `report.nodes` |
+
+![ATT&CK lens — tactic-grouped technique matrix](screenshots/v3.5-after/48-workbench-attck-lens.png)
+
+![Baseline lens — per-asset novelty cards](screenshots/v3.5-after/49-workbench-baseline-lens.png)
+
+---
+
+## Inspector
+
+When you click a node on the map (or a row in the bottom drawer), the
+inspector populates with everything known about that entity:
+
+- **Entity-type chip** — colored / iconified per the
+  [taxonomy](taxonomy.md). Asset / Finding / IOC / Anomaly / Technique
+  all get distinct visual treatment.
+- **Identity** — MAC + IP for assets, signature for findings, src/dst
+  pair for conversations, technique ID for ATT&CK entities.
+- **Properties grid** — taxonomy-driven fields. Asset shows vendor /
+  role / Purdue level / device type. Finding shows category / severity
+  / contextual severity / mapped techniques.
+- **Observed protocols** — chip strip with byte counts.
+- **Neighbors / peers** — 1-hop list with click-to-pivot.
+- **Findings affecting this entity** — inline finding cards.
+- **Tags / notes** — editable. Asset criticality / zone / business
+  function set here flows into the contextual-severity overlay.
+- **Pivot strip** — "Show on Findings lens", "Show on IOC lens" —
+  switches the active lens with this entity as focus.
+
+![Inspector populated with selected asset detail](screenshots/v3.5-after/45-workbench-selected-asset.png)
+
+The inspector collapses with the chevron in its top corner. Collapse
+when you want maximum map area; expand for triage.
+
+---
+
+## Bottom drawer
+
+Collapsed by default to a thin handle showing the active table name
+and count. Click the handle to slide it up to ~40% viewport. Tabs
+across the top of the drawer:
+
+| Tab | What's there |
+|---|---|
+| Findings | Severity-sorted, click row to pivot to affected assets on map |
+| Conversations | Top by bytes; src→dst with protocol; click row → highlight edge |
+| Assets | Full asset roster; vendor / role / Purdue / connection count |
+| IOCs | IOC match list (active project's IOC lists scanned against the report) |
+| Anomalies | L2 / ARP anomalies from the engine's bilgepump consumer |
+| ATT&CK | Flat technique list with affected-asset pivot |
+| DNS | DNS observations table; query / type / answer / asset |
+
+The drawer is where you go when you want to grep tables. The map is
+where you go to think spatially. They share the same selection state
+— click an asset row in the drawer and the map highlights it.
+
+![Bottom drawer — Findings table](screenshots/v3.5-after/42-workbench-drawer-findings.png)
+
+---
+
+## HP-HMI Mode
+
+> **High-Performance HMI** is a documented design discipline from
+> ISA-101 / ASM Consortium / Hollifield 2008. Color is reserved for
+> abnormal-condition signals only. Equipment, normal traffic, and
+> identity chrome all desaturate to gray. The eye is drawn directly
+> to **deviation**.
+
+Click the **HP-HMI** button in the lens-strip control bar (next to
+"Risk Overlay" and "Assessment Report") to toggle. Persisted in
+`localStorage` — survives across sessions on the same browser. The
+button is also available globally from the nav strip on every page.
+
+### What changes
+
+- **Topology**: assets without findings desaturate to gray.
+  CRITICAL / HIGH-finding assets retain their alarm color. Normal
+  traffic edges thin out; abnormal flows stay visible.
+- **Lens strip**: only the active lens is colored. The rest are gray
+  until clicked. Reduces interface noise.
+- **Severity tiers**: CRITICAL and HIGH stay loud (those are
+  alarm-actionable). MEDIUM / LOW / INFO chips desaturate to gray —
+  they're informational, not actionable.
+- **Identity chrome**: brand accents, cyan technique IDs, blue
+  interactive buttons all read as muted neutrals. Color budget
+  reserved for signal.
+- **Selected asset retains color** even in HP-HMI mode — so the
+  inspector context matches the alarm color you saw on the map.
+
+### Side-by-side
+
+| Default | HP-HMI |
+|---|---|
+| ![Comms lens, default](screenshots/v3.5-after/38-workbench-comms-lens.png) | ![Comms lens, HP-HMI](screenshots/v3.5-after/51-workbench-hp-hmi-comms.png) |
+| ![Findings lens, default](screenshots/v3.5-after/40-workbench-findings-lens.png) | ![Findings lens, HP-HMI](screenshots/v3.5-after/52-workbench-hp-hmi-findings.png) |
+| ![ATT&CK lens, default](screenshots/v3.5-after/48-workbench-attck-lens.png) | ![ATT&CK lens, HP-HMI](screenshots/v3.5-after/54-workbench-hp-hmi-attck.png) |
+| ![Inspector, default](screenshots/v3.5-after/45-workbench-selected-asset.png) | ![Inspector, HP-HMI](screenshots/v3.5-after/56-workbench-hp-hmi-inspector.png) |
+
+### When to use
+
+- **Always-on for control-room wall-mount.** If MarlinSpike is going
+  on a NOC display where defenders glance at it between other tasks,
+  HP-HMI is correct. The eye finds the alarm assets in <1 second.
+- **Multi-asset triage on dense networks.** When you're staring at a
+  500-node topology trying to find what's bad, HP-HMI removes 90% of
+  the visual noise.
+- **Engagements with OT engineers in the room.** ICS engineering
+  teams trained on ISA-101 expect this discipline. It signals you
+  speak their language.
+
+### When to leave it off
+
+- **Initial site walk / asset enumeration.** If you're trying to
+  understand the network ("what's here, what talks to what"), the
+  Purdue-level color coding is informative. HP-HMI hides it.
+- **Analyst training / demos.** The colored topology is more
+  readable for someone learning the platform.
+- **Reporting / screenshots for a deliverable.** Default mode is
+  more legible in printed PDFs and slide decks.
+
+### Discipline reference
+
+The implementation honors the four ISA-101 fundamentals that apply
+to a passive-analysis tool:
+
+1. **Grayscale by default** — equipment is gray; only deviation is
+   colored.
+2. **Color = exception only** — alarm tiers (CRITICAL, HIGH) keep
+   their color; informational tiers (MEDIUM, LOW, INFO) do not.
+3. **No 3D, no shadows, no gradients** — flat 2D throughout. (This
+   one was already true in default mode; HP-HMI doesn't add anything
+   3D-adjacent.)
+4. **Show only what the operator can act on** — non-alarm chrome
+   tones down so attention budget goes to alarm-state assets.
+
+The two principles MarlinSpike doesn't yet honor — *trends over
+snapshots* (rolling line charts replacing instant-readout chips) and
+*numerical readouts beat gauges* (we have no gauges to begin with) —
+are noted as future direction. They'd require a v3.6+ data model
+extension for time-series asset metrics.
 
 ---
 

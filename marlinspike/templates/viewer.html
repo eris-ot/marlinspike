@@ -4,7 +4,26 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ t('viewer.title', filename=filename) }}</title>
-<script nonce="{{ csp_nonce }}">document.documentElement.className=document.documentElement.className.replace(/\bno-js\b/,'js');</script>
+<script nonce="{{ csp_nonce }}">document.documentElement.className=document.documentElement.className.replace(/\bno-js\b/,'js');
+/* HP-HMI bootstrap — viewer.html is standalone (doesn't extend base.html)
+ * but shares localStorage with the rest of the app. Apply data-hmi early
+ * so the SVG renders correctly on first paint. */
+(function() {
+  try {
+    var on = localStorage.getItem('ms_hmi') === '1';
+    document.documentElement.setAttribute('data-hmi', on ? 'on' : 'off');
+  } catch (e) {}
+  window.msHmiActive = function() {
+    return document.documentElement.getAttribute('data-hmi') === 'on';
+  };
+  window.msSetHmi = function(on) {
+    document.documentElement.setAttribute('data-hmi', on ? 'on' : 'off');
+    try { localStorage.setItem('ms_hmi', on ? '1' : '0'); } catch (e) {}
+    var btn = document.getElementById('ms-btn-hmi');
+    if (btn) btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    document.dispatchEvent(new CustomEvent('ms:hmi-changed', { detail: { active: on } }));
+  };
+})();</script>
 <style nonce="{{ csp_nonce }}">
 @font-face {
   font-family: 'Inter';
@@ -22,31 +41,54 @@
 }
 
 :root {
-  --bg: #0f1823;
-  --bg-deep: #0a121d;
-  --bg-surface: #101a2a;
-  --panel: #141f30;
-  --panel-alt: #0f1827;
-  --panel-strong: #18263a;
-  --border: #243447;
-  --border-dim: #162234;
-  --text: #d4dce6;
-  --text-dim: #7a8a9e;
-  --text-muted: #4a5a74;
+  /* ── Aligned with base.html tokens ── */
+  --bg: #0d1720;
+  --bg-deep: #090e18;
+  --bg-surface: #101928;
+  --panel: #14202f;
+  --panel-alt: #101928;
+  --panel-strong: #19253a;
+  --border: #1f3048;
+  --border-dim: #111d30;
+  --border-bright: #2d4560;
+  --text: #cdd8e3;
+  --text-dim: #6e7f96;
+  --text-muted: #344056;
   --accent: #5b8af0;
   --accent-hover: #4a75d4;
-  --accent-cyan: #32b8c6;
-  --accent-amber: #d4943a;
-  --accent-green: #3aad6b;
+  --accent-dim: rgba(91,138,240,0.08);
+  --accent-glow: rgba(91,138,240,0.18);
+  --accent-cyan: #2fb5c4;
+  --accent-amber: #c8893a;
+  --accent-green: #38a868;
   --accent-rose: #c75070;
   --accent-steel: #8aa2c0;
+  /* Severity tokens (canonical) */
+  --sev-critical: #ef4444;
+  --sev-critical-bg: rgba(239,68,68,0.10);
+  --sev-critical-border: rgba(239,68,68,0.28);
+  --sev-high: #f97316;
+  --sev-high-bg: rgba(249,115,22,0.10);
+  --sev-high-border: rgba(249,115,22,0.28);
+  --sev-medium: #f59e0b;
+  --sev-medium-bg: rgba(245,158,11,0.10);
+  --sev-medium-border: rgba(245,158,11,0.28);
+  --sev-low: #3b82f6;
+  --sev-low-bg: rgba(59,130,246,0.10);
+  --sev-low-border: rgba(59,130,246,0.28);
+  --sev-info: #64748b;
+  --sev-info-bg: rgba(100,116,139,0.10);
+  --sev-info-border: rgba(100,116,139,0.25);
+  /* Status */
   --color-vor-accent: #ef4444;
+  --color-danger: #ef4444;
+  --color-warning: #f59e0b;
+  --color-success: #22c55e;
+  /* Zone / asset type colours */
   --color-ot: #22c55e;
   --color-infra: #06b6d4;
   --color-it: #8b5cf6;
   --color-disc: #ec4899;
-  --color-danger: #ef4444;
-  --color-warning: #f59e0b;
   --color-zone-l0: #f59e0b;
   --color-zone-l1: #22c55e;
   --color-zone-l2: #3b82f6;
@@ -78,33 +120,386 @@ body {
   height: 100vh;
 }
 
+/* ── Workbench reshape: map-first layout ── */
 #ms-app {
   display: grid;
-  grid-template-rows: auto auto 1fr;
-  grid-template-columns: 188px minmax(0, 1fr) 360px;
+  grid-template-rows: auto auto auto 1fr auto;
+  grid-template-columns: 1fr;
   flex: 1;
   min-height: 0;
 }
 
-#ms-app.report-open {
-  grid-template-rows: auto auto 1fr minmax(220px, 46vh);
+/* header + lens strip span full width */
+#ms-header { grid-row: 1; }
+#ms-lens-strip { grid-row: 2; }
+#ms-timeline-bar-row { grid-row: 3; }
+
+/* workbench body: canvas + inspector side-by-side */
+#ms-workbench-body {
+  grid-row: 4;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  min-height: 0;
+  position: relative;
 }
 
-#ms-header,
-#ms-toolbar {
-  grid-column: 2 / -1;
+#ms-workbench-body.inspector-collapsed {
+  grid-template-columns: 1fr 0;
 }
 
-#ms-left-rail {
-  grid-column: 1;
-  grid-row: 1 / -1;
-}
+/* bottom drawer */
+#ms-drawer { grid-row: 5; }
+
+/* ── Left rail: hidden in new layout (content migrated) ── */
+#ms-left-rail { display: none !important; }
+
+/* ── Old sidebar: hidden — inspector replaces it ── */
+#ms-sidebar { display: none !important; }
+
+/* ── Old report pane: hidden by default ── */
+#ms-report-pane.legacy { display: none !important; }
 
 #ms-header {
   display: block;
-  padding: 10px 18px 8px;
+  padding: 8px 18px 6px;
   background: linear-gradient(180deg, rgba(24, 38, 58, 0.94), rgba(20, 31, 48, 0.98));
   border-bottom: 1px solid var(--border);
+}
+
+/* ── Lens strip ── */
+#ms-lens-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 18px;
+  background: rgba(12, 20, 34, 0.96);
+  border-bottom: 1px solid var(--border-dim);
+  flex-wrap: wrap;
+}
+
+.ms-lens-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(20, 32, 50, 0.8);
+  color: var(--text-dim);
+  font-size: 0.8em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.18s, background 0.18s, color 0.18s;
+  font-family: var(--font-ui);
+  white-space: nowrap;
+}
+
+.ms-lens-btn:hover {
+  border-color: rgba(91, 138, 240, 0.4);
+  background: rgba(91, 138, 240, 0.08);
+  color: var(--text);
+}
+
+.ms-lens-btn.active {
+  border-color: var(--accent);
+  background: rgba(91, 138, 240, 0.16);
+  color: #fff;
+}
+
+.ms-lens-btn .lens-icon {
+  display: inline-flex;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: currentColor;
+}
+
+.ms-lens-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  flex-shrink: 0;
+  margin: 0 2px;
+}
+
+.ms-lens-meta {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* ── Timeline bar row ── */
+#ms-timeline-bar-row {
+  padding: 0 18px 6px;
+  background: rgba(12, 20, 34, 0.96);
+  border-bottom: 1px solid var(--border-dim);
+}
+
+#ms-timeline-bar-row.hidden { display: none; }
+
+/* ── Workbench canvas (always visible) ── */
+#ms-canvas-zone {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(8, 13, 21, 0.94), rgba(10, 18, 29, 0.98)),
+    var(--bg-deep);
+  min-height: 0;
+}
+
+/* Lens overlay panels — shown over the map when non-comms lens is active */
+.ms-lens-overlay {
+  display: none;
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  padding: 18px;
+  background: rgba(8, 13, 21, 0.88);
+  backdrop-filter: blur(2px);
+  z-index: 4;
+}
+
+.ms-lens-overlay.active { display: block; }
+
+/* ── Inspector (right panel) ── */
+#ms-inspector {
+  width: 320px;
+  min-width: 320px;
+  max-width: 320px;
+  overflow-y: auto;
+  background: linear-gradient(180deg, rgba(20, 31, 48, 0.98), rgba(14, 23, 36, 0.98));
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: width 0.22s, min-width 0.22s;
+}
+
+#ms-inspector.collapsed {
+  width: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+#ms-inspector-toggle {
+  position: absolute;
+  left: -28px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 56px;
+  background: rgba(20, 31, 48, 0.92);
+  border: 1px solid var(--border);
+  border-right: none;
+  border-radius: 6px 0 0 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-dim);
+  font-size: 10px;
+  z-index: 10;
+  transition: color 0.15s;
+}
+
+#ms-inspector-toggle:hover { color: var(--text); }
+
+#ms-inspector-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+  font-size: 0.85em;
+}
+
+/* Inspector entity chip */
+.ms-inspector-entity-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px 3px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 0.76em;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.ms-inspector-entity-chip svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
+/* Inspector pivot strip */
+.ms-inspector-pivot-strip {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-dim);
+}
+
+.ms-inspector-pivot-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: rgba(15, 24, 39, 0.62);
+  color: var(--text-dim);
+  font-size: 0.74em;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.ms-inspector-pivot-btn:hover {
+  border-color: rgba(91, 138, 240, 0.4);
+  color: var(--text);
+}
+
+/* ── Bottom drawer ── */
+#ms-drawer {
+  position: relative;
+  background: rgba(12, 20, 34, 0.98);
+  border-top: 1px solid var(--border);
+  transition: height 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  height: 36px;
+  overflow: hidden;
+}
+
+#ms-drawer.open {
+  height: min(44vh, 380px);
+  overflow: hidden;
+}
+
+#ms-drawer-handle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 18px;
+  height: 36px;
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+#ms-drawer-handle:hover { background: rgba(91, 138, 240, 0.05); }
+
+.ms-drawer-handle-label {
+  font-size: 0.76em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+
+.ms-drawer-handle-count {
+  font-family: var(--font-mono);
+  font-size: 0.76em;
+  color: var(--accent-cyan);
+  margin-left: 4px;
+}
+
+.ms-drawer-handle-arrow {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-muted);
+  transition: transform 0.22s;
+}
+
+#ms-drawer.open .ms-drawer-handle-arrow { transform: rotate(180deg); }
+
+#ms-drawer-body {
+  display: flex;
+  flex-direction: column;
+  height: calc(100% - 36px);
+  overflow: hidden;
+}
+
+.ms-drawer-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border-dim);
+  overflow-x: auto;
+  flex-shrink: 0;
+  padding: 0 18px;
+}
+
+.ms-drawer-tab {
+  padding: 6px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  font-family: var(--font-ui);
+  font-size: 0.8em;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.18s, border-color 0.18s;
+}
+
+.ms-drawer-tab:hover { color: var(--text); }
+
+.ms-drawer-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.ms-drawer-tab-content {
+  display: none;
+  flex: 1;
+  overflow: auto;
+  padding: 8px 18px;
+}
+
+.ms-drawer-tab-content.active { display: block; }
+
+/* Action chip row inside drawer */
+.ms-drawer-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+/* IOC halo on map nodes */
+.ms-node-ioc-halo {
+  animation: ms-ioc-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes ms-ioc-pulse {
+  0%, 100% { stroke-opacity: 0.6; }
+  50% { stroke-opacity: 0.15; }
+}
+
+/* toast notification */
+#ms-toast {
+  position: fixed;
+  bottom: 56px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(22, 35, 55, 0.96);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 0.84em;
+  color: var(--text);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s, transform 0.25s;
+  z-index: 200;
+  white-space: nowrap;
+}
+
+#ms-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 .ms-header-main {
@@ -235,17 +630,10 @@ body {
   display: none;
 }
 
+/* ── Old toolbar: hidden (content migrated to lens strip) ── */
 #ms-toolbar {
-  display: none;
-  align-items: center;
-  gap: 12px 16px;
-  padding: 6px 18px;
-  background: rgba(15, 24, 39, 0.94);
-  border-bottom: 1px solid var(--border);
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: none !important;
 }
-
-.js #ms-toolbar { display: grid; }
 .no-js .ms-controls button { display: none; }
 .no-js .ms-report-close,
 .no-js .ms-report-tabs { display: none; }
@@ -531,9 +919,11 @@ textarea.ms-input {
   overflow-y: auto;
   border-right: 1px solid var(--border);
   background:
-    linear-gradient(180deg, rgba(17, 26, 41, 0.98), rgba(11, 18, 30, 0.98)),
+    linear-gradient(180deg, rgba(14, 22, 34, 0.99), rgba(9, 14, 24, 0.99)),
     var(--bg-deep);
   padding: 14px 12px;
+  /* Subtle top-accent aligned with nav bar brand */
+  box-shadow: inset 2px 0 0 rgba(239,68,68,0.10);
 }
 
 .ms-nav-brand {
@@ -680,11 +1070,13 @@ textarea.ms-input {
 
 .ms-nav-btn.active,
 .ms-nav-link.active {
-  border-color: rgba(239, 68, 68, 0.72);
+  border-color: rgba(239, 68, 68, 0.65);
   background:
-    linear-gradient(180deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.08)),
-    rgba(15, 24, 39, 0.92);
-  box-shadow: inset 2px 0 0 rgba(239, 68, 68, 0.72);
+    linear-gradient(135deg, rgba(239, 68, 68, 0.18), rgba(239, 68, 68, 0.07)),
+    rgba(10, 16, 26, 0.95);
+  box-shadow:
+    inset 3px 0 0 rgba(239, 68, 68, 0.65),
+    0 2px 8px rgba(0,0,0,0.2);
 }
 
 .ms-nav-label {
@@ -761,30 +1153,12 @@ textarea.ms-input {
   line-height: 1.6;
 }
 
-#ms-viewport {
-  grid-column: 2;
-  position: relative;
-  overflow: hidden;
-  min-height: 320px;
-  background:
-    linear-gradient(180deg, rgba(8, 13, 21, 0.94), rgba(10, 18, 29, 0.98)),
-    var(--bg-deep);
-}
+/* Old viewport hidden — canvas zone replaces it */
+#ms-viewport { display: none !important; }
 
-#ms-stage {
-  position: absolute;
-  inset: 0;
-}
-
-.ms-workbench-pane {
-  display: none;
-  position: absolute;
-  inset: 0;
-}
-
-.ms-workbench-pane.active {
-  display: block;
-}
+/* Preserve workbench pane logic for possible future use */
+.ms-workbench-pane { display: none; position: absolute; inset: 0; }
+.ms-workbench-pane.active { display: block; }
 
 .ms-stage-pane {
   overflow: auto;
@@ -1309,11 +1683,11 @@ textarea.ms-input {
   line-height: 1.4;
 }
 
-.ms-risk-item.sev-CRITICAL { border-left-color: #ef4444; }
-.ms-risk-item.sev-HIGH { border-left-color: #f59e0b; }
-.ms-risk-item.sev-MEDIUM { border-left-color: #3b82f6; }
-.ms-risk-item.sev-LOW { border-left-color: #22c55e; }
-.ms-risk-item.sev-INFO { border-left-color: #7a8a9e; }
+.ms-risk-item.sev-CRITICAL { border-left-color: var(--sev-critical); }
+.ms-risk-item.sev-HIGH     { border-left-color: var(--sev-high); }
+.ms-risk-item.sev-MEDIUM   { border-left-color: var(--sev-medium); }
+.ms-risk-item.sev-LOW      { border-left-color: var(--sev-low); }
+.ms-risk-item.sev-INFO     { border-left-color: var(--sev-info); }
 
 .ms-risk-sev {
   font-size: 0.72em;
@@ -1393,11 +1767,11 @@ textarea.ms-input {
   color: var(--text);
 }
 
-.ms-risk-item.sev-CRITICAL .ms-risk-sev { color: #ef4444; }
-.ms-risk-item.sev-HIGH .ms-risk-sev { color: #f59e0b; }
-.ms-risk-item.sev-MEDIUM .ms-risk-sev { color: #3b82f6; }
-.ms-risk-item.sev-LOW .ms-risk-sev { color: #22c55e; }
-.ms-risk-item.sev-INFO .ms-risk-sev { color: #7a8a9e; }
+.ms-risk-item.sev-CRITICAL .ms-risk-sev { color: var(--sev-critical); }
+.ms-risk-item.sev-HIGH     .ms-risk-sev { color: var(--sev-high); }
+.ms-risk-item.sev-MEDIUM   .ms-risk-sev { color: var(--sev-medium); }
+.ms-risk-item.sev-LOW      .ms-risk-sev { color: var(--sev-low); }
+.ms-risk-item.sev-INFO     .ms-risk-sev { color: var(--sev-info); }
 
 #ms-empty {
   display: none;
@@ -1724,61 +2098,22 @@ textarea.ms-input {
   font-family: var(--font-ui);
 }
 
-@media (max-width: 1180px) {
-  #ms-app,
-  #ms-app.report-open {
+@media (max-width: 900px) {
+  #ms-inspector {
+    display: none; /* on small screens the inspector is always collapsed */
+  }
+
+  #ms-workbench-body {
     grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto minmax(320px, 45vh) minmax(0, 1fr);
-  }
-
-  #ms-app.report-open {
-    grid-template-rows: auto auto auto minmax(320px, 45vh) minmax(0, 1fr) minmax(220px, 42vh);
-  }
-
-  #ms-left-rail {
-    grid-column: 1 / -1;
-    grid-row: auto;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-    padding: 10px 14px;
-  }
-
-  .ms-nav-rail {
-    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   }
 
   .ms-overview-strip {
     grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
   }
 
-  .ms-nav-btn,
-  .ms-nav-link {
-    min-height: 50px;
-  }
-
-  #ms-sidebar {
-    border-left: none;
-    border-top: 1px solid var(--border);
-  }
-
   .ms-report-columns { grid-template-columns: 1fr; }
   .ms-stage-shell,
   .ms-stage-split { grid-template-columns: 1fr; }
-
-  #ms-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    padding: 10px 14px;
-  }
-
-  .ms-toolbar-controls {
-    grid-template-columns: 1fr;
-  }
-
-  .ms-toolbar-status {
-    justify-content: flex-start;
-    width: 100%;
-  }
 }
 
 @media print {
@@ -1882,34 +2217,58 @@ textarea.ms-input {
     </div>
   </div>
 
-  <div id="ms-toolbar">
-    <div class="ms-toolbar-main">
-      <div class="ms-toolbar-controls">
-        <label class="ms-search-field">
-          <span>{{ t('viewer.toolbar.find_asset') }}</span>
-          <input id="ms-search" type="search" autocomplete="off" placeholder="{{ t('viewer.toolbar.find_asset_placeholder') }}">
-        </label>
-        <label class="ms-select-field">
-          <span>{{ t('viewer.toolbar.focus_queue') }}</span>
-          <select id="ms-focus">
-            <option value="all">{{ t('viewer.focus.all') }}</option>
-            <option value="priority">{{ t('viewer.focus.priority') }}</option>
-            <option value="risk">{{ t('viewer.focus.risk') }}</option>
-            <option value="auth-gap">{{ t('viewer.focus.auth_gap') }}</option>
-            <option value="writes">{{ t('viewer.focus.writes') }}</option>
-            <option value="unclassified">{{ t('viewer.focus.unclassified') }}</option>
-            <option value="ot">{{ t('viewer.focus.ot') }}</option>
-            <option value="external">{{ t('viewer.focus.external') }}</option>
-            <option value="level-1">{{ t('viewer.focus.level_1') }}</option>
-            <option value="level-2">{{ t('viewer.focus.level_2') }}</option>
-            <option value="level-3">{{ t('viewer.focus.level_3') }}</option>
-          </select>
-        </label>
-        <button class="ms-btn" onclick="MS.clearFilters()">{{ t('viewer.toolbar.clear_focus') }}</button>
-      </div>
+  <!-- Hidden fields preserved for JS binding (focus filter, search) -->
+  <input id="ms-search" type="search" style="display:none" autocomplete="off">
+  <select id="ms-focus" style="display:none">
+    <option value="all">{{ t('viewer.focus.all') }}</option>
+    <option value="priority">{{ t('viewer.focus.priority') }}</option>
+    <option value="risk">{{ t('viewer.focus.risk') }}</option>
+    <option value="auth-gap">{{ t('viewer.focus.auth_gap') }}</option>
+    <option value="writes">{{ t('viewer.focus.writes') }}</option>
+    <option value="unclassified">{{ t('viewer.focus.unclassified') }}</option>
+    <option value="ot">{{ t('viewer.focus.ot') }}</option>
+    <option value="external">{{ t('viewer.focus.external') }}</option>
+    <option value="level-1">{{ t('viewer.focus.level_1') }}</option>
+    <option value="level-2">{{ t('viewer.focus.level_2') }}</option>
+    <option value="level-3">{{ t('viewer.focus.level_3') }}</option>
+  </select>
+
+  <!-- Lens strip -->
+  <div id="ms-lens-strip">
+    <!-- Lens chips rendered by JS after taxonomy is fetched -->
+    <div id="ms-lens-chips" style="display:contents"></div>
+    <div class="ms-lens-divider"></div>
+    <div class="ms-lens-meta">
+      <button class="ms-btn" id="ms-btn-risk" onclick="MS.toggleRisk()">{{ t('viewer.utilities.risk_overlay') }}</button>
+      <button class="ms-btn" id="ms-btn-report" onclick="MS.toggleReport()">{{ t('viewer.utilities.assessment_report') }}</button>
+      <button class="ms-btn" id="ms-btn-hmi" onclick="MS.toggleHmi()" title="{{ t('nav.hmi.tooltip') }}" aria-pressed="false">{{ t('nav.hmi.label') }}</button>
+      <div class="ms-lens-divider"></div>
+      <label style="display:flex;align-items:center;gap:5px;font-size:0.8em;color:var(--text-dim)">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="flex-shrink:0"><circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.5"/><line x1="10.5" y1="10.5" x2="14.5" y2="14.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <input id="ms-search-visible" type="search" autocomplete="off" placeholder="{{ t('viewer.toolbar.find_asset_placeholder') }}" style="background:none;border:none;outline:none;color:var(--text);font-family:var(--font-ui);font-size:1em;width:140px;" oninput="document.getElementById('ms-search').value=this.value;MS.applyFilters()">
+      </label>
+      <select id="ms-focus-visible" style="background:rgba(15,24,39,0.6);border:1px solid var(--border-dim);border-radius:5px;color:var(--text-dim);font-family:var(--font-ui);font-size:0.78em;padding:3px 6px;cursor:pointer;" onchange="document.getElementById('ms-focus').value=this.value;MS.applyFilters()">
+        <option value="all">{{ t('viewer.focus.all') }}</option>
+        <option value="priority">{{ t('viewer.focus.priority') }}</option>
+        <option value="risk">{{ t('viewer.focus.risk') }}</option>
+        <option value="auth-gap">{{ t('viewer.focus.auth_gap') }}</option>
+        <option value="writes">{{ t('viewer.focus.writes') }}</option>
+        <option value="unclassified">{{ t('viewer.focus.unclassified') }}</option>
+        <option value="ot">{{ t('viewer.focus.ot') }}</option>
+        <option value="external">{{ t('viewer.focus.external') }}</option>
+      </select>
+      <button class="ms-btn" onclick="MS.clearFilters()">{{ t('viewer.toolbar.clear_focus') }}</button>
+      <div class="ms-lens-divider"></div>
+      <a class="ms-btn" href="/api/reports/{{ filename }}/assets" target="_blank">{{ t('viewer.utilities.assets') }}</a>
+      <button class="ms-btn" onclick="MS.exportCsvAssets()">{{ t('viewer.utilities.csv_assets') }}</button>
+      <button class="ms-btn" onclick="MS.exportCsvFindings()">{{ t('viewer.utilities.csv_findings') }}</button>
+      <button class="ms-btn" onclick="MS.exportPng()">{{ t('viewer.utilities.png') }}</button>
     </div>
-    <div class="ms-toolbar-status" id="ms-toolbar-status"></div>
-    <div class="ms-timeline" id="ms-timeline" style="display:none">
+  </div>
+
+  <!-- Timeline bar row (shown when timeline data available) -->
+  <div id="ms-timeline-bar-row" class="hidden">
+    <div class="ms-timeline" id="ms-timeline">
       <div class="ms-timeline-head">
         <span class="ms-timeline-title">{{ t('viewer.timeline.title') }}</span>
         <span class="ms-timeline-meta" id="ms-timeline-meta"></span>
@@ -1923,259 +2282,77 @@ textarea.ms-input {
     </div>
   </div>
 
-  <div id="ms-left-rail">
-    <div class="ms-nav-brand">
-      <div class="ms-nav-brand-mark">Marlin<span>Spike</span></div>
-      <div class="ms-nav-brand-name">{{ t('viewer.nav.brand') }}</div>
-      <div class="ms-nav-brand-file">{{ filename }}</div>
-    </div>
-    <div class="ms-nav-divider"></div>
-    <div class="ms-nav-rail" id="ms-nav-rail">
-      <button class="ms-nav-btn active" data-mode="dashboard" onclick="MS.setWorkbenchMode('dashboard')">
-        <div class="ms-nav-head"><span class="ms-nav-label">{{ t('viewer.rail.dashboard') }}</span><span class="ms-nav-badge">{{ viewer_context.summary.priority_count }}</span></div>
-        <span class="ms-nav-note">{{ t('viewer.rail.dashboard_note') }}</span>
-      </button>
-      <button class="ms-nav-btn" data-mode="map" onclick="MS.setWorkbenchMode('map')">
-        <div class="ms-nav-head"><span class="ms-nav-label">{{ t('viewer.rail.map') }}</span><span class="ms-nav-badge">{{ viewer_context.summary.asset_count }}</span></div>
-        <span class="ms-nav-note">{{ t('viewer.rail.map_note') }}</span>
-      </button>
-      <button class="ms-nav-btn" data-mode="traffic" onclick="MS.setWorkbenchMode('traffic')">
-        <div class="ms-nav-head"><span class="ms-nav-label">{{ t('viewer.rail.traffic') }}</span><span class="ms-nav-badge">{{ viewer_context.summary.conversation_count or 0 }}</span></div>
-        <span class="ms-nav-note">{{ t('viewer.rail.traffic_note') }}</span>
-      </button>
-      <button class="ms-nav-btn" data-mode="findings" onclick="MS.setWorkbenchMode('findings')">
-        <div class="ms-nav-head"><span class="ms-nav-label">{{ t('viewer.rail.findings') }}</span><span class="ms-nav-badge">{{ viewer_context.top_findings|length + viewer_context.c2_indicators|length }}</span></div>
-        <span class="ms-nav-note">{{ t('viewer.rail.findings_note') }}</span>
-      </button>
-      <button class="ms-nav-btn" data-mode="protocols" onclick="MS.setWorkbenchMode('protocols')">
-        <div class="ms-nav-head"><span class="ms-nav-label">{{ t('viewer.rail.protocols') }}</span><span class="ms-nav-badge">{{ viewer_context.summary.dissector_family_count or 0 }}</span></div>
-        <span class="ms-nav-note">{{ t('viewer.rail.protocols_note') }}</span>
-      </button>
-      <button class="ms-nav-btn" data-mode="evidence" onclick="MS.setWorkbenchMode('evidence')">
-        <div class="ms-nav-head"><span class="ms-nav-label">{{ t('viewer.rail.evidence') }}</span><span class="ms-nav-badge">{{ viewer_context.dpi_highlights|length }}</span></div>
-        <span class="ms-nav-note">{{ t('viewer.rail.evidence_note') }}</span>
-      </button>
-      <button class="ms-nav-btn" data-mode="assets" onclick="MS.setWorkbenchMode('assets')">
-        <div class="ms-nav-head"><span class="ms-nav-label">{{ t('viewer.rail.assets') }}</span><span class="ms-nav-badge">{{ viewer_context.assets_sorted|length }}</span></div>
-        <span class="ms-nav-note">{{ t('viewer.rail.assets_note') }}</span>
-      </button>
-      <button class="ms-nav-btn" data-mode="intel" onclick="MS.setWorkbenchMode('intel')">
-        <div class="ms-nav-head"><span class="ms-nav-label">{{ t('viewer.rail.intel') }}</span><span class="ms-nav-badge">{{ viewer_context.mitre_classifications|length + viewer_context.protocol_items|length }}</span></div>
-        <span class="ms-nav-note">{{ t('viewer.rail.intel_note') }}</span>
-      </button>
-      <button class="ms-nav-btn" data-mode="risk" onclick="MS.setWorkbenchMode('risk')">
-        <div class="ms-nav-head"><span class="ms-nav-label">{{ t('viewer.rail.risk') }}</span><span class="ms-nav-badge">{{ viewer_context.summary.critical_high_count }}</span></div>
-        <span class="ms-nav-note">{{ t('viewer.rail.risk_note') }}</span>
-      </button>
-      <button class="ms-nav-btn" data-mode="reports" onclick="MS.setWorkbenchMode('reports')">
-        <div class="ms-nav-head"><span class="ms-nav-label">{{ t('viewer.rail.reports') }}</span><span class="ms-nav-badge">{{ viewer_context.summary.module_view_total }}</span></div>
-        <span class="ms-nav-note">{{ t('viewer.rail.reports_note') }}</span>
-      </button>
-    </div>
-    <div class="ms-nav-divider" style="margin-top:12px"></div>
-    <div class="ms-nav-actions">
-      <div class="ms-nav-section-label">{{ t('viewer.utilities.label') }}</div>
-      <button class="ms-nav-action accent" id="ms-btn-risk" onclick="MS.toggleRisk()">{{ t('viewer.utilities.risk_overlay') }}</button>
-      <button class="ms-nav-action" id="ms-btn-report" onclick="MS.toggleReport()">{{ t('viewer.utilities.assessment_report') }}</button>
-      <div class="ms-nav-actions-grid">
-        <a class="ms-nav-action" href="/api/reports/{{ filename }}/assets" target="_blank">{{ t('viewer.utilities.assets') }}</a>
-        <button class="ms-nav-action" onclick="MS.printReport()">{{ t('viewer.utilities.print') }}</button>
-        <button class="ms-nav-action" onclick="MS.exportPng()">{{ t('viewer.utilities.png') }}</button>
-        <button class="ms-nav-action" onclick="MS.exportCsvAssets()">{{ t('viewer.utilities.csv_assets') }}</button>
-        <button class="ms-nav-action" onclick="MS.exportCsvFindings()">{{ t('viewer.utilities.csv_findings') }}</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="ms-viewport">
-    <div id="ms-stage">
-      <div id="ms-pane-dashboard" class="ms-workbench-pane active ms-stage-pane"></div>
-      <div id="ms-pane-map" class="ms-workbench-pane">
-        <div id="ms-svg-container"></div>
-        <div id="ms-tooltip"></div>
-        <div id="ms-empty"><h2>{{ t('viewer.map.empty_title') }}</h2><p>{{ t('viewer.map.empty_body') }}</p></div>
-        <div id="ms-map-module-views" class="ms-map-module-views"></div>
-      </div>
-      <div id="ms-pane-traffic" class="ms-workbench-pane ms-stage-pane"></div>
-      <div id="ms-pane-findings" class="ms-workbench-pane ms-stage-pane"></div>
-      <div id="ms-pane-protocols" class="ms-workbench-pane ms-stage-pane"></div>
-      <div id="ms-pane-evidence" class="ms-workbench-pane ms-stage-pane"></div>
-      <div id="ms-pane-assets" class="ms-workbench-pane ms-stage-pane"></div>
-      <div id="ms-pane-intel" class="ms-workbench-pane ms-stage-pane"></div>
-      <div id="ms-pane-risk" class="ms-workbench-pane ms-stage-pane"></div>
-      <div id="ms-pane-reports" class="ms-workbench-pane ms-stage-pane"></div>
-    </div>
-    <noscript>
-      <div class="ms-noscript-note" style="position:absolute;left:16px;right:16px;bottom:16px;z-index:2;">
-        Interactive topology controls are unavailable without JavaScript. The rendered triage queues, findings, writable paths, external communications, and full assessment sections below remain fully usable.
-      </div>
-    </noscript>
-  </div>
-
-  <div id="ms-sidebar">
-    <div id="ms-sidebar-content">
-      <div class="ms-sidebar-panel">
-        <h3>{{ t('viewer.sidebar.selected_asset') }}</h3>
-        <div class="ms-empty-panel">
-          <strong>{{ t('viewer.sidebar.no_asset_selected') }}</strong><br>
-          {{ t('viewer.sidebar.no_asset_help') }}
-        </div>
-      </div>
-
-      <div class="ms-sidebar-panel">
-        <h3>{{ t('viewer.sidebar.operator_snapshot') }}</h3>
-        <div class="ms-sidebar-kpis">
-          <div class="ms-sidebar-kpi"><span class="val">{{ viewer_context.summary.classified_count }}</span><span class="lbl">{{ t('viewer.sidebar.kpi.classified_assets') }}</span></div>
-          <div class="ms-sidebar-kpi"><span class="val">{{ viewer_context.summary.unclassified_count }}</span><span class="lbl">{{ t('viewer.sidebar.kpi.needs_review') }}</span></div>
-          <div class="ms-sidebar-kpi"><span class="val">{{ viewer_context.summary.critical_high_count }}</span><span class="lbl">{{ t('viewer.sidebar.kpi.critical_high') }}</span></div>
-          <div class="ms-sidebar-kpi"><span class="val">{{ viewer_context.summary.auth_gap_count }}</span><span class="lbl">{{ t('viewer.sidebar.kpi.auth_gaps') }}</span></div>
-          <div class="ms-sidebar-kpi"><span class="val">{{ viewer_context.summary.write_node_count }}</span><span class="lbl">{{ t('viewer.sidebar.kpi.write_capable_nodes') }}</span></div>
-          <div class="ms-sidebar-kpi"><span class="val">{{ viewer_context.summary.external_count }}</span><span class="lbl">{{ t('viewer.sidebar.kpi.external_assets') }}</span></div>
-        </div>
-      </div>
-
-      <div class="ms-sidebar-panel">
-        <h3>{{ t('viewer.sidebar.priority_targets') }}</h3>
-        {% if viewer_context.priority_nodes %}
-        <div class="ms-link-list">
-          {% for node in viewer_context.priority_nodes %}
-          <a class="ms-link-item" href="#asset-{{ node._anchor }}">
-            <div class="ms-queue-item">
-              <div class="ms-queue-copy">
-                <div class="ms-queue-ip">{{ node._ip }}</div>
-                <div class="ms-queue-role">{{ node.role or t('viewer.unknown') }}</div>
-                <div class="ms-queue-note">
-                  {{ node.vendor or t('viewer.unknown_vendor') }}{% if node.product_line %} · {{ node.product_line }}{% endif %}
-                  {% if node.recommended_modules %} · {{ node.recommended_modules[:2] | join(', ') }}{% endif %}
-                </div>
-              </div>
-              <span class="ms-queue-priority">{{ node.attack_priority or 0 }}</span>
-            </div>
-          </a>
-          {% endfor %}
-        </div>
-        {% else %}
-        <div class="ms-empty-panel">{{ t('viewer.sidebar.priority_empty') }}</div>
-        {% endif %}
-      </div>
-
-      <div class="ms-sidebar-panel">
-        <h3>{{ t('viewer.sidebar.auth_gaps') }}</h3>
-        {% if viewer_context.auth_gap_nodes %}
-        <div class="ms-link-list">
-          {% for node in viewer_context.auth_gap_nodes %}
-          <a class="ms-link-item" href="#asset-{{ node._anchor }}">
-            <div class="ms-queue-item">
-              <div class="ms-queue-copy">
-                <div class="ms-queue-ip">{{ node._ip }}</div>
-                <div class="ms-queue-role">{{ node.role or t('viewer.unknown') }}</div>
-                <div class="ms-queue-note">{{ t('viewer.auth_not_observed') }}{% if node.protocols %} · {{ node.protocols[:3] | join(', ') }}{% endif %}</div>
-              </div>
-              <span class="ms-queue-priority">{{ node._risk_count }}</span>
-            </div>
-          </a>
-          {% endfor %}
-        </div>
-        {% else %}
-        <div class="ms-empty-panel">{{ t('viewer.sidebar.auth_gaps_empty') }}</div>
-        {% endif %}
-      </div>
-
-      <div class="ms-sidebar-panel">
-        <h3>{{ t('viewer.sidebar.write_capable_paths') }}</h3>
-        {% if viewer_context.write_paths %}
-        {% for edge in viewer_context.write_paths %}
-        <div class="ms-service-item">
-          <a class="ms-link-item" href="#asset-{{ edge._anchor_src }}"><code>{{ edge.src }}</code></a>
-          &nbsp;→&nbsp;
-          <a class="ms-link-item" href="#asset-{{ edge._anchor_dst }}"><code>{{ edge.dst }}</code></a>
-          <br>
-          <span style="color:{{ '#ef4444' if edge.includes_program_access else '#f59e0b' if edge.includes_writes else 'var(--text-dim)' }}">{{ edge.protocol or t('viewer.unknown') }}</span>
-          · {{ edge.conversation_count or 0 }} {{ t('viewer.conv_short') }}
-          {% if edge.includes_program_access %} · {{ t('viewer.tag_program') }}{% elif edge.includes_writes %} · {{ t('viewer.tag_write') }}{% endif %}
-        </div>
-        {% endfor %}
-        {% else %}
-        <div class="ms-empty-panel">{{ t('viewer.sidebar.write_paths_empty') }}</div>
-        {% endif %}
-      </div>
-
-      {% if viewer_context.summary.l2_anomaly_count or viewer_context.arp_observations %}
-      <div class="ms-sidebar-panel">
-        <h3>{{ t('viewer.sidebar.l2_anomalies') }}</h3>
-        {% if viewer_context.l2_anomaly_digest %}
-        <div class="ms-link-list">
-          {% for bucket in viewer_context.l2_anomaly_digest %}
-          <div class="ms-queue-item" style="cursor:default">
-            <div class="ms-queue-copy">
-              <div class="ms-queue-ip">{{ bucket.anomaly_type }}</div>
-              {% if bucket.sample and bucket.sample.reason %}
-              <div class="ms-queue-note">{{ bucket.sample.reason }}</div>
-              {% endif %}
-              {% if bucket.sample and (bucket.sample.src_mac or bucket.sample.dst_mac) %}
-              <div class="ms-queue-note" style="font-family:var(--font-mono);font-size:0.78em">{{ bucket.sample.src_mac or '—' }} → {{ bucket.sample.dst_mac or '—' }}</div>
-              {% endif %}
-            </div>
-            <span class="ms-queue-priority">{{ bucket.count }}</span>
-          </div>
-          {% endfor %}
-        </div>
-        {% else %}
-        <div class="ms-empty-panel">{{ t('viewer.sidebar.l2_anomalies_empty') }}</div>
-        {% endif %}
-        {% if viewer_context.arp_observations %}
-        <div class="ms-section-label" style="margin-top:8px">{{ t('viewer.sidebar.arp_observations') }}</div>
-        {% for obs in viewer_context.arp_observations[:5] %}
-        <div class="ms-service-item" style="font-size:0.82em">
-          <span style="font-family:var(--font-mono)">{{ obs.src_mac or '—' }}</span> claims
-          <span style="font-family:var(--font-mono)">{{ obs.claimed_ip or obs.ip or '—' }}</span>
-          {% if obs.observed_count %} · {{ obs.observed_count }}x{% endif %}
-        </div>
-        {% endfor %}
-        {% endif %}
-      </div>
-      {% endif %}
-
-      <div class="ms-sidebar-panel">
-        <h3>{{ t('viewer.sidebar.suspicious_external') }}</h3>
-        {% if viewer_context.external_indicators %}
-        {% for indicator in viewer_context.external_indicators[:5] %}
-        <div class="ms-risk-item sev-{{ indicator.severity }}">
-          <div class="ms-risk-sev">{{ indicator.severity }} — {{ indicator.type }}</div>
-          <div>{{ indicator.description }}</div>
-        </div>
-        {% endfor %}
-        {% else %}
-        <div class="ms-empty-panel">{{ t('viewer.sidebar.external_empty') }}</div>
-        {% endif %}
-      </div>
-
-      <div class="ms-sidebar-panel">
-        <h3>{{ t('viewer.sidebar.protocol_mix') }}</h3>
-        {% if viewer_context.protocol_items %}
-        {% for proto in viewer_context.protocol_items %}
-        <div class="ms-legend-item">
-          <span>{{ proto.name }}</span>
-          <span class="ms-legend-count">{{ proto.count }}</span>
-        </div>
-        {% endfor %}
-        {% else %}
-        <div class="ms-empty-panel">{{ t('viewer.sidebar.protocol_mix_empty') }}</div>
-        {% endif %}
-      </div>
-
-      <div class="ms-sidebar-panel" id="ms-map-legend">
-        <h3>{{ t('viewer.legend.title') }}</h3>
+  <!-- Workbench body: persistent map canvas + collapsible inspector -->
+  <div id="ms-workbench-body">
+    <div id="ms-canvas-zone">
+      <!-- SVG2D renders into this container -->
+      <div id="ms-svg-container"></div>
+      <div id="ms-tooltip"></div>
+      <div id="ms-empty"><h2>{{ t('viewer.map.empty_title') }}</h2><p>{{ t('viewer.map.empty_body') }}</p></div>
+      <!-- Map legend overlay (bottom-left corner of canvas) -->
+      <div id="ms-map-legend" style="position:absolute;bottom:12px;left:12px;background:rgba(12,20,34,0.88);border:1px solid var(--border-dim);border-radius:8px;padding:10px 12px;font-size:0.8em;z-index:5;max-width:220px;">
+        <div style="font-weight:700;font-size:0.78em;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:6px;">{{ t('viewer.legend.title') }}</div>
         <div id="ms-role-legend"></div>
-        <div style="margin-top:10px;font-size:0.82em;color:var(--text-dim);line-height:1.55;">
-          <div style="padding:2px 0;"><svg width="14" height="10" style="vertical-align:middle;margin-right:6px;"><circle cx="7" cy="5" r="4" fill="var(--text-dim)"/></svg>{{ t('viewer.legend.circle_size') }}</div>
-          <div style="padding:2px 0;"><svg width="14" height="10" style="vertical-align:middle;margin-right:6px;"><line x1="0" y1="5" x2="14" y2="5" stroke="var(--text-dim)" stroke-width="2"/></svg>{{ t('viewer.legend.solid_edge') }}</div>
-          <div style="padding:2px 0;"><svg width="14" height="10" style="vertical-align:middle;margin-right:6px;"><line x1="0" y1="5" x2="14" y2="5" stroke="#ef4444" stroke-width="2" stroke-dasharray="4,2"/></svg>{{ t('viewer.legend.dashed_edge') }}</div>
-          <div style="padding:2px 0;">{{ t('viewer.legend.bands') }}</div>
+        <div style="margin-top:6px;color:var(--text-dim);line-height:1.5;">
+          <div style="padding:1px 0;"><svg width="12" height="8" style="vertical-align:middle;margin-right:4px;"><circle cx="6" cy="4" r="3" fill="var(--text-dim)"/></svg>{{ t('viewer.legend.circle_size') }}</div>
+          <div style="padding:1px 0;"><svg width="12" height="8" style="vertical-align:middle;margin-right:4px;"><line x1="0" y1="4" x2="12" y2="4" stroke="var(--text-dim)" stroke-width="1.5"/></svg>{{ t('viewer.legend.solid_edge') }}</div>
+          <div style="padding:1px 0;"><svg width="12" height="8" style="vertical-align:middle;margin-right:4px;"><line x1="0" y1="4" x2="12" y2="4" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="3,1.5"/></svg>{{ t('viewer.legend.dashed_edge') }}</div>
+        </div>
+      </div>
+      <!-- Lens overlay panels — displayed over the map for non-Comms lenses -->
+      <div id="ms-lens-findings" class="ms-lens-overlay"></div>
+      <div id="ms-lens-ioc"      class="ms-lens-overlay"></div>
+      <div id="ms-lens-attck"    class="ms-lens-overlay"></div>
+      <div id="ms-lens-baseline" class="ms-lens-overlay"></div>
+      <div id="ms-lens-peers"    class="ms-lens-overlay"></div>
+      <noscript>
+        <div class="ms-noscript-note" style="position:absolute;left:16px;right:16px;bottom:56px;z-index:2;">
+          Interactive topology controls require JavaScript. The assessment report and triage tables below remain fully usable.
+        </div>
+      </noscript>
+    </div>
+
+    <!-- Right inspector panel -->
+    <div id="ms-inspector">
+      <div id="ms-inspector-toggle" onclick="MS.toggleInspector()" title="{{ t('viewer.inspector.toggle') }}">&#8250;</div>
+      <div id="ms-inspector-content">
+        <div style="color:var(--text-dim);font-size:0.84em;padding:24px 0 8px;text-align:center;">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" style="display:block;margin:0 auto 10px;opacity:0.35"><circle cx="16" cy="12" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M4 28c0-6.627 5.373-12 12-12s12 5.373 12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          {{ t('viewer.inspector.empty') }}
         </div>
       </div>
     </div>
   </div>
+
+  <!-- Bottom drawer -->
+  <div id="ms-drawer">
+    <div id="ms-drawer-handle" onclick="MS.toggleDrawer()">
+      <span class="ms-drawer-handle-label">{{ t('viewer.drawer.label') }}</span>
+      <span class="ms-drawer-handle-count" id="ms-drawer-count"></span>
+      <span class="ms-drawer-handle-arrow">&#9660;</span>
+    </div>
+    <div id="ms-drawer-body">
+      <div class="ms-drawer-tabs" id="ms-drawer-tabs">
+        <button class="ms-drawer-tab active" data-tab="findings"      onclick="MS.setDrawerTab('findings')">{{ t('viewer.drawer.tab.findings') }}</button>
+        <button class="ms-drawer-tab"        data-tab="conversations" onclick="MS.setDrawerTab('conversations')">{{ t('viewer.drawer.tab.conversations') }}</button>
+        <button class="ms-drawer-tab"        data-tab="assets"        onclick="MS.setDrawerTab('assets')">{{ t('viewer.drawer.tab.assets') }}</button>
+        <button class="ms-drawer-tab"        data-tab="iocs"          onclick="MS.setDrawerTab('iocs')">{{ t('viewer.drawer.tab.iocs') }}</button>
+        <button class="ms-drawer-tab"        data-tab="anomalies"     onclick="MS.setDrawerTab('anomalies')">{{ t('viewer.drawer.tab.anomalies') }}</button>
+        <button class="ms-drawer-tab"        data-tab="attck"         onclick="MS.setDrawerTab('attck')">{{ t('viewer.drawer.tab.attck') }}</button>
+        <button class="ms-drawer-tab"        data-tab="dns"           onclick="MS.setDrawerTab('dns')">{{ t('viewer.drawer.tab.dns') }}</button>
+      </div>
+      <div id="ms-drawer-findings"      class="ms-drawer-tab-content active"></div>
+      <div id="ms-drawer-conversations" class="ms-drawer-tab-content"></div>
+      <div id="ms-drawer-assets"        class="ms-drawer-tab-content"></div>
+      <div id="ms-drawer-iocs"          class="ms-drawer-tab-content"></div>
+      <div id="ms-drawer-anomalies"     class="ms-drawer-tab-content"></div>
+      <div id="ms-drawer-attck"         class="ms-drawer-tab-content"></div>
+      <div id="ms-drawer-dns"           class="ms-drawer-tab-content"></div>
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div id="ms-toast"></div>
 
   <div id="ms-report-pane">
     <div class="ms-report-header">
@@ -4164,24 +4341,28 @@ var MS = (function() {
       mapModuleViews.innerHTML = mapSupplements;
       mapModuleViews.classList.toggle('active', workbenchMode === 'map' && !!mapSupplements);
     }
+    var setPane = function(id, html) {
+      var el = document.getElementById(id);
+      if (el) el.innerHTML = html;
+    };
     if (workbenchMode === 'dashboard') {
-      document.getElementById('ms-pane-dashboard').innerHTML = renderDashboardWorkbench();
+      setPane('ms-pane-dashboard', renderDashboardWorkbench());
     } else if (workbenchMode === 'traffic') {
-      document.getElementById('ms-pane-traffic').innerHTML = renderTrafficWorkbench();
+      setPane('ms-pane-traffic', renderTrafficWorkbench());
     } else if (workbenchMode === 'findings') {
-      document.getElementById('ms-pane-findings').innerHTML = renderFindingsWorkbench();
+      setPane('ms-pane-findings', renderFindingsWorkbench());
     } else if (workbenchMode === 'protocols') {
-      document.getElementById('ms-pane-protocols').innerHTML = renderProtocolsWorkbench();
+      setPane('ms-pane-protocols', renderProtocolsWorkbench());
     } else if (workbenchMode === 'evidence') {
-      document.getElementById('ms-pane-evidence').innerHTML = renderEvidenceWorkbench();
+      setPane('ms-pane-evidence', renderEvidenceWorkbench());
     } else if (workbenchMode === 'assets') {
-      document.getElementById('ms-pane-assets').innerHTML = renderAssetsWorkbench();
+      setPane('ms-pane-assets', renderAssetsWorkbench());
     } else if (workbenchMode === 'intel') {
-      document.getElementById('ms-pane-intel').innerHTML = renderIntelWorkbench();
+      setPane('ms-pane-intel', renderIntelWorkbench());
     } else if (workbenchMode === 'risk') {
-      document.getElementById('ms-pane-risk').innerHTML = renderRiskWorkbench();
+      setPane('ms-pane-risk', renderRiskWorkbench());
     } else if (workbenchMode === 'reports') {
-      document.getElementById('ms-pane-reports').innerHTML = renderReportsWorkbench();
+      setPane('ms-pane-reports', renderReportsWorkbench());
     }
   }
 
@@ -4201,7 +4382,7 @@ var MS = (function() {
     parts.push('<b>' + nodes.length + '</b> nodes');
     parts.push('<b>' + edges.length + '</b> edges');
     parts.push('<b>' + Object.keys(REPORT.protocol_summary || {}).length + '</b> protocols');
-    stats.innerHTML = parts.join(' &middot; ');
+    if (stats) stats.innerHTML = parts.join(' &middot; ');
 
     var state = getOverviewState();
     var cards = [
@@ -4241,7 +4422,8 @@ var MS = (function() {
         focus: 'priority'
       }
     ];
-    document.getElementById('ms-overview-strip').innerHTML = cards.map(function(card) {
+    var ovEl = document.getElementById('ms-overview-strip');
+    if (ovEl) ovEl.innerHTML = cards.map(function(card) {
       return '<button class="ms-kpi-card ' + card.cls + '" onclick="MS.setFocus(\'' + card.focus + '\')">'
         + '<span class="ms-kpi-value">' + esc(card.value) + '</span>'
         + '<span class="ms-kpi-label">' + esc(card.label) + '</span>'
@@ -4267,7 +4449,8 @@ var MS = (function() {
       parts.push('<span class="ms-status-pill">' + esc(tjs('viewer.toolbar.status.window')) + ' <strong>' + esc(label) + '</strong></span>');
     }
     parts.push('<span>' + tjs('viewer.toolbar.status.hint') + '</span>');
-    document.getElementById('ms-toolbar-status').innerHTML = parts.join('');
+    var tsEl = document.getElementById('ms-toolbar-status');
+    if (tsEl) tsEl.innerHTML = parts.join('');
   }
 
   // ── Asset context (Bet 2 UI) ───────────────────────────────
@@ -4942,14 +5125,24 @@ var MS = (function() {
           g.appendChild(glow);
         }
 
+        // HP-HMI mode: desaturate equipment unless it's in alarm state
+        // (has findings, IOC matches, or anomalies). Color is reserved
+        // for actionable abnormality. ISA-101 / ASM Consortium discipline.
+        var hmi = (typeof window.msHmiActive === 'function') && window.msHmiActive();
+        var nodeColor = n._style.color;
+        var nodeFillOpacity = '0.2';
+        if (hmi && !nodeHasRisk(n)) {
+          nodeColor = 'var(--text-dim)';
+          nodeFillOpacity = '0.08';
+        }
         var circle = document.createElementNS(ns, 'circle');
         circle.setAttribute('cx', n._x);
         circle.setAttribute('cy', n._y);
         circle.setAttribute('r', n._r);
-        circle.setAttribute('fill', n._style.color);
-        circle.setAttribute('fill-opacity', '0.2');
-        circle.setAttribute('stroke', n._style.color);
-        circle.setAttribute('stroke-width', '2');
+        circle.setAttribute('fill', nodeColor);
+        circle.setAttribute('fill-opacity', nodeFillOpacity);
+        circle.setAttribute('stroke', nodeColor);
+        circle.setAttribute('stroke-width', hmi && !nodeHasRisk(n) ? '1' : '2');
         g.appendChild(circle);
 
         if (nodeHasRisk(n)) {
@@ -5067,6 +5260,8 @@ var MS = (function() {
     filterState.focus = focus || 'all';
     var focusEl = document.getElementById('ms-focus');
     if (focusEl && focusEl.value !== filterState.focus) focusEl.value = filterState.focus;
+    var focusVisEl = document.getElementById('ms-focus-visible');
+    if (focusVisEl && focusVisEl.value !== filterState.focus) focusVisEl.value = filterState.focus;
     renderSidebar();
     if (svgEl) SVG2D.syncState();
   }
@@ -5093,8 +5288,12 @@ var MS = (function() {
     filterState.focus = 'all';
     var searchEl = document.getElementById('ms-search');
     var focusEl = document.getElementById('ms-focus');
+    var searchVisEl = document.getElementById('ms-search-visible');
+    var focusVisEl = document.getElementById('ms-focus-visible');
     if (searchEl) searchEl.value = '';
     if (focusEl) focusEl.value = 'all';
+    if (searchVisEl) searchVisEl.value = '';
+    if (focusVisEl) focusVisEl.value = 'all';
     renderSidebar();
     if (svgEl) SVG2D.syncState();
   }
@@ -5102,6 +5301,7 @@ var MS = (function() {
   function selectNode(n, center) {
     if (!n) return;
     selectedNode = n;
+    renderInspector();
     renderSidebar();
     if (svgEl) {
       SVG2D.syncState();
@@ -5120,6 +5320,7 @@ var MS = (function() {
 
   function deselectNode() {
     selectedNode = null;
+    renderInspector();
     renderSidebar();
     if (svgEl) SVG2D.syncState();
   }
@@ -5942,12 +6143,757 @@ var MS = (function() {
     });
   }
 
+  // ── Toast notification ─────────────────────────────────────
+  function msToast(msg, tone) {
+    var el = document.getElementById('ms-toast');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.style.borderColor = tone === 'danger' ? 'rgba(239,68,68,0.45)' : tone === 'warn' ? 'rgba(245,158,11,0.45)' : 'var(--border)';
+    el.classList.add('show');
+    clearTimeout(msToast._t);
+    msToast._t = setTimeout(function() { el.classList.remove('show'); }, 2800);
+  }
+
+  // ── Taxonomy cache ─────────────────────────────────────────
+  window.MS_TAXONOMY = null;
+
+  function fetchTaxonomy() {
+    return fetch('/api/taxonomy', { credentials: 'same-origin' })
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(data) { window.MS_TAXONOMY = data; return data; })
+      .catch(function() { return null; });
+  }
+
+  // Return taxonomy visual for entity type (falls back to safe defaults)
+  function taxVisual(entityType) {
+    var tax = window.MS_TAXONOMY;
+    if (tax && tax.entity_types && tax.entity_types[entityType]) return tax.entity_types[entityType];
+    return { color_var: '--text-dim', chip_class: 'chip-info', label: entityType };
+  }
+
+  // ── Active lens state ──────────────────────────────────────
+  var activeLens = 'comms';
+
+  var LENS_DEFS = [
+    { key: 'comms',    labelKey: 'viewer.lens.comms',
+      icon: '<svg viewBox="0 0 16 16" fill="none"><circle cx="4" cy="8" r="2.5" stroke="currentColor" stroke-width="1.2"/><circle cx="12" cy="8" r="2.5" stroke="currentColor" stroke-width="1.2"/><line x1="6.5" y1="8" x2="9.5" y2="8" stroke="currentColor" stroke-width="1.2"/></svg>' },
+    { key: 'findings', labelKey: 'viewer.lens.findings',
+      icon: '<svg viewBox="0 0 16 16" fill="none"><path d="M8 2L14 13H2L8 2Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><line x1="8" y1="7" x2="8" y2="10" stroke="currentColor" stroke-width="1.2"/><circle cx="8" cy="12" r="0.6" fill="currentColor"/></svg>' },
+    { key: 'ioc',      labelKey: 'viewer.lens.ioc',
+      icon: '<svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.2"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.2"/><line x1="8" y1="2.5" x2="8" y2="5.8" stroke="currentColor" stroke-width="1.2"/><line x1="8" y1="10.2" x2="8" y2="13.5" stroke="currentColor" stroke-width="1.2"/><line x1="2.5" y1="8" x2="5.8" y2="8" stroke="currentColor" stroke-width="1.2"/><line x1="10.2" y1="8" x2="13.5" y2="8" stroke="currentColor" stroke-width="1.2"/></svg>' },
+    { key: 'attck',    labelKey: 'viewer.lens.attck',
+      icon: '<svg viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.2"/><line x1="5" y1="8" x2="11" y2="8" stroke="currentColor" stroke-width="1.2"/><line x1="8" y1="5" x2="8" y2="11" stroke="currentColor" stroke-width="1.2"/></svg>' },
+    { key: 'baseline', labelKey: 'viewer.lens.baseline',
+      icon: '<svg viewBox="0 0 16 16" fill="none"><line x1="2" y1="11" x2="14" y2="11" stroke="currentColor" stroke-width="1.2" stroke-dasharray="2,2"/><polyline points="2,9 5,6 8,8 11,4 14,5" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" fill="none"/></svg>' },
+    { key: 'peers',    labelKey: 'viewer.lens.peers',
+      icon: '<svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="4" r="2" stroke="currentColor" stroke-width="1.2"/><circle cx="3" cy="12" r="2" stroke="currentColor" stroke-width="1.2"/><circle cx="13" cy="12" r="2" stroke="currentColor" stroke-width="1.2"/><line x1="6.5" y1="5.5" x2="4.5" y2="10.5" stroke="currentColor" stroke-width="1.0"/><line x1="9.5" y1="5.5" x2="11.5" y2="10.5" stroke="currentColor" stroke-width="1.0"/><line x1="5" y1="12" x2="11" y2="12" stroke="currentColor" stroke-width="1.0"/></svg>' }
+  ];
+
+  function renderLensStrip() {
+    var container = document.getElementById('ms-lens-chips');
+    if (!container) return;
+    var html = '';
+    LENS_DEFS.forEach(function(def) {
+      var cls = 'ms-lens-btn' + (activeLens === def.key ? ' active' : '');
+      html += '<button class="' + cls + '" data-lens="' + def.key + '" onclick="MS.setLens(\'' + def.key + '\')">'
+        + '<span class="lens-icon">' + def.icon + '</span>'
+        + esc(tjs(def.labelKey))
+        + '</button>';
+    });
+    container.innerHTML = html;
+  }
+
+  function setLens(lens) {
+    if (!lens || lens === activeLens) return;
+    activeLens = lens;
+    renderLensStrip();
+    // show/hide overlay panels
+    ['findings', 'ioc', 'attck', 'baseline', 'peers'].forEach(function(key) {
+      var el = document.getElementById('ms-lens-' + key);
+      if (el) el.classList.toggle('active', lens === key);
+    });
+    // re-render active lens overlay content
+    if (lens === 'findings') renderFindingsLens();
+    else if (lens === 'ioc') renderIocLens();
+    else if (lens === 'attck') renderAttckLens();
+    else if (lens === 'baseline') renderBaselineLens();
+    else if (lens === 'peers') renderPeersLens();
+    // update drawer count badge
+    renderDrawerCount();
+  }
+
+  // ── Findings lens (multipartite: asset nodes + finding diamonds) ──
+  function renderFindingsLens() {
+    var el = document.getElementById('ms-lens-findings');
+    if (!el) return;
+    var findings = (VIEWER_CONTEXT.top_findings || []).concat(VIEWER_CONTEXT.c2_indicators || []);
+    if (!findings.length) {
+      el.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:48px 0;">' + esc(tjs('viewer.report.findings.empty')) + '</div>';
+      return;
+    }
+    var sevOrder = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, INFO: 4 };
+    var sorted = findings.slice().sort(function(a, b) {
+      return (sevOrder[a.severity] || 5) - (sevOrder[b.severity] || 5);
+    });
+    var html = '<div style="display:flex;flex-direction:column;gap:8px;">';
+    sorted.forEach(function(f) {
+      var sev = f.severity || 'INFO';
+      var sevVar = { CRITICAL: '--sev-critical', HIGH: '--sev-high', MEDIUM: '--sev-medium', LOW: '--sev-low', INFO: '--sev-info' }[sev] || '--text-dim';
+      var affected = toArray(f.affected_nodes);
+      html += '<div class="ms-finding-card" style="border-left:3px solid var(' + sevVar + ');cursor:default">';
+      html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
+      html += '<span class="ms-finding-chip" style="color:var(' + sevVar + ');border-color:var(' + sevVar + ')44;background:var(' + sevVar + ')14">' + esc(sev) + '</span>';
+      html += '<strong style="font-size:0.9em;color:var(--text)">' + esc(f.signature || f.category_label || f.category || '') + '</strong>';
+      html += '</div>';
+      if (f.description) html += '<div style="font-size:0.82em;color:var(--text-dim);margin-top:4px;">' + esc(f.description) + '</div>';
+      if (affected.length) {
+        html += '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;">';
+        affected.forEach(function(ip) {
+          html += '<button class="ms-chip" style="cursor:pointer;background:rgba(91,138,240,0.1);border-color:rgba(91,138,240,0.28)" onclick="MS.selectNodeByIp(\'' + esc(ip) + '\',true)">' + esc(ip) + '</button>';
+        });
+        html += '</div>';
+      }
+      html += '</div>';
+    });
+    html += '</div>';
+    el.innerHTML = html;
+  }
+
+  // ── IOC lens (halo overlay on matched assets) ──────────────
+  function renderIocLens() {
+    var el = document.getElementById('ms-lens-ioc');
+    if (!el) return;
+    var iocMatches = (VIEWER_CONTEXT.ioc_matches || []);
+    if (!iocMatches.length) {
+      el.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:48px 0;">' + esc(tjs('viewer.report.iocs_empty') || 'No IOC matches in this report.') + '</div>';
+      return;
+    }
+    var html = '<div style="margin-bottom:12px;color:var(--text-dim);font-size:0.82em;">' + iocMatches.length + ' IOC matches detected</div>';
+    html += '<div style="display:flex;flex-direction:column;gap:6px;">';
+    iocMatches.forEach(function(match) {
+      html += '<div class="ms-finding-card" style="border-left:3px solid var(--sev-critical);">';
+      html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
+      html += '<span class="ms-finding-chip" style="color:var(--sev-critical);border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.1)">IOC</span>';
+      html += '<code style="font-size:0.85em">' + esc(match.indicator || match.value || '') + '</code>';
+      if (match.type) html += '<span class="ms-chip">' + esc(match.type) + '</span>';
+      html += '</div>';
+      if (match.matched_asset) {
+        html += '<div style="margin-top:5px;">';
+        html += '<button class="ms-chip" style="cursor:pointer;background:rgba(239,68,68,0.1)" onclick="MS.selectNodeByIp(\'' + esc(match.matched_asset) + '\',true)">' + esc(match.matched_asset) + '</button>';
+        html += '</div>';
+      }
+      html += '</div>';
+    });
+    html += '</div>';
+    el.innerHTML = html;
+  }
+
+  // ── ATT&CK lens — tactic-grouped technique matrix from marlinspike-mitre ──
+  function renderAttckLens() {
+    var el = document.getElementById('ms-lens-attck');
+    if (!el) return;
+    var classifications = toArray(VIEWER_CONTEXT.mitre_classifications);
+    var platformCoverage = toArray(VIEWER_CONTEXT.mitre_platform_coverage);
+    var matrixDomains = toArray(VIEWER_CONTEXT.mitre_matrix_domains);
+    if (!classifications.length && !platformCoverage.length) {
+      el.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:48px 0;">'
+        + esc(tjs('viewer.lens.attck.empty') || 'No ATT&CK mappings on this report. The marlinspike-mitre plugin runs after every chain scan; if it produced no output, the run may have used --fast or chain-from-conversations.')
+        + '</div>';
+      return;
+    }
+    // Build technique → classification map for quick affected-node lookup
+    var byTech = {};
+    classifications.concat(platformCoverage).forEach(function(c) {
+      if (c.technique_id) byTech[c.technique_id] = c;
+    });
+    var html = '';
+    // Header summary chip strip
+    html += '<div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">';
+    html += '<span class="ms-finding-chip" data-entity="finding">' + classifications.length + ' observed</span>';
+    if (platformCoverage.length) html += '<span class="ms-finding-chip">' + platformCoverage.length + ' platform coverage</span>';
+    matrixDomains.forEach(function(d) {
+      html += '<span class="ms-finding-chip">' + esc(d.name || d.domain) + (d.attack_version ? ' v' + esc(d.attack_version) : '') + '</span>';
+    });
+    html += '</div>';
+    // Tactic-grouped grid
+    if (matrixDomains.length) {
+      matrixDomains.forEach(function(domain) {
+        var mappedTactics = toArray(domain.tactics).filter(function(t) { return t.mapped_total; });
+        if (!mappedTactics.length) return;
+        html += '<div style="margin-bottom:14px;">';
+        html += '<div style="font-size:0.78em;color:var(--text-dim);margin:0 0 8px;text-transform:uppercase;letter-spacing:0.08em;">' + esc(domain.name || domain.domain) + '</div>';
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">';
+        mappedTactics.forEach(function(tactic) {
+          html += '<div class="ms-finding-card" style="border-left:3px solid var(--accent-cyan);padding:10px;">';
+          html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">';
+          html += '<strong style="font-size:0.9em;color:var(--text);">' + esc(tactic.name) + '</strong>';
+          html += '<span class="ms-finding-chip">' + tactic.mapped_total + '/' + tactic.technique_total + '</span>';
+          html += '</div>';
+          toArray(tactic.entries).slice(0, 6).forEach(function(entry) {
+            var c = byTech[entry.technique_id] || entry;
+            var affected = toArray(c.affected_nodes);
+            html += '<div style="font-size:0.82em;margin-bottom:5px;display:flex;flex-wrap:wrap;gap:4px;align-items:center;">';
+            html += '<button class="ms-chip" style="cursor:pointer;font-family:var(--font-mono);color:var(--accent-cyan);background:rgba(50,184,198,0.08);border-color:rgba(50,184,198,0.3)" '
+              + 'onclick="MS.attckHighlight(\'' + esc(entry.technique_id) + '\')" '
+              + 'title="' + esc((c.rationale || '').slice(0, 200)) + '">' + esc(entry.technique_id) + '</button>';
+            html += '<span style="color:var(--text-dim);">' + esc(entry.attack_name || entry.title || '') + '</span>';
+            if (affected.length) html += '<span class="ms-finding-chip" style="font-size:0.74em">' + affected.length + '</span>';
+            html += '</div>';
+          });
+          html += '</div>';
+        });
+        html += '</div>';
+        html += '</div>';
+      });
+    } else {
+      // Flat list fallback (no matrix domains)
+      html += '<div style="display:flex;flex-direction:column;gap:8px;">';
+      classifications.forEach(function(c) {
+        var affected = toArray(c.affected_nodes);
+        var basisColor = c.basis === 'observed' ? 'var(--sev-critical)' : (c.basis === 'platform' ? 'var(--accent-cyan)' : 'var(--sev-medium)');
+        html += '<div class="ms-finding-card" style="border-left:3px solid ' + basisColor + ';">';
+        html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">';
+        html += '<button class="ms-chip" style="cursor:pointer;font-family:var(--font-mono);color:var(--accent-cyan)" onclick="MS.attckHighlight(\'' + esc(c.technique_id) + '\')">' + esc(c.technique_id) + '</button>';
+        html += '<strong style="font-size:0.9em">' + esc(c.attack_name || c.title || '') + '</strong>';
+        if (c.family) html += '<span class="ms-finding-chip">' + esc(c.family) + '</span>';
+        html += '<span class="ms-finding-chip">' + esc(c.basis || 'inferred') + '</span>';
+        html += '<span class="ms-finding-chip">' + Math.round((c.confidence || 0) * 100) + '%</span>';
+        html += '</div>';
+        if (c.rationale) html += '<div style="font-size:0.82em;color:var(--text-dim);margin-top:4px;">' + esc(c.rationale.slice(0, 200)) + '</div>';
+        if (affected.length) {
+          html += '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;">';
+          affected.forEach(function(ip) {
+            html += '<button class="ms-chip" style="cursor:pointer;font-family:var(--font-mono)" onclick="MS.selectNodeByIp(\'' + esc(ip) + '\',true)">' + esc(ip) + '</button>';
+          });
+          html += '</div>';
+        }
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+    el.innerHTML = html;
+  }
+
+  // Highlight all assets affected by a technique on the map.
+  function attckHighlight(techniqueId) {
+    var classifications = toArray(VIEWER_CONTEXT.mitre_classifications).concat(toArray(VIEWER_CONTEXT.mitre_platform_coverage));
+    var match = classifications.find(function(c) { return c.technique_id === techniqueId; });
+    if (!match) return;
+    var affected = toArray(match.affected_nodes);
+    if (!affected.length) {
+      msToast('No assets affected by ' + techniqueId, 'info');
+      return;
+    }
+    // Pulse-highlight by selecting first; full multi-highlight could be added.
+    selectNodeByIp(affected[0], true);
+    msToast(techniqueId + ' affects ' + affected.length + ' asset(s)', 'info');
+  }
+
+  // ── Baseline lens — per-asset novelty vs longitudinal baseline ────────────
+  function renderBaselineLens() {
+    var el = document.getElementById('ms-lens-baseline');
+    if (!el) return;
+    if (projectId == null) {
+      el.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:48px 0;">'
+        + 'Baseline lens requires a project context. Open this report from a project to see longitudinal novelty.</div>';
+      return;
+    }
+    var allNodes = toArray(REPORT.nodes);
+    if (!allNodes.length) {
+      el.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:48px 0;">No assets in this report.</div>';
+      return;
+    }
+    // Pick the most-connected assets (best novelty signal).
+    var ranked = allNodes.slice().sort(function(a, b) {
+      return (b.connection_count || 0) - (a.connection_count || 0);
+    }).slice(0, 12);
+    var html = '<div style="margin-bottom:10px;color:var(--text-dim);font-size:0.82em;">'
+      + 'Top ' + ranked.length + ' assets by connection count. Each card fetches its longitudinal baseline; '
+      + 'novelty highlights show new peers, new protocols, and new findings vs. prior reports in this project.</div>';
+    html += '<div id="ms-baseline-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:8px;"></div>';
+    el.innerHTML = html;
+    var cardsEl = document.getElementById('ms-baseline-cards');
+    ranked.forEach(function(node) {
+      var key = node.mac_address || node.ip;
+      if (!key) return;
+      var cardId = 'ms-baseline-card-' + esc(key.replace(/[^a-zA-Z0-9]/g, '_'));
+      cardsEl.insertAdjacentHTML('beforeend',
+        '<div id="' + cardId + '" class="ms-finding-card" style="padding:10px;cursor:pointer" onclick="MS.selectNodeByIp(\'' + esc(node.ip) + '\',true)">'
+          + '<div style="font-family:var(--font-mono);font-size:0.85em;color:var(--accent);margin-bottom:4px;">' + esc(node.ip) + '</div>'
+          + '<div style="color:var(--text-dim);font-size:0.78em;">Loading baseline…</div>'
+          + '</div>');
+      fetch('/api/projects/' + projectId + '/assets/' + encodeURIComponent(key) + '/baseline')
+        .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+        .then(function(data) { renderBaselineCard(cardId, node, data); })
+        .catch(function() {
+          var c = document.getElementById(cardId);
+          if (c) c.querySelector('div:last-child').textContent = 'No baseline available';
+        });
+    });
+  }
+
+  function renderBaselineCard(cardId, node, baseline) {
+    var c = document.getElementById(cardId);
+    if (!c) return;
+    var novelty = (baseline && baseline.novelty) || {};
+    var newPeers = toArray(novelty.new_peers).length;
+    var newProtos = toArray(novelty.new_protocols).length;
+    var newFindings = toArray(novelty.new_finding_categories).length;
+    var lostPeers = toArray(novelty.lost_peers).length;
+    var reportCount = (baseline && baseline.report_count) || 0;
+    var hasNovelty = newPeers + newProtos + newFindings + lostPeers > 0;
+    var sevVar = newFindings > 0 ? '--sev-high' : (newPeers + newProtos > 0 ? '--sev-medium' : '--sev-info');
+    var inner = '<div style="font-family:var(--font-mono);font-size:0.85em;color:var(--accent);margin-bottom:4px;">' + esc(node.ip);
+    if (node.role) inner += ' <span class="ms-finding-chip" style="font-size:0.7em">' + esc(node.role) + '</span>';
+    inner += '</div>';
+    inner += '<div style="font-size:0.76em;color:var(--text-dim);margin-bottom:6px;">Across ' + reportCount + ' report(s)</div>';
+    if (!hasNovelty) {
+      inner += '<div style="font-size:0.78em;color:var(--text-dim);">No novelty vs baseline</div>';
+    } else {
+      inner += '<div style="display:flex;flex-wrap:wrap;gap:4px;">';
+      if (newPeers) inner += '<span class="ms-finding-chip" style="color:var(' + sevVar + ');border-color:var(' + sevVar + ')44">+' + newPeers + ' peers</span>';
+      if (newProtos) inner += '<span class="ms-finding-chip" style="color:var(' + sevVar + ');border-color:var(' + sevVar + ')44">+' + newProtos + ' protocols</span>';
+      if (newFindings) inner += '<span class="ms-finding-chip" style="color:var(--sev-high);border-color:var(--sev-high)44">+' + newFindings + ' findings</span>';
+      if (lostPeers) inner += '<span class="ms-finding-chip" style="color:var(--text-dim)">−' + lostPeers + ' lost peers</span>';
+      inner += '</div>';
+    }
+    c.style.borderLeft = '3px solid var(' + sevVar + ')';
+    c.innerHTML = inner;
+  }
+
+  // ── Peers lens — group assets by role / vendor / purdue level ─────────────
+  function renderPeersLens() {
+    var el = document.getElementById('ms-lens-peers');
+    if (!el) return;
+    var allNodes = toArray(REPORT.nodes);
+    if (!allNodes.length) {
+      el.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:48px 0;">No assets in this report.</div>';
+      return;
+    }
+    var byRole = {};
+    var byVendor = {};
+    var byPurdue = {};
+    allNodes.forEach(function(n) {
+      var role = n.role || 'unknown';
+      var vendor = n.vendor || 'unknown';
+      var purdue = (n.purdue_level !== undefined && n.purdue_level !== null) ? ('Level ' + n.purdue_level) : 'Level ?';
+      if (!byRole[role]) byRole[role] = [];
+      if (!byVendor[vendor]) byVendor[vendor] = [];
+      if (!byPurdue[purdue]) byPurdue[purdue] = [];
+      byRole[role].push(n);
+      byVendor[vendor].push(n);
+      byPurdue[purdue].push(n);
+    });
+    function renderGroup(title, groups) {
+      var keys = Object.keys(groups).sort(function(a, b) { return groups[b].length - groups[a].length; });
+      var html = '<div style="font-size:0.78em;color:var(--text-dim);margin:0 0 8px;text-transform:uppercase;letter-spacing:0.08em;">' + esc(title) + '</div>';
+      html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">';
+      keys.forEach(function(k) {
+        var nodes = groups[k];
+        var ips = nodes.map(function(n) { return n.ip; }).filter(Boolean);
+        html += '<button class="ms-chip" style="cursor:pointer;padding:6px 10px;background:rgba(91,138,240,0.1);border-color:rgba(91,138,240,0.28)" '
+          + 'onclick="MS.peersHighlight([' + ips.map(function(ip) { return '\'' + esc(ip) + '\''; }).join(',') + '])" '
+          + 'title="Click to focus the map on these assets">'
+          + '<strong>' + esc(k) + '</strong> '
+          + '<span style="color:var(--text-dim);margin-left:4px;">' + nodes.length + '</span>'
+          + '</button>';
+      });
+      html += '</div>';
+      return html;
+    }
+    var html = renderGroup('By Role', byRole);
+    html += renderGroup('By Vendor', byVendor);
+    html += renderGroup('By Purdue Level', byPurdue);
+    // Anomalous-by-context: assets whose role is unique within their purdue level
+    html += '<div style="font-size:0.78em;color:var(--text-dim);margin:0 0 8px;text-transform:uppercase;letter-spacing:0.08em;">Anomalous-by-context</div>';
+    var roleCount = {};
+    allNodes.forEach(function(n) {
+      var k = (n.role || 'unknown') + '|' + (n.purdue_level !== undefined ? n.purdue_level : '?');
+      roleCount[k] = (roleCount[k] || 0) + 1;
+    });
+    var oddOnes = allNodes.filter(function(n) {
+      var k = (n.role || 'unknown') + '|' + (n.purdue_level !== undefined ? n.purdue_level : '?');
+      return roleCount[k] === 1;
+    });
+    if (!oddOnes.length) {
+      html += '<div style="font-size:0.82em;color:var(--text-dim);">All assets share their role with at least one peer at the same Purdue level.</div>';
+    } else {
+      html += '<div style="display:flex;flex-wrap:wrap;gap:4px;">';
+      oddOnes.forEach(function(n) {
+        html += '<button class="ms-chip" style="cursor:pointer;font-family:var(--font-mono);color:var(--sev-medium);border-color:var(--sev-medium)44" '
+          + 'onclick="MS.selectNodeByIp(\'' + esc(n.ip) + '\',true)" '
+          + 'title="' + esc((n.role || 'unknown') + ' is unique at Purdue Level ' + (n.purdue_level !== undefined ? n.purdue_level : '?')) + '">'
+          + esc(n.ip) + '</button>';
+      });
+      html += '</div>';
+    }
+    el.innerHTML = html;
+  }
+
+  function peersHighlight(ips) {
+    if (!ips || !ips.length) return;
+    selectNodeByIp(ips[0], true);
+    msToast(ips.length + ' assets in this group', 'info');
+  }
+
+  // ── Inspector ──────────────────────────────────────────────
+  var inspectorCollapsed = false;
+
+  function toggleInspector() {
+    inspectorCollapsed = !inspectorCollapsed;
+    var panel = document.getElementById('ms-inspector');
+    var body = document.getElementById('ms-workbench-body');
+    var toggle = document.getElementById('ms-inspector-toggle');
+    if (panel) panel.classList.toggle('collapsed', inspectorCollapsed);
+    if (body) body.classList.toggle('inspector-collapsed', inspectorCollapsed);
+    if (toggle) toggle.innerHTML = inspectorCollapsed ? '&#8249;' : '&#8250;';
+  }
+
+  function renderInspector() {
+    var el = document.getElementById('ms-inspector-content');
+    if (!el) return;
+    if (!selectedNode) {
+      el.innerHTML = '<div style="color:var(--text-dim);font-size:0.84em;padding:24px 0 8px;text-align:center;">'
+        + '<svg width="32" height="32" viewBox="0 0 32 32" fill="none" style="display:block;margin:0 auto 10px;opacity:0.35"><circle cx="16" cy="12" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M4 28c0-6.627 5.373-12 12-12s12 5.373 12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
+        + esc(tjs('viewer.inspector.empty'))
+        + '</div>';
+      return;
+    }
+    var n = selectedNode;
+    var roleColor = n._style ? n._style.color : '#64748b';
+    var levelColor = PURDUE_COLORS[n._level] || '#64748b';
+    var taxVis = taxVisual('asset');
+    var html = '';
+
+    // Entity chip (taxonomy-driven)
+    html += '<div class="ms-inspector-entity-chip" style="border-color:' + roleColor + '44;background:' + roleColor + '12;color:' + roleColor + '">'
+      + '<svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="6" r="3.5" stroke="currentColor" stroke-width="1.2"/><path d="M2 14c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>'
+      + esc(n._role || 'Asset')
+      + '</div>';
+
+    // IP + level badge
+    html += '<h2 style="font-size:1em;font-family:var(--font-mono);color:var(--text);margin:0 0 4px;">' + esc(n._ip) + '</h2>';
+    html += '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;">';
+    html += '<span class="ms-level-badge" style="color:' + levelColor + ';border-color:' + levelColor + '44;background:' + levelColor + '18;font-size:0.74em;">' + esc(PURDUE_LABELS[n._level] || 'Level ' + n._level) + '</span>';
+    if (n.auth_observed) html += '<span class="ms-chip" style="font-size:0.72em;color:var(--accent-green)">Auth observed</span>';
+    if (n.attack_priority) html += '<span class="ms-chip" style="font-size:0.72em;color:var(--sev-high)">Priority ' + esc(String(n.attack_priority)) + '</span>';
+    html += '</div>';
+
+    // Quick actions
+    html += '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px;">';
+    html += '<button class="ms-mini-btn" onclick="MS.centerOnSelected()">' + esc(tjs('viewer.sel.center')) + '</button>';
+    html += '<button class="ms-mini-btn" onclick="MS.deselectNode()">' + esc(tjs('viewer.sel.clear')) + '</button>';
+    html += '</div>';
+
+    // Properties
+    html += '<div style="font-size:0.74em;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:6px;">' + esc(tjs('viewer.inspector.section.properties')) + '</div>';
+    html += '<div class="ms-selection-grid">';
+    var fields = [
+      [tjs('viewer.report.vendor'), n.vendor || tjs('viewer.unknown')],
+      [tjs('viewer.report.device_type'), n.device_type || '—'],
+      [tjs('viewer.report.product'), n.product_line || '—'],
+      [tjs('viewer.sel.connections'), String(n._connCount || 0)]
+    ];
+    if (n.mac) fields.push(['MAC', n.mac]);
+    fields.forEach(function(f) {
+      html += '<div class="ms-field"><span class="label">' + esc(f[0]) + '</span><span class="value">' + esc(f[1]) + '</span></div>';
+    });
+    html += '</div>';
+
+    // Protocols
+    if (n._protocols && n._protocols.length) {
+      html += '<div style="font-size:0.74em;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin:10px 0 5px;">' + esc(tjs('viewer.sel.observed_protocols')) + '</div>';
+      html += '<div class="ms-chip-row">';
+      n._protocols.forEach(function(p) {
+        html += '<span class="ms-chip" style="color:' + protoColor(p) + ';border-color:' + protoColor(p) + '44;background:' + protoColor(p) + '14">' + esc(p) + '</span>';
+      });
+      html += '</div>';
+    }
+
+    // Neighbors
+    if (n._edges && n._edges.length) {
+      html += '<div style="font-size:0.74em;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin:10px 0 5px;">' + esc(tjs('viewer.inspector.section.neighbors')) + '</div>';
+      html += '<div class="ms-connection-list">';
+      n._edges.slice(0, 6).forEach(function(e) {
+        var peer = e.src === n._ip ? e.dst : e.src;
+        html += '<div class="ms-connection-item" style="cursor:pointer" onclick="MS.selectNodeByIp(\'' + esc(peer) + '\',true)">'
+          + '<span style="color:' + (e._color || '#64748b') + '">' + esc(e.protocol || '?') + '</span>'
+          + ' &middot; <code>' + esc(peer) + '</code>'
+          + ' &middot; ' + esc(e.conversation_count || 0) + ' ' + esc(tjs('viewer.conv_short'))
+          + '</div>';
+      });
+      html += '</div>';
+    }
+
+    // Risk findings (taxonomy chip per finding)
+    var risks = nodeRiskFindings(n);
+    if (risks.length) {
+      html += '<div style="font-size:0.74em;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin:10px 0 5px;">' + esc(tjs('viewer.inspector.section.findings')) + '</div>';
+      risks.slice(0, 4).forEach(function(r) {
+        var ctxSev = contextualSeverity(r);
+        var sevVar = { CRITICAL: '--sev-critical', HIGH: '--sev-high', MEDIUM: '--sev-medium', LOW: '--sev-low', INFO: '--sev-info' }[ctxSev] || '--text-dim';
+        var taxVF = taxVisual('finding');
+        html += '<div class="ms-risk-item sev-' + esc(ctxSev) + '" style="margin-bottom:5px;">';
+        html += '<div class="ms-inspector-entity-chip" style="background:var(' + sevVar + ')14;border-color:var(' + sevVar + ')44;color:var(' + sevVar + ')">';
+        html += '<svg viewBox="0 0 16 16" fill="none"><path d="M8 2L14 13H2L8 2Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>';
+        html += esc(ctxSev) + ' Finding</div>';
+        html += '<div style="font-size:0.84em;color:var(--text-dim)">' + esc(r.description || '') + '</div>';
+        html += renderFindingNote(r) + findingNoteEditorButton(r);
+        html += '</div>';
+      });
+    }
+
+    // Asset context (tags + notes editor) — preserved
+    html += '<div style="font-size:0.74em;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin:10px 0 5px;">' + esc(tjs('viewer.inspector.section.tags')) + '</div>';
+    html += renderAssetContextEditor(n);
+
+    // Pivot strip
+    html += '<div class="ms-inspector-pivot-strip">';
+    html += '<button class="ms-inspector-pivot-btn" onclick="MS.setDrawerTab(\'findings\');MS.openDrawer()">'
+      + '<svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M8 2L14 13H2L8 2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>'
+      + esc(tjs('viewer.inspector.pivot.findings'))
+      + '</button>';
+    if (VIEWER_CONTEXT.project_id != null) {
+      html += '<button class="ms-inspector-pivot-btn" onclick="MS.extractSubPcap({src:\'' + esc(n._ip) + '\'})">'
+        + '<svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M8 3v7M4 9l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="2" y1="14" x2="14" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
+        + esc(tjs('viewer.inspector.pivot.extract'))
+        + '</button>';
+    }
+    html += '<button class="ms-inspector-pivot-btn" onclick="MS.setFocus(\'risk\');MS.applyFilters()">'
+      + '<svg width="11" height="11" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><line x1="8" y1="5" x2="8" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="11.5" r="0.7" fill="currentColor"/></svg>'
+      + esc(tjs('viewer.inspector.pivot.filter'))
+      + '</button>';
+    html += '</div>';
+
+    el.innerHTML = html;
+  }
+
+  // ── Bottom drawer ──────────────────────────────────────────
+  var drawerOpen = false;
+  var activeDrawerTab = 'findings';
+
+  function openDrawer() {
+    if (!drawerOpen) toggleDrawer();
+  }
+
+  function toggleDrawer() {
+    drawerOpen = !drawerOpen;
+    var el = document.getElementById('ms-drawer');
+    if (el) el.classList.toggle('open', drawerOpen);
+    if (drawerOpen) renderDrawerTab(activeDrawerTab);
+  }
+
+  function setDrawerTab(tab) {
+    activeDrawerTab = tab;
+    document.querySelectorAll('.ms-drawer-tab').forEach(function(btn) {
+      btn.classList.toggle('active', btn.getAttribute('data-tab') === tab);
+    });
+    document.querySelectorAll('.ms-drawer-tab-content').forEach(function(pane) {
+      pane.classList.remove('active');
+    });
+    var active = document.getElementById('ms-drawer-' + tab);
+    if (active) active.classList.add('active');
+    if (drawerOpen) renderDrawerTab(tab);
+  }
+
+  function renderDrawerCount() {
+    var countEl = document.getElementById('ms-drawer-count');
+    if (!countEl) return;
+    var findings = (VIEWER_CONTEXT.top_findings || []).length + (VIEWER_CONTEXT.c2_indicators || []).length;
+    countEl.textContent = findings ? findings + ' findings' : '';
+  }
+
+  function renderDrawerTab(tab) {
+    var el = document.getElementById('ms-drawer-' + tab);
+    if (!el || el.getAttribute('data-rendered') === 'true') return;
+    if (tab === 'findings')      el.innerHTML = renderDrawerFindings();
+    else if (tab === 'conversations') el.innerHTML = renderDrawerConversations();
+    else if (tab === 'assets')   el.innerHTML = renderDrawerAssets();
+    else if (tab === 'iocs')     el.innerHTML = renderDrawerIocs();
+    else if (tab === 'anomalies') el.innerHTML = renderDrawerAnomalies();
+    else if (tab === 'attck')    el.innerHTML = renderDrawerAttck();
+    else if (tab === 'dns')      el.innerHTML = renderDrawerDns();
+    el.setAttribute('data-rendered', 'true');
+  }
+
+  function tableHeader(cols) {
+    return '<table style="width:100%;border-collapse:collapse;font-size:0.82em;">'
+      + '<thead><tr>' + cols.map(function(c) {
+        return '<th style="text-align:left;padding:4px 8px;border-bottom:1px solid var(--border-dim);color:var(--text-dim);font-weight:600;white-space:nowrap">' + esc(c) + '</th>';
+      }).join('') + '</tr></thead><tbody>';
+  }
+
+  function tableRow(cells, onclick) {
+    var rowAttrs = onclick ? ' style="cursor:pointer" onclick="' + onclick + '"' : '';
+    return '<tr' + rowAttrs + ' onmouseover="this.style.background=\'rgba(91,138,240,0.06)\'" onmouseout="this.style.background=\'\'">'
+      + cells.map(function(c) { return '<td style="padding:4px 8px;border-bottom:1px solid rgba(255,255,255,0.04);vertical-align:top">' + (c || '—') + '</td>'; }).join('')
+      + '</tr>';
+  }
+
+  function renderDrawerFindings() {
+    var findings = (VIEWER_CONTEXT.top_findings || []).concat(VIEWER_CONTEXT.c2_indicators || []);
+    if (!findings.length) return '<div style="color:var(--text-dim);padding:16px;">' + esc(tjs('viewer.report.findings.empty')) + '</div>';
+    var sevOrder = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, INFO: 4 };
+    var sorted = findings.slice().sort(function(a, b) { return (sevOrder[a.severity] || 5) - (sevOrder[b.severity] || 5); });
+    var html = '<div class="ms-drawer-actions">'
+      + '<button class="ms-btn" onclick="MS.exportCsvFindings()">CSV</button>'
+      + '</div>';
+    html += tableHeader([tjs('viewer.drawer.findings.col.sig'), tjs('viewer.drawer.findings.col.sev'), tjs('viewer.drawer.findings.col.asset'), tjs('viewer.drawer.findings.col.status')]);
+    sorted.forEach(function(f) {
+      var sev = f.severity || 'INFO';
+      var sevVar = { CRITICAL: '--sev-critical', HIGH: '--sev-high', MEDIUM: '--sev-medium', LOW: '--sev-low', INFO: '--sev-info' }[sev] || '--text-dim';
+      var affected = toArray(f.affected_nodes);
+      var affectedHtml = affected.length ? affected.slice(0, 2).map(function(ip) {
+        return '<span style="cursor:pointer;color:var(--accent-cyan);font-family:var(--font-mono)" onclick="MS.selectNodeByIp(\'' + esc(ip) + '\',true)">' + esc(ip) + '</span>';
+      }).join(' ') + (affected.length > 2 ? ' +' + (affected.length - 2) : '') : '—';
+      var note = f._note || {};
+      var status = note.status || '';
+      var sigHtml = '<span style="font-family:var(--font-mono)">' + esc(f.signature || f.category_label || f.category || '') + '</span>';
+      var sevHtml = '<span style="color:var(' + sevVar + ')">' + esc(sev) + '</span>';
+      html += tableRow([sigHtml, sevHtml, affectedHtml, esc(status) || '<span style="color:var(--text-muted)">—</span>']);
+    });
+    html += '</tbody></table>';
+    return html;
+  }
+
+  function renderDrawerConversations() {
+    var convs = timeFilteredConversations();
+    if (!convs.length) return '<div style="color:var(--text-dim);padding:16px;">' + esc(tjs('viewer.traffic.conversations_empty') || 'No conversations.') + '</div>';
+    var html = tableHeader([tjs('viewer.drawer.conversations.col.src'), tjs('viewer.drawer.conversations.col.dst'), tjs('viewer.drawer.conversations.col.proto'), tjs('viewer.drawer.conversations.col.bytes'), tjs('viewer.drawer.conversations.col.pkts')]);
+    convs.slice(0, 200).forEach(function(c) {
+      var srcHtml = '<span style="cursor:pointer;color:var(--accent-cyan);font-family:var(--font-mono)" onclick="MS.selectNodeByIp(\'' + esc(c.src_ip || c.src) + '\',true)">' + esc(c.src_ip || c.src) + '</span>';
+      var dstHtml = '<span style="cursor:pointer;color:var(--accent-cyan);font-family:var(--font-mono)" onclick="MS.selectNodeByIp(\'' + esc(c.dst_ip || c.dst) + '\',true)">' + esc(c.dst_ip || c.dst) + '</span>';
+      html += tableRow([srcHtml, dstHtml, esc(c.protocol || ''), esc(formatBytes(c.bytes_total || c.bytes || 0)), esc(String(c.packet_count || c.packets || ''))]);
+    });
+    html += '</tbody></table>';
+    return html;
+  }
+
+  function renderDrawerAssets() {
+    if (!nodes.length) return '<div style="color:var(--text-dim);padding:16px;">No assets.</div>';
+    var html = '<div class="ms-drawer-actions"><button class="ms-btn" onclick="MS.exportCsvAssets()">CSV</button></div>';
+    html += tableHeader([tjs('viewer.drawer.assets.col.ip'), tjs('viewer.drawer.assets.col.role'), tjs('viewer.drawer.assets.col.vendor'), tjs('viewer.drawer.assets.col.level'), tjs('viewer.drawer.assets.col.risk')]);
+    var sorted = nodes.slice().sort(function(a, b) { return (b._riskFindings || b._risk_count || 0) - (a._riskFindings || a._risk_count || 0); });
+    sorted.forEach(function(n) {
+      var ipHtml = '<span style="cursor:pointer;color:var(--accent-cyan);font-family:var(--font-mono)" onclick="MS.selectNodeByIp(\'' + esc(n._ip) + '\',true)">' + esc(n._ip) + '</span>';
+      var roleColor = n._style ? n._style.color : '#64748b';
+      var roleHtml = '<span style="color:' + roleColor + '">' + esc(n._role || '—') + '</span>';
+      var risk = n._riskCount || n._risk_count || 0;
+      var riskHtml = risk ? '<span style="color:var(--sev-high)">' + risk + '</span>' : '<span style="color:var(--text-muted)">0</span>';
+      html += tableRow([ipHtml, roleHtml, esc(n.vendor || ''), esc(PURDUE_LABELS[n._level] || ''), riskHtml]);
+    });
+    html += '</tbody></table>';
+    return html;
+  }
+
+  function renderDrawerIocs() {
+    var iocMatches = (VIEWER_CONTEXT.ioc_matches || []);
+    if (!iocMatches.length) return '<div style="color:var(--text-dim);padding:16px;">No IOC matches in this report.</div>';
+    var html = tableHeader([tjs('viewer.drawer.iocs.col.indicator'), tjs('viewer.drawer.iocs.col.type'), tjs('viewer.drawer.iocs.col.matched')]);
+    iocMatches.forEach(function(match) {
+      var indHtml = '<code style="font-size:0.9em">' + esc(match.indicator || match.value || '') + '</code>';
+      var matchHtml = match.matched_asset ? '<span style="cursor:pointer;color:var(--accent-cyan);font-family:var(--font-mono)" onclick="MS.selectNodeByIp(\'' + esc(match.matched_asset) + '\',true)">' + esc(match.matched_asset) + '</span>' : '—';
+      html += tableRow([indHtml, esc(match.type || ''), matchHtml]);
+    });
+    html += '</tbody></table>';
+    return html;
+  }
+
+  function renderDrawerAnomalies() {
+    var anomalies = (VIEWER_CONTEXT.l2_anomaly_digest || []);
+    var all = [];
+    anomalies.forEach(function(bucket) {
+      all.push({ type: bucket.anomaly_type, reason: (bucket.sample && bucket.sample.reason) || '', asset: (bucket.sample && (bucket.sample.src_mac || '')) || '', count: bucket.count });
+    });
+    toArray(VIEWER_CONTEXT.external_indicators).forEach(function(ind) {
+      all.push({ type: ind.type || 'External', reason: ind.description || '', asset: '', count: 1 });
+    });
+    if (!all.length) return '<div style="color:var(--text-dim);padding:16px;">No anomalies detected.</div>';
+    var html = tableHeader([tjs('viewer.drawer.anomalies.col.type'), tjs('viewer.drawer.anomalies.col.reason'), tjs('viewer.drawer.anomalies.col.asset')]);
+    all.forEach(function(a) {
+      html += tableRow([esc(a.type), esc(a.reason), esc(a.asset)]);
+    });
+    html += '</tbody></table>';
+    return html;
+  }
+
+  function renderDrawerAttck() {
+    var items = (VIEWER_CONTEXT.mitre_classifications || []).concat(VIEWER_CONTEXT.mitre_platform_coverage || []);
+    if (!items.length) return '<div style="color:var(--text-dim);padding:16px;">No ATT&CK mappings in this report.</div>';
+    var html = tableHeader([tjs('viewer.drawer.attck.col.technique'), tjs('viewer.drawer.attck.col.tactic'), tjs('viewer.drawer.attck.col.asset')]);
+    items.forEach(function(item) {
+      var tidHtml = '<span class="ms-chip" style="font-family:var(--font-mono);font-size:0.85em">' + esc(item.technique_id || '') + '</span> ' + esc(item.attack_name || item.title || '');
+      var tactics = toArray(item.tactics).map(function(t) { return t.name || t; }).join(', ');
+      var affected = toArray(item.affected_nodes);
+      var affectedHtml = affected.length ? affected.slice(0, 2).map(function(ip) {
+        return '<span style="cursor:pointer;color:var(--accent-cyan);font-family:var(--font-mono)" onclick="MS.selectNodeByIp(\'' + esc(ip) + '\',true)">' + esc(ip) + '</span>';
+      }).join(' ') : '—';
+      html += tableRow([tidHtml, esc(tactics), affectedHtml]);
+    });
+    html += '</tbody></table>';
+    return html;
+  }
+
+  function renderDrawerDns() {
+    var dnsItems = (VIEWER_CONTEXT.dns_observations || []);
+    if (!dnsItems.length) return '<div style="color:var(--text-dim);padding:16px;">No DNS observations in this report.</div>';
+    var html = tableHeader([tjs('viewer.drawer.dns.col.query'), tjs('viewer.drawer.dns.col.type'), tjs('viewer.drawer.dns.col.answer'), tjs('viewer.drawer.dns.col.asset')]);
+    dnsItems.slice(0, 200).forEach(function(d) {
+      var assetHtml = d.asset_ip ? '<span style="cursor:pointer;color:var(--accent-cyan);font-family:var(--font-mono)" onclick="MS.selectNodeByIp(\'' + esc(d.asset_ip) + '\',true)">' + esc(d.asset_ip) + '</span>' : '—';
+      html += tableRow(['<code style="font-size:0.85em">' + esc(d.query || d.name || '') + '</code>', esc(d.record_type || d.type || ''), esc(d.answer || d.rdata || ''), assetHtml]);
+    });
+    html += '</tbody></table>';
+    return html;
+  }
+
+  // ── applyFilters (for visible search/focus controls) ───────
+  function applyFilters() {
+    var searchEl = document.getElementById('ms-search');
+    var focusEl = document.getElementById('ms-focus');
+    if (searchEl) setSearch(searchEl.value);
+    if (focusEl) setFocus(focusEl.value);
+  }
+
   function start() {
     initData();
     renderHeader();
-    renderSidebar();
+    // Initialize new workbench surface (inspector, lens strip, drawer count)
+    renderInspector();
+    renderDrawerCount();
+    // Fetch taxonomy and render lens strip
+    fetchTaxonomy().then(function() {
+      renderLensStrip();
+    });
+    // Render role legend in canvas overlay
+    var legendEl = document.getElementById('ms-role-legend');
+    if (legendEl && nodes.length) {
+      var rc = {};
+      nodes.forEach(function(n) { var r = n._role || 'Unknown'; rc[r] = (rc[r] || 0) + 1; });
+      var sorted = Object.keys(rc).sort(function(a, b) { return rc[b] - rc[a]; });
+      var lhtml = '';
+      sorted.slice(0, 8).forEach(function(r) {
+        var st = resolveRoleStyle(r);
+        lhtml += '<div class="ms-legend-item"><span class="ms-legend-dot" style="background:' + st.color + '"></span><span>' + esc(r) + '</span><span class="ms-legend-count">' + rc[r] + '</span></div>';
+      });
+      legendEl.innerHTML = lhtml;
+    }
+    // Legacy sidebar-content shim (sidebar is hidden but renderSidebar still
+    // writes to ms-sidebar-content which may exist in old pane — create dummy)
+    if (!document.getElementById('ms-sidebar-content')) {
+      var dummy = document.createElement('div');
+      dummy.id = 'ms-sidebar-content';
+      dummy.style.display = 'none';
+      document.body.appendChild(dummy);
+    }
     bindControls();
-    loadTimeline().then(renderTimeline);
+    loadTimeline().then(function(data) {
+      renderTimeline(data);
+      // Show timeline bar row if data is available
+      if (data && data.buckets && data.buckets.length) {
+        var rowEl = document.getElementById('ms-timeline-bar-row');
+        if (rowEl) rowEl.classList.remove('hidden');
+      }
+    });
     if (nodes.length === 0) {
       document.getElementById('ms-empty').style.display = 'block';
       document.getElementById('ms-svg-container').style.display = 'none';
@@ -5956,7 +6902,13 @@ var MS = (function() {
     SVG2D.init();
   }
 
+  // Re-render topology when HP-HMI mode toggles — node fills depend on it.
+  document.addEventListener('ms:hmi-changed', function() {
+    if (svgEl) SVG2D.init();
+  });
+
   return {
+    // Legacy nav (kept for backward compat / report pane functions)
     toggleRisk: toggleRisk,
     toggleReport: toggleReport,
     toggleSection: toggleSection,
@@ -5972,6 +6924,7 @@ var MS = (function() {
     setWorkbenchMode: setWorkbenchMode,
     clearFilters: clearFilters,
     applySearchTerm: applySearchTerm,
+    applyFilters: applyFilters,
     resetTimeWindow: resetTimeWindow,
     extractSubPcap: extractSubPcap,
     saveAssetContext: saveAssetContext,
@@ -5979,6 +6932,16 @@ var MS = (function() {
     saveFindingNote: saveFindingNote,
     deleteFindingNote: deleteFindingNote,
     openFindingNoteDialog: openFindingNoteDialog,
+    // Workbench v3.4
+    setLens: setLens,
+    attckHighlight: attckHighlight,
+    peersHighlight: peersHighlight,
+    toggleInspector: toggleInspector,
+    toggleDrawer: toggleDrawer,
+    openDrawer: openDrawer,
+    setDrawerTab: setDrawerTab,
+    toggleHmi: function() { window.msSetHmi(!window.msHmiActive()); },
+    msToast: msToast,
     start: start
   };
 })();

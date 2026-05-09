@@ -6,11 +6,15 @@
 <title>MarlinSpike — {{ t('live.title') }}</title>
 <style nonce="{{ csp_nonce }}">
 :root {
-  --bg: #0f1923; --bg-deep: #0b1420; --bg-surface: #111b2b;
-  --panel: #162233; --panel-alt: #111b2b;
-  --border: #243447; --border-dim: #141e32;
-  --text: #d4dce6; --text-dim: #7a8a9e; --text-muted: #384560;
-  --accent: #5b8af0; --color-vor-accent: #ef4444; --color-ot: #22c55e;
+  --bg: #0d1720; --bg-deep: #090e18; --bg-surface: #101928;
+  --panel: #14202f; --panel-alt: #101928; --panel-strong: #19253a;
+  --border: #1f3048; --border-dim: #111d30;
+  --text: #cdd8e3; --text-dim: #6e7f96; --text-muted: #344056;
+  --accent: #5b8af0;
+  --sev-critical: #ef4444; --sev-critical-bg: rgba(239,68,68,0.10); --sev-critical-border: rgba(239,68,68,0.28);
+  --sev-high: #f97316;
+  --sev-medium: #f59e0b;
+  --color-vor-accent: #ef4444; --color-ot: #22c55e; --color-danger: #ef4444; --color-warning: #f59e0b;
   --font-mono: 'Fira Code','Cascadia Code','Consolas','Courier New', monospace;
   --font-ui: 'Inter','Segoe UI', system-ui, -apple-system, sans-serif;
 }
@@ -50,9 +54,9 @@ body { background: var(--bg); color: var(--text); font-family: var(--font-ui); f
 .live-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 .live-legend-count { margin-left: auto; font-family: var(--font-mono); color: var(--text-dim); font-size: 0.85em; }
 .live-risk-item { padding: 6px 8px; margin: 4px 0; border-radius: 4px; border-left: 3px solid var(--border); background: var(--panel-alt); font-size: 0.88em; line-height: 1.35; }
-.live-risk-item.sev-CRITICAL { border-color: #ef4444; }
-.live-risk-item.sev-HIGH { border-color: #f59e0b; }
-.live-risk-item.sev-MEDIUM { border-color: #3b82f6; }
+.live-risk-item.sev-CRITICAL { border-color: var(--sev-critical); }
+.live-risk-item.sev-HIGH     { border-color: var(--sev-high); }
+.live-risk-item.sev-MEDIUM   { border-color: var(--sev-medium); }
 
 #live-detail { display: none; position: absolute; bottom: 16px; left: 16px; width: 340px; max-height: 60%; overflow-y: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; z-index: 20; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
 #live-detail .close-btn { position: absolute; top: 8px; right: 10px; cursor: pointer; color: var(--text-dim); font-size: 1.1em; background: none; border: none; }
@@ -74,6 +78,32 @@ body { background: var(--bg); color: var(--text); font-family: var(--font-ui); f
 #live-redirect-bar a { color: var(--color-ot); font-weight: 600; text-decoration: none; padding: 4px 14px; border: 1px solid var(--color-ot); border-radius: 4px; margin: 0 8px; transition: background 0.2s; }
 #live-redirect-bar a:hover { background: rgba(34,197,94,0.15); }
 #live-redirect-bar .countdown { color: var(--text-dim); font-family: var(--font-mono); }
+/* Recovery banner — integrated with token system; not bolted on */
+#live-recovery-banner {
+  display: none;
+  grid-column: 1 / -1;
+  padding: 9px 16px;
+  background: rgba(91,138,240,0.07);
+  border-bottom: 1px solid rgba(91,138,240,0.22);
+  font-size: 0.84em;
+  color: var(--text-dim);
+}
+#live-recovery-banner .recovery-banner-inner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 900px;
+}
+#live-recovery-banner .recovery-banner-icon {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  margin-top: 1px;
+  color: var(--accent);
+  opacity: 0.85;
+}
+#live-recovery-banner strong { color: var(--text); font-weight: 600; }
+#live-recovery-banner.visible { display: block; }
 </style>
 </head>
 <body>
@@ -97,6 +127,13 @@ body { background: var(--bg); color: var(--text); font-family: var(--font-ui); f
   </div>
 
   <div id="live-redirect-bar"></div>
+
+  <div id="live-recovery-banner">
+    <div class="recovery-banner-inner">
+      <svg class="recovery-banner-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><line x1="8" y1="5" x2="8" y2="8.5"/><circle cx="8" cy="11" r="0.6" fill="currentColor" stroke="none"/></svg>
+      <span id="live-recovery-banner-text"></span>
+    </div>
+  </div>
 
   <div id="live-viewport">
     <div id="live-svg-container"></div>
@@ -122,6 +159,8 @@ var LIVE = (function() {
   'use strict';
 
   var RUN_ID = '{{ run_id }}';
+  var RECOVERED = {{ 'true' if recovered else 'false' }};
+  var RECOVERY_STATE = '{{ recovery_state | e }}';
   var POLL_MS = 3000;
   var pollTimer = null;
   var paused = false;
@@ -328,7 +367,7 @@ var LIVE = (function() {
     html+='<div style="padding:2px 0;">Horizontal bands = Purdue levels (0\u20135)</div>';
     html+='</div>';
 
-    var risks=data.risk_findings||[];if(risks.length){html+='<h3>Risk Findings ('+risks.length+')</h3>';risks.forEach(function(r){html+='<div class="live-risk-item sev-'+esc(r.severity)+'"><div style="font-size:0.72em;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">'+esc(r.severity)+' \u2014 '+esc(r.category)+'</div><div>'+esc(r.description)+'</div></div>';});}
+    var risks=data.risk_findings||[];if(risks.length){html+='<h3>Risk Findings ('+risks.length+')</h3>';risks.forEach(function(r){html+='<div class="live-risk-item sev-'+esc(r.severity)+'"><div>'+window.msSevChip(r.severity)+' '+esc(r.category)+'</div><div>'+esc(r.description)+'</div></div>';});}
     var ci=data.capture_info||{};if(ci.pcap_path||ci.total_packets){html+='<h3>Capture</h3>';if(ci.pcap_path){var pcapBase=ci.pcap_path.split('/').pop();html+='<div style="padding:2px 0;font-family:var(--font-mono);font-size:0.85em;word-break:break-all;color:var(--text-dim);">'+esc(pcapBase)+'</div>';}if(ci.unique_ips_count)html+='<div style="padding:2px 0;font-size:0.88em;">'+ci.unique_ips_count+' unique IPs</div>';if(ci.unique_macs_count)html+='<div style="padding:2px 0;font-size:0.88em;">'+ci.unique_macs_count+' unique MACs</div>';}
     if(!html)html='<h3>Waiting for data...</h3>';
     document.getElementById('live-sidebar-content').innerHTML=html;
@@ -354,7 +393,47 @@ var LIVE = (function() {
   function togglePause(){paused=!paused;document.getElementById('live-pause-btn').textContent=paused?'Resume':'Pause';if(!paused&&!runDone)poll();}
   function exportPng(){var svgData=document.getElementById('live-svg-container').innerHTML;if(!svgData)return;var svgBlob=new Blob([svgData],{type:'image/svg+xml;charset=utf-8'});var url=URL.createObjectURL(svgBlob);var img=new Image();img.onload=function(){var canvas=document.createElement('canvas');canvas.width=2000;canvas.height=1200;var ctx=canvas.getContext('2d');ctx.fillStyle='#0b1420';ctx.fillRect(0,0,2000,1200);ctx.drawImage(img,0,0,2000,1200);URL.revokeObjectURL(url);var a=document.createElement('a');a.href=canvas.toDataURL('image/png');a.download='marlinspike-live.png';a.click();};img.src=url;}
 
-  function init(){poll();pollTimer=setInterval(poll,POLL_MS);}
+  function _recoveryBannerText(state) {
+    var msgs = {
+      'reattached':
+        '<strong>Scan re-attached after Flask restart.</strong> Live output is not available ' +
+        '(the original output stream was lost when Flask restarted), but the engine is running. ' +
+        'Status will update automatically when the scan completes.',
+      'reaped_completed':
+        '<strong>Scan recovered after Flask restart.</strong> The engine finished while Flask was ' +
+        'down — the report was ingested on the next boot. Live output is not available.',
+      'reaped_failed':
+        '<strong>Scan could not be recovered.</strong> The engine exited without producing a ' +
+        'complete report. The PCAP is preserved; you can retry from the Scans page.',
+      'reaped_abandoned':
+        '<strong>Scan abandoned.</strong> The scan exceeded its timeout deadline and was marked ' +
+        'failed during recovery. The PCAP is preserved; you can retry from the Scans page.'
+    };
+    return msgs[state] ||
+      '<strong>Scan recovered after Flask restart.</strong> Live output is not available for this run.';
+  }
+
+  function initRecoveryBanner() {
+    if (!RECOVERED) return;
+    var banner = document.getElementById('live-recovery-banner');
+    var textEl = document.getElementById('live-recovery-banner-text');
+    if (!banner || !textEl) return;
+    textEl.innerHTML = _recoveryBannerText(RECOVERY_STATE);
+    banner.classList.add('visible');
+    // Suppress live-output controls that have no content to show.
+    var pauseBtn = document.getElementById('live-pause-btn');
+    if (pauseBtn) pauseBtn.style.display = 'none';
+    // Stage chain would show an empty skeleton — hide it.
+    var stageChain = document.getElementById('live-stage-chain');
+    if (stageChain) stageChain.style.display = 'none';
+    // Status text: don't show "Connecting" — show polling state instead.
+    var statusText = document.getElementById('live-status-text');
+    if (statusText && (RECOVERY_STATE === 'reattached' || !RECOVERY_STATE)) {
+      statusText.textContent = 'Polling for completion…';
+    }
+  }
+
+  function init(){initRecoveryBanner();poll();pollTimer=setInterval(poll,POLL_MS);}
   init();
 
   return{togglePause:togglePause,closeDetail:closeDetail,exportPng:exportPng};
