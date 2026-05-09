@@ -2,7 +2,7 @@
 {% block title %}MarlinSpike — {{ t('dashboard.title') }}{% endblock %}
 
 {% block head %}
-<style>
+<style nonce="{{ csp_nonce }}">
 .workspace-hero {
   display: flex;
   align-items: flex-start;
@@ -787,7 +787,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
 var IS_ADMIN = {{ (session.get('role') == 'admin')|tojson }};
 var MS = (function() {
   'use strict';

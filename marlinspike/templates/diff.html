@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MarlinSpike — {{ t('diff.title') }}</title>
-<style>
+<style nonce="{{ csp_nonce }}">
 :root {
   --bg: #0f1923;
   --bg-deep: #0b1420;
@@ -133,7 +133,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font-ui); f
 
 <div class="diff-tooltip" id="diff-tooltip"></div>
 
-<script>
+<script nonce="{{ csp_nonce }}">
 var DIFF = (function() {
   'use strict';
 

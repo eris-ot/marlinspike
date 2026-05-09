@@ -2,7 +2,7 @@
 {% block title %}MarlinSpike — {{ t('baseline.title') }}{% endblock %}
 
 {% block head %}
-<style>
+<style nonce="{{ csp_nonce }}">
 /* ── Headline strip ── */
 .bl-headline {
   display: flex;
@@ -307,7 +307,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
 (function() {
   'use strict';
 

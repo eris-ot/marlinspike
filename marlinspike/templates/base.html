@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}MarlinSpike{% endblock %}</title>
-<style>
+<style nonce="{{ csp_nonce }}">
 @font-face {
   font-family: 'Inter';
   font-style: normal;
@@ -591,7 +591,7 @@ body {
   <span class="ms-toast-body" id="ms-toast-body"></span>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce }}">
 /** i18n: server-rendered string table for client-side rendering.
  *  Use as MS_T['nav.reports'] || 'fallback'. Add keys here as templates
  *  surface JS-rendered strings; missing keys fall back to the key itself. */

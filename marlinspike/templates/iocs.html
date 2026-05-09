@@ -2,7 +2,7 @@
 {% block title %}MarlinSpike — {{ t('iocs.title') }}{% endblock %}
 
 {% block head %}
-<style>
+<style nonce="{{ csp_nonce }}">
 .iocs-layout {
   display: grid;
   grid-template-columns: 320px 1fr;
@@ -179,7 +179,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
 var IOC = (function() {
   'use strict';
 

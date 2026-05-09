@@ -1,5 +1,37 @@
 # Upgrading MarlinSpike
 
+## v3.2.0 → v3.2.1 — CSP nonce migration
+
+All `<style>` and `<script>` block elements in the 18 standard templates now
+carry a `nonce="{{ csp_nonce }}"` attribute.
+
+**No action required for standalone marlinspike deployments.** The
+``{{ csp_nonce }}`` expression renders as an empty string when the variable is
+not defined in the Jinja context, which is the default for uncustomised
+deployments.
+
+**If you are running a downstream wrapper** (e.g. cloudmarlin) that injects
+a CSP nonce via a Jinja context processor:
+
+1. Register your context processor *before* any template renders — e.g. after
+   calling ``marlinspike.create_app()`` and before the first request.
+2. The context variable must be named ``csp_nonce``; the templates reference it
+   by that exact name.
+3. Update your CSP ``style-src`` and ``script-src`` directives to use
+   ``'nonce-<value>'`` instead of ``'unsafe-inline'``.  The ``'self'`` source
+   and all other directives are unaffected.
+4. **Known gap:** marlinspike's templates still contain 166 inline event
+   handlers (``onclick=``, ``oninput=``, ``onchange=``) and 452 ``style="..."``
+   attributes that are not covered by nonces.  If your CSP removes
+   ``'unsafe-inline'`` from ``script-src`` / ``style-src``, those attributes
+   will be blocked by compliant browsers on any marlinspike-served page.
+   Eliminating them requires converting event handlers to ``addEventListener``
+   calls and inline styles to CSS classes — planned for a future release.
+   For now, wrapper deployments that serve marlinspike authenticated routes
+   under a strict nonce-only CSP will see broken interactive elements on those
+   pages until this work is complete.
+
+
 ## v2.4.x → v3.0.0 — Package restructure
 
 v3.0.0 turns MarlinSpike from a flat directory of scripts into a real Python

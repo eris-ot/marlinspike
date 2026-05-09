@@ -2,7 +2,7 @@
 {% block title %}MarlinSpike — {{ t('system.title') }}{% endblock %}
 
 {% block head %}
-<style>
+<style nonce="{{ csp_nonce }}">
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -320,7 +320,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
 var SYS = (function() {
   'use strict';
 

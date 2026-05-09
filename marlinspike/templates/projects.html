@@ -2,7 +2,7 @@
 {% block title %}MarlinSpike — {{ t('projects.title') }}{% endblock %}
 
 {% block head %}
-<style>
+<style nonce="{{ csp_nonce }}">
 .proj-layout {
   display: flex;
   gap: 16px;
@@ -982,7 +982,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
 var PROJ = (function() {
   'use strict';
 

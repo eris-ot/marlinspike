@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}MarlinSpike — {{ t('audit.title') }}{% endblock %}
 {% block head %}
-<style>
+<style nonce="{{ csp_nonce }}">
 .audit-toolbar {
   display: flex;
   align-items: center;
@@ -117,7 +117,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
 var AL = (function() {
   var PAGE_SIZE = 50;
   var offset = 0;

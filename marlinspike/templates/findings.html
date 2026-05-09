@@ -2,7 +2,7 @@
 {% block title %}MarlinSpike — {{ t('findings.title') }}{% endblock %}
 
 {% block head %}
-<style>
+<style nonce="{{ csp_nonce }}">
 .hero {
   display: flex;
   align-items: flex-start;

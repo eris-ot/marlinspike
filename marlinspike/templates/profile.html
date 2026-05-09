@@ -2,7 +2,7 @@
 {% block title %}MarlinSpike — {{ t('profile.title') }}{% endblock %}
 
 {% block head %}
-<style>
+<style nonce="{{ csp_nonce }}">
 .profile-layout {
   max-width: 860px;
   margin: 0 auto;
@@ -178,7 +178,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
 var PRF = (function() {
   'use strict';
 

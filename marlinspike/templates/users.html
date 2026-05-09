@@ -130,7 +130,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
 var USR = (function() {
   'use strict';
 

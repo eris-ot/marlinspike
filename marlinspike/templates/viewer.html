@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ t('viewer.title', filename=filename) }}</title>
-<script>document.documentElement.className=document.documentElement.className.replace(/\bno-js\b/,'js');</script>
-<style>
+<script nonce="{{ csp_nonce }}">document.documentElement.className=document.documentElement.className.replace(/\bno-js\b/,'js');</script>
+<style nonce="{{ csp_nonce }}">
 @font-face {
   font-family: 'Inter';
   font-style: normal;
@@ -2664,7 +2664,7 @@ textarea.ms-input {
   </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce }}">
 var MS = (function() {
   'use strict';
 

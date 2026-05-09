@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MarlinSpike — {{ t('assets.title') }}</title>
-<style>
+<style nonce="{{ csp_nonce }}">
 @font-face {
   font-family: 'Inter';
   font-style: normal;
@@ -202,7 +202,7 @@ tr.detail-row td {
   </table>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce }}">
 var REPORT = {{ report_json | tojson }};
 var FILENAME = {{ filename | tojson }};
 

@@ -2,7 +2,7 @@
 {% block title %}MarlinSpike — {{ t('scans.title') }}{% endblock %}
 
 {% block head %}
-<style>
+<style nonce="{{ csp_nonce }}">
 .run-id-copy {
   cursor: pointer;
   padding: 1px 4px;
@@ -91,7 +91,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
 var SH = (function() {
   'use strict';
 

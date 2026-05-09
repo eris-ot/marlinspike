@@ -2,7 +2,7 @@
 {% block title %}MarlinSpike — {{ t('capture.title') }}{% endblock %}
 
 {% block head %}
-<style>
+<style nonce="{{ csp_nonce }}">
 .cap-page {
   max-width: 1280px;
   margin: 24px auto;
@@ -401,7 +401,7 @@
 
 </div>
 
-<script>
+<script nonce="{{ csp_nonce }}">
 (function(){
   'use strict';
 
