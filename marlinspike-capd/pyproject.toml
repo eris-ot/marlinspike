@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "AGPL-3.0-or-later" }
 authors = [
-  { name = "River Caudle", email = "river@riverman.io" },
+  { name = "Erisforge Ltd." },
 ]
 dependencies = [
   "psutil>=5.9",

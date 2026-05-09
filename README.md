@@ -732,4 +732,4 @@ This repository is licensed under the GNU Affero General Public License v3.0. Se
 
 ## Contact
 
-Questions? Contact me, river@riverman.io
+Questions? Open an issue at [github.com/eris-ot/marlinspike/issues](https://github.com/eris-ot/marlinspike/issues).

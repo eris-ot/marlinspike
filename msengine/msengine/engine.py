@@ -7,7 +7,7 @@ module:
     name: MarlinSpike
     id: VORACITY-MODULE-MARLINSPIKE
     version: 2.0.7
-    author: River Caudle <danny@riverman.io>
+    author: Erisforge Ltd.
     organization: Erisforge Ltd.
     date_created: 2026-02-20
     date_modified: 2026-04-11
@@ -985,7 +985,7 @@ MODULE_META = {
     "name": "MarlinSpike",
     "id": "VORACITY-MODULE-MARLINSPIKE",
     "version": "2.0.0",
-    "author": "River Caudle <danny@riverman.io>",
+    "author": "Erisforge Ltd.",
     "organization": "Erisforge Ltd.",
     "date_created": "2026-02-20",
     "date_modified": "2026-03-27",

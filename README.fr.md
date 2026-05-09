@@ -609,4 +609,4 @@ Ce dépôt est sous licence GNU Affero General Public License v3.0. Voir [LICENS
 
 ## Contact
 
-Des questions ? Contactez-moi : river@riverman.io
+Des questions ? Ouvrez un ticket sur [github.com/eris-ot/marlinspike/issues](https://github.com/eris-ot/marlinspike/issues).

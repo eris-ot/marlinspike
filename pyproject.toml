@@ -9,7 +9,7 @@ description = "Passive OT/IT network topology mapper and PCAP risk analysis."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
-authors = [{ name = "riverman-io", email = "danny@riverman.io" }]
+authors = [{ name = "Erisforge Ltd." }]
 keywords = ["pcap", "ot", "ics", "network-security", "topology", "mitre-attack"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
