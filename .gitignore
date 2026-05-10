@@ -36,3 +36,4 @@ windows/build/
 windows/wine-lab/
 instance/
 release-artifacts/
+marlinspike-*.tar.gz

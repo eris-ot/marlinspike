@@ -88,6 +88,51 @@ Record shape:
 }
 ```
 
+## Compat surface as of marlinspike-dpi v1.5.0
+
+This section enumerates what's currently consumed vs. dropped on the
+MarlinSpike Python side. Audit it whenever bumping the DPI pin.
+
+### Event families MarlinSpike consumes
+
+| Family | Consumer site (`marlinspike/engine.py`) | Behavior |
+|---|---|---|
+| `protocol_transaction` | `_apply_protocol_transaction()` (line ~650) | Aggregated into conversation rows. Generic passthrough preserved. |
+| `asset_observation` | `_register_asset_observation()` (line ~493) | Asset hints normalized into `src_asset` / `dst_asset` on each conversation. |
+| `topology_observation` | `_apply_topology_observation()` (line ~547) | Folded into the topology graph. |
+| `parse_anomaly` | bilgepump L2 consumer (line ~906) | `subsystem == "bilgepump"` → `l2_anomalies[]` on the report. Other subsystems dropped. |
+| `extracted_artifact` | `_collect_extracted_artifacts()` (line ~4757) | Forwarded to Stage 4b malware-IOC scanning. |
+
+### Event families MarlinSpike currently drops (silently)
+
+| Family | First emitted in | Status |
+|---|---|---|
+| `process_reading` | marlinspike-dpi v1.1.0 | **Dropped.** Sparkplug B / OPC UA ReadResponse / PCCC / Synchrophasor process-variable readings hit the `family_name != "protocol_transaction"` skip and are silently discarded. Worth consuming in v3.6+ — these are exactly the kind of OT operational data a defender would want surfaced. |
+
+The dispatch is **non-exhaustive** (sequence of `if family_name == X: ... continue` checks with a final default-skip). Adding a new family in DPI does **not** crash the consumer. It just means data is unused until a consumer site is added.
+
+### Protocol slugs in `envelope.protocol`
+
+`_protocol_display_name(slug)` (engine.py line ~330) maps Rust slugs to display names. Defaults to `slug.replace("_", " ").title()` for unknown slugs — so new protocols render with a sensible auto-titled name without code change.
+
+`RUST_PROTOCOL_DISPLAY_NAMES` covers (as of v3.5.x): arp, cdp, dhcp, dns, dnp3, ethernet_ip, http, lldp, modbus, opc_ua, profinet, s7comm, snmp, stp, tls.
+
+Protocol slugs marlinspike-dpi v1.5.0 emits that fall through to the default mapping (and render as auto-titled): **sparkplug_b, synchrophasor, pccc, smb, kerberos, ldap, cclink, codesys, iolink, igmp, bacnet, iec104, iec61850, omron_fins, hart_ip, ethercat, mstp, lacp**. Add explicit display-name entries for any of these you want to ship with curated display names.
+
+`RUST_PROTOCOL_SERVICE_PORTS` (engine.py line ~345) maps slug → set of stable service ports for the conversation aggregation key. Unknown slugs fall through to a heuristic (lowest non-ephemeral port). Adding entries here improves conversation-key stability for new protocols but isn't required.
+
+### `protocol_transaction.operation` values
+
+Aggregated into `operations_seen` (line ~659) without any switch — new operation strings just appear in the list. Specific operation switches in the Modbus / S7 / DNP3 / OPC-UA branches (line ~664+) compare against the *display name*, not the slug, so they only fire for protocols whose display name matches; other branches don't fire for unfamiliar protocols, but the conversation row still appears.
+
+New operation values from v1.5.0 that aggregate without a per-operation branch: `smb1_message`, `smb2_message`, `kerberos_message`, `ldap_message`, `ldaps_traffic`, `cclink_ie_traffic`, `codesys_traffic`, `iolink_traffic`, `igmp_membership_query`, `igmp_v1_membership_report`, `igmp_v2_membership_report`, `igmp_leave_group`, `igmp_v3_membership_report`, `igmp_message`. They surface as `operations_seen` strings on the conversation; no per-operation logic fires.
+
+### `protocol_transaction.protocol_fields` (typed enum, optional)
+
+Added in marlinspike-dpi v1.3.0. Serialized with `skip_serializing_if = "Option::is_none"`, so absent in JSON unless the emitting decoder has migrated to the typed-emission surface. Currently populated only for Modbus.
+
+The MarlinSpike consumer **does not read `protocol_fields` yet**. The legacy untyped fields (`attributes`, `object_refs`, top-level `operation`) remain the source of truth. Migrating to consume `protocol_fields` is v3.6+ work — the typed enum gives type-checked Modbus / S7 / DNP3 fields without parsing back from string `attributes`. Not blocking; the legacy field is retained.
+
 ## Validation
 
 Use [`scripts/validate_bronze_passthrough.py`](scripts/validate_bronze_passthrough.py) with representative captures:

@@ -2,7 +2,7 @@
 FROM rust:1.85-slim-bookworm AS dpi-builder
 
 ARG MARLINSPIKE_DPI_REPO=https://github.com/eris-ot/marlinspike-dpi.git
-ARG MARLINSPIKE_DPI_REF=de7ed06a28096a3da482831bc674ef0652c0e479
+ARG MARLINSPIKE_DPI_REF=0b9c67708a30572239652fcaa912fa314f737096
 
 WORKDIR /build
 
