@@ -5,12 +5,20 @@ on:
   pull_request:
 
 jobs:
-  syntax:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Compile source files
-        run: python -m py_compile app.py _auth.py _config.py _models.py _ms_engine.py
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[test]
+      - name: Pytest
+        run: python -m pytest tests/ -q
+      - name: Smoke imports
+        run: |
+          python -c "from marlinspike import create_app, db, __version__; print(__version__)"
+          python -c "from marlinspike import taxonomy, run_store, recovery; print('ok')"
