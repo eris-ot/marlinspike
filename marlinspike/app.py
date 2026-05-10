@@ -85,7 +85,7 @@ from marlinspike.models import (
     db,
 )
 
-APP_VERSION = "3.2.0"
+APP_VERSION = "3.5.2"
 
 log = logging.getLogger("marlinspike")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(message)s")
@@ -2574,13 +2574,47 @@ def _scan_stage_names(command: str) -> list[str]:
 def create_app():
     app = Flask(__name__)
 
-    # Config
+    # ── Fail-closed config (v3.5.2) ─────────────────────────────────
+    # Refuse to boot when sensitive config is missing. Prior versions
+    # silently generated a random SECRET_KEY (sessions invalidated on
+    # restart, no operator-controlled rotation) and shipped a
+    # predictable default DATABASE_URL ("marlinspike:marlinspike").
+    # Both are footguns in production. The escape hatches below are
+    # for tests / dev only.
+
     secret = config.SECRET_KEY
+    allow_dev_secret = config._env_bool("MARLINSPIKE_ALLOW_GENERATED_SECRET", default=False)
     if not secret:
+        if not allow_dev_secret:
+            raise RuntimeError(
+                "SECRET_KEY is not set. Refusing to start with a generated "
+                "ephemeral key in production: sessions would invalidate on "
+                "every restart and any cookie/CSRF state would be unstable. "
+                "Set SECRET_KEY env var to a strong random value (e.g. "
+                "`python -c \"import secrets; print(secrets.token_hex(32))\"`). "
+                "For tests / dev, set MARLINSPIKE_ALLOW_GENERATED_SECRET=true "
+                "to opt back into the legacy generated-key behaviour."
+            )
         secret = secrets.token_hex(32)
-        print(f"[marlinspike] Generated SECRET_KEY (set SECRET_KEY env var to persist)")
+        log.warning(
+            "MARLINSPIKE_ALLOW_GENERATED_SECRET=true — using ephemeral "
+            "session SECRET_KEY. Sessions will invalidate on restart. "
+            "DO NOT USE IN PRODUCTION."
+        )
     app.secret_key = secret
-    app.config["SQLALCHEMY_DATABASE_URI"] = config.DATABASE_URL
+
+    if not config.DATABASE_URL and not config.ALLOW_NO_DATABASE_URL:
+        raise RuntimeError(
+            "DATABASE_URL is not set. The previous v3.5.1 default "
+            "('postgresql://marlinspike:marlinspike@localhost:5432/marlinspike') "
+            "shipped predictable credentials — refusing to default to it now. "
+            "Set DATABASE_URL explicitly. Examples: "
+            "'postgresql://user:STRONG_PASS@host/db' (production), "
+            "'sqlite:///./data/dev.db' (dev). "
+            "For tests, set MARLINSPIKE_ALLOW_NO_DATABASE_URL=true."
+        )
+
+    app.config["SQLALCHEMY_DATABASE_URI"] = config.DATABASE_URL or "sqlite:///:memory:"
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config.update(
         SESSION_COOKIE_SECURE=config.SESSION_COOKIE_SECURE,
@@ -2854,7 +2888,19 @@ def create_app():
         from marlinspike import taxonomy as _tax
         return jsonify(_tax.taxonomy_export())
 
-    # ── CSRF origin check ─────────────────────────────────────
+    # ── CSRF origin check (v3.5.2: full-origin) ────────────────
+    #
+    # Pre-v3.5.2 compared only the hostname, which let same-host
+    # different-port (dev:3000 vs prod:5001) and mixed-scheme
+    # (http vs https) requests slip through. Now compares the full
+    # origin (scheme + host + port). Operators with multiple legitimate
+    # origins set MARLINSPIKE_ALLOWED_ORIGINS as a comma-separated list.
+    #
+    # NOTE: this is still origin-based, not a proper CSRF token.
+    # A token-based CSRF mechanism is planned for v3.5.3 — origin checks
+    # alone don't defend against SOP bypasses or browser bugs that leak
+    # the origin header. SameSite=Lax cookies (set above) provide
+    # defense in depth against most CSRF.
 
     @app.before_request
     def csrf_check():
@@ -2864,11 +2910,89 @@ def create_app():
                 return
             origin = request.headers.get('Origin') or ''
             referer = request.headers.get('Referer') or ''
-            expected_host = request.host.split(':')[0]
-            origin_host = urlparse(origin).hostname if origin else None
-            referer_host = urlparse(referer).hostname if referer else None
-            if expected_host not in (origin_host, referer_host):
+            # Build the allowed-origin set: request's own URL root
+            # (full scheme://host:port), plus any explicit allowlist.
+            expected_origin = (request.url_root or '').rstrip('/')
+            allowed_origins = {expected_origin}
+            for extra in config.MARLINSPIKE_ALLOWED_ORIGINS:
+                allowed_origins.add(extra)
+            origin_full = origin.rstrip('/') if origin else None
+            # For Referer, reduce to scheme://host:port for comparison.
+            referer_origin = None
+            if referer:
+                p = urlparse(referer)
+                if p.scheme and p.netloc:
+                    referer_origin = f"{p.scheme}://{p.netloc}"
+            if origin_full is None and referer_origin is None:
+                # No Origin / Referer at all — be strict for state-changing
+                # requests, refuse outright. (Browsers always send one or
+                # both for cross-origin POSTs that hit this code path.)
+                return jsonify({"error": "Origin/Referer header required"}), 403
+            if origin_full and origin_full not in allowed_origins:
                 return jsonify({"error": "Origin check failed"}), 403
+            if referer_origin and referer_origin not in allowed_origins:
+                return jsonify({"error": "Referer check failed"}), 403
+
+    # ── Browser security headers + per-request CSP nonce (v3.5.2) ────
+    #
+    # Templates have carried `nonce="{{ csp_nonce }}"` since v3.2.1 but
+    # nothing was generating the nonce server-side or emitting a CSP
+    # header. v3.5.2 closes that:
+    #  * Generate a fresh CSP nonce per request, expose it as `csp_nonce`
+    #    in the Jinja context.
+    #  * Emit Content-Security-Policy with the nonce on script-src and
+    #    style-src. `'unsafe-inline'` retained for now because templates
+    #    still carry inline event handlers (onclick=) and inline style=
+    #    attributes (a removal pass is tracked for v3.6+ — UPGRADING.md
+    #    documents the gap).
+    #  * X-Content-Type-Options: nosniff
+    #  * X-Frame-Options: DENY  (and frame-ancestors 'none' in CSP for
+    #    consistency with older browsers)
+    #  * Referrer-Policy: strict-origin-when-cross-origin
+    #  * Strict-Transport-Security when SESSION_COOKIE_SECURE (TLS site)
+
+    @app.before_request
+    def issue_csp_nonce():
+        g.csp_nonce = secrets.token_urlsafe(16)
+
+    @app.context_processor
+    def inject_csp_nonce():
+        return {"csp_nonce": getattr(g, "csp_nonce", "")}
+
+    @app.after_request
+    def security_headers(resp):
+        nonce = getattr(g, "csp_nonce", "")
+        # CSP — keep 'unsafe-inline' on script/style-src until templates
+        # are scrubbed of inline handlers + style attributes. The nonce
+        # is the future-proofing path; once inline-everywhere is gone,
+        # drop 'unsafe-inline' (UPGRADING.md tracks this).
+        nonce_token = f"'nonce-{nonce}'" if nonce else ""
+        csp_parts = [
+            "default-src 'self'",
+            f"script-src 'self' {nonce_token} 'unsafe-inline'".strip(),
+            f"style-src 'self' {nonce_token} 'unsafe-inline'".strip(),
+            "img-src 'self' data: blob:",
+            "font-src 'self' data:",
+            "connect-src 'self'",
+            "frame-ancestors 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+            "object-src 'none'",
+        ]
+        resp.headers.setdefault("Content-Security-Policy", "; ".join(csp_parts))
+        resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+        resp.headers.setdefault("X-Frame-Options", "DENY")
+        resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        resp.headers.setdefault("Permissions-Policy",
+                                "geolocation=(), microphone=(), camera=()")
+        if config.SESSION_COOKIE_SECURE:
+            # HSTS — only emit when we're confident the deployment is TLS.
+            # 1 year, includeSubDomains, preload-eligible.
+            resp.headers.setdefault(
+                "Strict-Transport-Security",
+                "max-age=31536000; includeSubDomains; preload",
+            )
+        return resp
 
     # ── Auth routes ──────────────────────────────────────────
 
@@ -2909,17 +3033,50 @@ def create_app():
     @app.route("/api/auth/reset-request", methods=["POST"])
     @limiter.limit("5 per minute")
     def api_reset_request():
+        """Request a password reset.
+
+        v3.5.2 security fix: the reset token is NEVER returned in the
+        HTTP response (the previous behaviour made this an unauthenticated
+        account takeover — anyone who knew a username could reset that
+        account). Token delivery is configurable via
+        MARLINSPIKE_RESET_TOKEN_DELIVERY:
+          * 'disabled' (default) — endpoint returns 503
+          * 'file' — token written to data/instance/reset-tokens/<user>-<ts>.txt
+          * 'log' — token written to server stderr only
+        Cloudmarlin / wrappers can register an alternate ``deliver_reset_token``
+        hook (see marlinspike.auth.set_reset_token_delivery).
+        """
+        delivery = config.MARLINSPIKE_RESET_TOKEN_DELIVERY
+        if delivery == "disabled":
+            return jsonify({
+                "ok": False,
+                "error": "Password reset is disabled on this deployment. "
+                         "Contact your administrator."
+            }), 503
+
         body = request.get_json(silent=True) or {}
         username = body.get("username", "").strip()
         if not username:
             return jsonify({"ok": False, "error": "Username required"}), 400
         user = User.query.filter_by(username=username).first()
-        if not user:
-            # Don't reveal whether user exists
-            return jsonify({"ok": True, "message": "If the account exists, a reset token has been generated"})
-        token = create_reset_token(user, ip_address=request.remote_addr)
-        # In a real deployment this would be emailed; for self-hosted, return it directly
-        return jsonify({"ok": True, "token": token, "expires_minutes": 30})
+        # Always return the same response shape regardless of whether the user
+        # exists (no enumeration). Generate the token only when the user does
+        # exist; deliver it via the configured side channel.
+        if user:
+            token = create_reset_token(user, ip_address=request.remote_addr)
+            try:
+                from marlinspike.auth import deliver_reset_token
+                deliver_reset_token(user, token, delivery)
+            except Exception as exc:
+                log.error("Reset token delivery failed for %s: %s", username, exc)
+                # Still return the same generic message — don't leak
+                # delivery-channel state to the caller either.
+            audit("auth.reset_requested", target_type="user", target_id=username)
+        return jsonify({
+            "ok": True,
+            "message": "If the account exists, a reset token has been delivered "
+                       "via the configured channel."
+        })
 
     @app.route("/api/auth/reset-confirm", methods=["POST"])
     @limiter.limit("5 per minute")
@@ -4886,6 +5043,13 @@ def create_app():
             " and ".join(f"({p})" for p in filter_parts) if filter_parts else ""
         )
 
+        # v3.5.2: extraction fails closed. Previous behaviour fell back
+        # to the original PCAP if tshark or editcap failed, which meant
+        # a "give me just this slice" request could silently hand back
+        # the entire capture — exactly the opposite of what the user
+        # asked for. Now: any stage failure → HTTP 500, no data
+        # returned. The only success path is when the requested filter
+        # actually produced an output PCAP.
         tmp_dir = tempfile.mkdtemp(prefix="ms_extract_")
         try:
             stage1_out = os.path.join(tmp_dir, "stage1.pcap")
@@ -4915,7 +5079,12 @@ def create_app():
             except subprocess.TimeoutExpired:
                 return jsonify({"error": "Extract timed out"}), 504
 
-            intermediate = stage1_out if os.path.isfile(stage1_out) else pcap_path
+            # Fail closed: if tshark didn't produce stage1_out, refuse
+            # to return the unfiltered original PCAP.
+            if not os.path.isfile(stage1_out):
+                log.warning("extract: tshark stage1 produced no output for %s", safe_name)
+                return jsonify({"error": "Extract failed: tshark filter stage produced no output"}), 500
+            intermediate = stage1_out
 
             # Stage 2: editcap time window
             if time_start is not None or time_end is not None:
@@ -4946,7 +5115,12 @@ def create_app():
                     )
                 except subprocess.TimeoutExpired:
                     return jsonify({"error": "Extract timed out"}), 504
-                final_path = stage2_out if os.path.isfile(stage2_out) else intermediate
+                # Fail closed on stage 2: if editcap was supposed to
+                # narrow the window and didn't produce an output, refuse.
+                if not os.path.isfile(stage2_out):
+                    log.warning("extract: editcap stage2 produced no output for %s", safe_name)
+                    return jsonify({"error": "Extract failed: editcap time-window stage produced no output"}), 500
+                final_path = stage2_out
             else:
                 final_path = intermediate
 

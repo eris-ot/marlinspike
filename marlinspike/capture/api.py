@@ -20,7 +20,25 @@ from flask import Blueprint, Response, jsonify, request, session, stream_with_co
 
 from marlinspike import config
 from marlinspike.audit import audit
-from marlinspike.auth import login_required
+from marlinspike.auth import admin_required, login_required
+
+
+def _capture_control_required(view_func):
+    """Apply the active capture-control policy.
+
+    Defaults to admin-only (``MARLINSPIKE_CAPTURE_REQUIRE=admin``).
+    With ``MARLINSPIKE_CAPTURE_REQUIRE=any``, any authenticated user
+    can start/stop captures (legacy v3.5.1 behaviour).
+
+    Live capture drives a privileged sidecar (``capd``) holding
+    ``CAP_NET_RAW`` — granting capture-start to a low-privilege account
+    is effectively granting raw socket access on the engagement
+    network. Default-admin is the safe posture.
+    """
+    from marlinspike import config as _ms_config
+    if _ms_config.MARLINSPIKE_CAPTURE_REQUIRE == "any":
+        return login_required(view_func)
+    return admin_required(view_func)
 from marlinspike.capture import consumer
 from marlinspike.capture.client import CapdClient, CapdError, CapdUnavailable
 from marlinspike.capture.sessions import StatsHub, manager
@@ -125,7 +143,7 @@ def validate_bpf():
 # ── session lifecycle ────────────────────────────────────────
 
 @bp.route("/sessions", methods=["POST"])
-@login_required
+@_capture_control_required
 def start_session():
     if not config.LIVE_CAPTURE_ENABLED:
         return jsonify({"ok": False, "error": "live capture disabled"}), 503
@@ -212,7 +230,7 @@ def start_session():
 
 
 @bp.route("/sessions/<int:sid>/stop", methods=["POST"])
-@login_required
+@_capture_control_required
 def stop_session(sid: int):
     is_admin = session.get("role") == "admin"
     q = CaptureSession.query.filter_by(id=sid)

@@ -89,16 +89,27 @@ PRESETS_BAKED_DIR = os.environ.get(
 PCAP_MAX_SIZE = int(os.environ.get("PCAP_MAX_SIZE", 5 * 1024 * 1024 * 1024))  # 5 GB
 PCAP_PROCESS_SIZE = int(os.environ.get("PCAP_PROCESS_SIZE", 5 * 1024 * 1024 * 1024))  # 5 GB (chunked pipeline handles large files)
 
-# Database
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL",
-    "postgresql://marlinspike:marlinspike@localhost:5432/marlinspike",
-)
+# Database — no default. The previous v3.5.1 default
+# ``postgresql://marlinspike:marlinspike@localhost:5432/marlinspike`` was
+# a predictable credential that attackers who know the project could try
+# directly. v3.5.2 removes the default. Set DATABASE_URL explicitly
+# (production: a strong password; dev: ``sqlite:///./data/dev.db`` or
+# similar). create_app() refuses to start when this is empty unless
+# MARLINSPIKE_ALLOW_NO_DATABASE_URL=true is set (test-only escape hatch).
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+ALLOW_NO_DATABASE_URL = _env_bool("MARLINSPIKE_ALLOW_NO_DATABASE_URL", default=False)
 
 # Server
 PORT = int(os.environ.get("PORT", 5001))
 HOST = os.environ.get("HOST", "0.0.0.0")
-SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", default=False)
+
+# Session cookies. v3.5.2 flipped the default to True (production-safe).
+# When the app is reached over plain HTTP (dev or behind a TLS-terminating
+# proxy that re-issues plain HTTP internally), set
+# MARLINSPIKE_DEV_INSECURE_COOKIES=true to opt out. The legacy
+# SESSION_COOKIE_SECURE env var still works and overrides this default.
+_dev_insecure = _env_bool("MARLINSPIKE_DEV_INSECURE_COOKIES", default=False)
+SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", default=not _dev_insecure)
 
 # Run cleanup
 RUN_CLEANUP_SECONDS = 3600
@@ -147,6 +158,49 @@ MARLINSPIKE_EMIT_STIX = _env_bool("MARLINSPIKE_EMIT_STIX", default=True)
 # a multi-document YAML stream of Sigma rules targeting Zeek conn.log
 # / dns.log / modbus.log.
 MARLINSPIKE_EMIT_SIGMA = _env_bool("MARLINSPIKE_EMIT_SIGMA", default=True)
+
+# ── Security knobs ──────────────────────────────────────────────────────────
+#
+# Password reset token delivery. The reset-request endpoint USED to return
+# the token in the HTTP response, which made it an unauthenticated account
+# takeover (anyone who knew a username could reset that account). Fixed in
+# v3.5.2: the token is never returned in the response. Operators choose how
+# tokens are delivered:
+#
+#   "disabled" (default) — the reset endpoint returns 503. Use a different
+#                          recovery path (admin manually resets via DB or CLI).
+#   "file"               — token written to
+#                          ${DATA_DIR}/instance/reset-tokens/<username>-<ts>.txt
+#                          mode 0600, owner-readable only. Operator delivers
+#                          to the user out-of-band.
+#   "log"                — token printed to stderr only. For dev / single-host
+#                          deployments where the operator watches the log.
+#                          Container logs may persist this; not for production.
+#
+# Cloudmarlin and other wrappers can override by replacing the
+# ``deliver_reset_token`` hook (see marlinspike.auth).
+MARLINSPIKE_RESET_TOKEN_DELIVERY = os.environ.get(
+    "MARLINSPIKE_RESET_TOKEN_DELIVERY", "disabled"
+).lower()
+
+# Live capture session control (start/stop) requires admin role by default.
+# Set to "any" to permit any logged-in user to start/stop capture sessions.
+# Live capture drives a privileged sidecar with CAP_NET_RAW; leaving this
+# at "admin" prevents low-privilege accounts from initiating packet capture
+# on host interfaces.
+MARLINSPIKE_CAPTURE_REQUIRE = os.environ.get(
+    "MARLINSPIKE_CAPTURE_REQUIRE", "admin"
+).lower()
+
+# Allowed origins for CSRF check. Default: derived from request.url_root
+# (the request's own scheme+host+port). Set to a comma-separated list to
+# allow additional origins (e.g. "https://app.example.com,https://admin.example.com").
+# Empty means "request origin only".
+MARLINSPIKE_ALLOWED_ORIGINS = [
+    o.strip().rstrip("/")
+    for o in os.environ.get("MARLINSPIKE_ALLOWED_ORIGINS", "").split(",")
+    if o.strip()
+]
 
 # Live capture (capd sidecar). Disabled by default; enable per-deployment.
 LIVE_CAPTURE_ENABLED = _env_bool("LIVE_CAPTURE_ENABLED", default=False)

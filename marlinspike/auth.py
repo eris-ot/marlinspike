@@ -61,11 +61,23 @@ def csrf_exempt(view_func):
 
 
 def admin_required(f):
+    """Require admin role.
+
+    For ``/api/*`` paths, returns JSON 401/403. For everything else,
+    redirects to login (when unauthenticated) or returns a plain 403
+    body (when not admin). Detected via ``request.path.startswith('/api/')``.
+    """
     @wraps(f)
     def decorated(*args, **kwargs):
+        from flask import jsonify, request
+        is_api = (request.path or "").startswith("/api/")
         if "user" not in session:
+            if is_api:
+                return jsonify({"error": "Not authenticated"}), 401
             return redirect(url_for("login_page"))
         if session.get("role") != "admin":
+            if is_api:
+                return jsonify({"error": "Admin role required"}), 403
             return "Forbidden", 403
         return f(*args, **kwargs)
     return decorated
@@ -190,8 +202,21 @@ def cleanup_expired_tokens():
 
 
 def bootstrap_admin(app):
-    """Create admin user on first run if users table is empty."""
-    from marlinspike.config import ADMIN_PASSWORD
+    """Create admin user on first run if users table is empty.
+
+    Security note (v3.5.2): when ``ADMIN_PASSWORD`` is empty, the
+    generated password is written to a file with mode 0600 instead of
+    printed to stdout. The previous stdout-print approach leaked the
+    credential into container/journald logs that frequently outlive
+    the credential itself. The file is at:
+
+        ${DATA_DIR}/instance/admin-bootstrap-password.txt
+
+    It's overwritten on each empty-table bootstrap and is intended to
+    be deleted by the operator after the first login.
+    """
+    import os
+    from marlinspike.config import ADMIN_PASSWORD, DATA_DIR
 
     with app.app_context():
         if User.query.count() > 0:
@@ -201,9 +226,38 @@ def bootstrap_admin(app):
         create_user("admin", password, role="admin")
 
         if not ADMIN_PASSWORD:
-            print("=" * 60)
-            print("  FIRST RUN — admin account created")
-            print(f"  Username: admin")
-            print(f"  Password: {password}")
-            print("  (change this immediately)")
-            print("=" * 60)
+            instance_dir = os.path.join(DATA_DIR, "instance")
+            os.makedirs(instance_dir, mode=0o700, exist_ok=True)
+            try:
+                os.chmod(instance_dir, 0o700)
+            except OSError:
+                pass
+            cred_path = os.path.join(instance_dir, "admin-bootstrap-password.txt")
+            try:
+                # Write with restrictive perms before any content lands.
+                fd = os.open(cred_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+                with os.fdopen(fd, "w") as f:
+                    f.write(
+                        f"username: admin\n"
+                        f"password: {password}\n"
+                        f"created_at: {datetime.now(timezone.utc).isoformat()}\n"
+                        f"# Change this immediately. Delete this file after first login.\n"
+                    )
+                # Best-effort log line — does NOT leak the password itself,
+                # just points the operator at the file.
+                log.warning(
+                    "FIRST RUN — admin account created. Bootstrap credential "
+                    "written to %s (mode 0600). Read, log in, change password, "
+                    "delete the file.",
+                    cred_path,
+                )
+            except OSError as exc:
+                # Last-ditch: log to stderr so the operator can recover.
+                # Still don't print the password to stdout (container logs).
+                log.error(
+                    "Failed to write admin bootstrap credential file (%s); "
+                    "the password is in the database hashed but the plaintext "
+                    "is now lost. Manually reset via 'marlinspike-cli reset-admin' "
+                    "or by clearing the users table.",
+                    exc,
+                )

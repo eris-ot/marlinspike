@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "marlinspike"
-version = "3.5.1"
+version = "3.5.2"
 description = "Passive OT/IT network topology mapper and PCAP risk analysis."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -36,14 +36,68 @@ dependencies = [
 [project.optional-dependencies]
 cython = ["Cython>=3.0", "setuptools>=68"]
 test = ["pytest>=7.0"]
+lint = ["ruff>=0.6.0"]
+dev = ["ruff>=0.6.0", "pytest>=7.0", "build>=1.0", "twine>=5.0"]
 
 [project.scripts]
 # `marlinspike` runs the analysis engine on a pcap; same as `python -m marlinspike`.
 marlinspike = "marlinspike.engine:main"
+# First-run wizard — generates .env with strong secrets, admin password,
+# and sensible production defaults. See marlinspike.setup_wizard.
+marlinspike-setup = "marlinspike.setup_wizard:main"
 
 [project.urls]
 Homepage = "https://github.com/eris-ot/marlinspike"
 Issues = "https://github.com/eris-ot/marlinspike/issues"
+
+# ── Linting / formatting (ruff) ─────────────────────────────────────────
+# Ruff is checked-in but the formatting sweep across the legacy codebase
+# is deliberately deferred (would create a huge unrelated diff). For now,
+# CI runs `ruff check` (warnings, not errors) so new code starts clean.
+# To run locally: `pip install -e .[lint]` then `ruff check .` or
+# `ruff format --check .`. To apply formatting: `ruff format .`.
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+exclude = [
+    ".venv",
+    ".smoke",
+    "data",
+    "build",
+    "dist",
+    "release-artifacts",
+    "msengine",
+    "marlinspike-dpi",
+    "marlinspike-capd",
+    "windows",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "W",    # pycodestyle warnings
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "S",    # bandit (security)
+    "UP",   # pyupgrade
+]
+ignore = [
+    "E501",   # line-too-long — let formatter handle
+    "B008",   # function call in default arg
+    "S101",   # assert in tests
+    "S105", "S106", "S107",   # hardcoded password (lots of false positives in tests/docs)
+    "S603", "S607",   # subprocess.run + partial-path executable (we shell to known tools)
+    "S110", "S112",   # try-except-pass (we use it for best-effort cleanup)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*" = ["S101", "S105", "S106", "S311"]
+"scripts/**/*" = ["S101", "S105", "S106", "S311"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
 
 # The wheel ships the application package plus the top-level ``plugins``
 # namespace so that ``pip install marlinspike`` exposes ``plugins.marlinspike_*``

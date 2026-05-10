@@ -1,5 +1,30 @@
 # Security Policy
 
+## Past advisories
+
+- **MS-2026-001 (v3.5.2, 2026-05-10) — Password reset account takeover.** The pre-v3.5.2 `/api/auth/reset-request` endpoint returned the generated reset token directly in the HTTP response. Anyone who knew a username could obtain a reset token without authentication and use it to take over the account via `/api/auth/reset-confirm`. **Severity: CRITICAL.** Fixed in v3.5.2 — token is never returned in the response; delivery configurable via `MARLINSPIKE_RESET_TOKEN_DELIVERY` (`disabled` by default, `file` writes to `data/instance/reset-tokens/<user>-<ts>.txt` mode 0600, `log` writes to server stderr). Cloudmarlin and other wrappers can override via `marlinspike.auth.set_reset_token_delivery(fn)`.
+- **MS-2026-002 (v3.5.2, 2026-05-10) — Live capture exposed to non-admin users.** The pre-v3.5.2 capture session start/stop endpoints required only `@login_required`. Live capture drives a privileged sidecar (`capd`) holding `CAP_NET_RAW` — granting capture-start to a low-privilege account effectively gave raw-socket access on the engagement network. **Severity: HIGH.** Fixed in v3.5.2 — capture session control gated to `MARLINSPIKE_CAPTURE_REQUIRE=admin` by default. `=any` opts back into the legacy behaviour for deployments where it's known-safe.
+- **MS-2026-003 (v3.5.2, 2026-05-10) — Sub-PCAP extraction fail-open.** The pre-v3.5.2 `/api/reports/<filename>/extract` endpoint fell back to the original PCAP if `tshark` or `editcap` failed. A "give me just this slice" request that the filter stage couldn't satisfy returned the entire capture. **Severity: HIGH.** Fixed in v3.5.2 — extraction fails closed; any stage failure returns HTTP 500 with no PCAP body.
+- **MS-2026-004 (v3.5.2, 2026-05-10) — Default DATABASE_URL with predictable credentials.** Pre-v3.5.2 shipped a default `DATABASE_URL=postgresql://marlinspike:marlinspike@localhost:5432/marlinspike`. **Severity: HIGH.** Fixed in v3.5.2 — `create_app()` refuses to start without `DATABASE_URL` set explicitly. Test/dev escape hatch: `MARLINSPIKE_ALLOW_NO_DATABASE_URL=true`.
+- **MS-2026-005 (v3.5.2, 2026-05-10) — Silent ephemeral SECRET_KEY.** Pre-v3.5.2 generated a random `SECRET_KEY` if none was set, with only a stdout warning. Sessions invalidated on every restart and there was no operator-controlled rotation. **Severity: HIGH.** Fixed in v3.5.2 — `create_app()` refuses to start without `SECRET_KEY` set. Dev escape hatch: `MARLINSPIKE_ALLOW_GENERATED_SECRET=true`.
+- **MS-2026-006 (v3.5.2, 2026-05-10) — CSRF check hostname-only.** Pre-v3.5.2 compared only the hostname portion of `Origin`/`Referer` headers, allowing same-host different-port and mixed-scheme requests to pass. **Severity: MEDIUM.** Fixed in v3.5.2 — full-origin comparison (scheme + host + port). Allowlist of additional origins via `MARLINSPIKE_ALLOWED_ORIGINS`.
+- **MS-2026-007 (v3.5.2, 2026-05-10) — Admin password to stdout on first run.** Pre-v3.5.2 printed the generated bootstrap admin password to stdout, which container/journald logs typically persist. **Severity: MEDIUM.** Fixed in v3.5.2 — written to `data/instance/admin-bootstrap-password.txt` (mode 0600) instead.
+- **MS-2026-008 (v3.5.2, 2026-05-10) — Missing browser security headers.** Pre-v3.5.2 templates carried `nonce="{{ csp_nonce }}"` markers but no code generated the nonce or emitted a CSP header. **Severity: MEDIUM.** Fixed in v3.5.2 — per-request nonce generation, full CSP with `frame-ancestors 'none'` + `object-src 'none'`, plus `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` lockdown, and HSTS when `SESSION_COOKIE_SECURE`.
+- **MS-2026-009 (v3.5.2, 2026-05-10) — `SESSION_COOKIE_SECURE` defaulted to False.** Pre-v3.5.2 cookies were sent over plain HTTP by default. **Severity: MEDIUM.** Fixed in v3.5.2 — defaults to True. Dev opt-out: `MARLINSPIKE_DEV_INSECURE_COOKIES=true`.
+
+## Tracked for v3.5.3+
+
+These are flagged but not yet shipped:
+
+- Proper CSRF token (origin checks alone don't defend against SOP bypasses; v3.5.3 will add a per-session token validated on state-changing requests).
+- Password-change endpoint audit logging + rate limiting.
+- Live capture per-project capture policy + interface allowlist.
+- Schema migrations: ad-hoc `ALTER TABLE` in `create_app()` → proper Alembic.
+- Splitting `app.py` (~5800 LOC, 86 routes) and `engine.py` (~5800 LOC) into per-domain modules.
+- Removing remaining inline `style="..."` and `onclick="..."` attributes from templates so `'unsafe-inline'` can be dropped from CSP.
+
+## Reporting a vulnerability
+
 MarlinSpike is a passive OT/ICS analysis tool deployed by defenders on
 engagement networks. Vulnerabilities here can put real engagement
 networks and the captures collected from them at risk. This document

@@ -17,8 +17,32 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .[test]
       - name: Pytest
+        env:
+          MARLINSPIKE_ALLOW_NO_DATABASE_URL: "true"
+          MARLINSPIKE_ALLOW_GENERATED_SECRET: "true"
         run: python -m pytest tests/ -q
       - name: Smoke imports
+        env:
+          MARLINSPIKE_ALLOW_NO_DATABASE_URL: "true"
+          MARLINSPIKE_ALLOW_GENERATED_SECRET: "true"
         run: |
           python -c "from marlinspike import create_app, db, __version__; print(__version__)"
           python -c "from marlinspike import taxonomy, run_store, recovery; print('ok')"
+      - name: Lint (ruff — non-fatal during legacy-codebase transition)
+        run: |
+          python -m pip install ruff
+          # New code in marlinspike/emit/, marlinspike/setup_wizard.py,
+          # marlinspike/recovery.py, marlinspike/run_store.py, marlinspike/taxonomy.py
+          # should pass cleanly; failures here ARE fatal.
+          ruff check \
+            marlinspike/emit/ \
+            marlinspike/setup_wizard.py \
+            marlinspike/recovery.py \
+            marlinspike/run_store.py \
+            marlinspike/taxonomy.py \
+            tests/test_ocsf_emit.py tests/test_navigator_emit.py tests/test_stix_emit.py \
+            tests/test_sigma_emit.py tests/test_recovery.py tests/test_run_store.py \
+            tests/test_taxonomy.py
+          # The legacy giants (app.py, engine.py) get reported but not failed.
+          # A formatting sweep across them is tracked for v3.6+.
+          ruff check --no-fix marlinspike/app.py marlinspike/engine.py || true
