@@ -10,7 +10,7 @@ Public API:
     __version__                     — package version
 """
 
-__version__ = "3.5.0"
+__version__ = "3.5.1"
 
 # Lazy re-exports so `import marlinspike` does not pull Flask at import time.
 __all__ = ["__version__", "create_app", "db"]
