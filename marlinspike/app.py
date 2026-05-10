@@ -3463,6 +3463,233 @@ def create_app():
         }
         return jsonify(aggregate)
 
+    def _project_report_paths(pid: int) -> list[str]:
+        """Return primary report.json paths for every report in this user's project."""
+        rdir = os.path.join(config.REPORTS_DIR, str(session["user_id"]), str(pid))
+        if not os.path.isdir(rdir):
+            return []
+        paths = []
+        for fn in os.listdir(rdir):
+            if not _is_primary_report_filename(fn):
+                continue
+            path = os.path.join(rdir, fn)
+            if os.path.isfile(path):
+                paths.append(path)
+        return sorted(paths)
+
+    @app.route("/api/projects/<int:pid>/ocsf")
+    @login_required
+    def api_project_ocsf(pid):
+        """Concatenate every report's OCSF NDJSON in the project into one stream.
+
+        Each report's sibling ``.ocsf.ndjson`` is preferred when present;
+        on-the-fly application-layer rendering happens otherwise.
+        """
+        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        if not proj:
+            return jsonify({"error": "Project not found"}), 404
+        from marlinspike.emit import ocsf as _ocsf_emit
+        from flask import Response
+        paths = _project_report_paths(pid)
+        if not paths:
+            return jsonify({"error": "No reports in project"}), 404
+
+        def stream():
+            for json_path in paths:
+                ocsf_path = json_path.replace(".json", ".ocsf.ndjson")
+                if os.path.isfile(ocsf_path):
+                    with open(ocsf_path) as f:
+                        chunk = f.read()
+                    if chunk:
+                        yield chunk if chunk.endswith("\n") else (chunk + "\n")
+                    continue
+                try:
+                    with open(json_path) as f:
+                        report = json.load(f)
+                    chunk = _ocsf_emit.render_ndjson(report)
+                except Exception as exc:
+                    log.warning("project OCSF chunk skipped %s: %s", json_path, exc)
+                    continue
+                if chunk:
+                    yield chunk + "\n"
+
+        return Response(
+            stream(),
+            mimetype="application/x-ndjson",
+            headers={
+                "Content-Disposition": f'attachment; filename="{proj.name}.ocsf.ndjson"',
+            },
+        )
+
+    @app.route("/api/projects/<int:pid>/navigator")
+    @login_required
+    def api_project_navigator(pid):
+        """Merge per-domain Navigator layers across every report in the project.
+
+        Per technique, the highest score across all reports wins. Comments
+        + metadata are union-merged with the report filename appended so
+        defenders can see which capture(s) drove each technique.
+        """
+        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        if not proj:
+            return jsonify({"error": "Project not found"}), 404
+        domain = request.args.get("domain", "ics-attack").lower()
+        from marlinspike.emit import navigator as _nav_emit
+        from flask import Response
+        paths = _project_report_paths(pid)
+        if not paths:
+            return jsonify({"error": "No reports in project"}), 404
+
+        merged: dict[str, dict] = {}
+        layer_template = None
+        attack_version = None
+        for json_path in paths:
+            try:
+                with open(json_path) as f:
+                    report = json.load(f)
+            except Exception:
+                continue
+            layer = _nav_emit.render_layer_for_domain(report, domain)
+            if layer is None:
+                continue
+            if layer_template is None:
+                layer_template = layer  # remember versions / gradient / legend
+                attack_version = layer.get("versions", {}).get("attack")
+            for tech in layer.get("techniques") or []:
+                tid = tech.get("techniqueID")
+                if not tid:
+                    continue
+                existing = merged.get(tid)
+                if existing is None or (tech.get("score", 0) > existing.get("score", 0)):
+                    merged[tid] = dict(tech)  # copy
+                # Annotate with report filename (best-effort)
+                fname = os.path.basename(json_path)
+                comment = merged[tid].get("comment", "")
+                if fname and fname not in comment:
+                    merged[tid]["comment"] = (comment + f"\n\nseen in: {fname}").strip()
+        if not merged or layer_template is None:
+            return jsonify({"error": f"No {domain} techniques across project reports"}), 404
+        out = {
+            "name": f"MarlinSpike — project '{proj.name}' — {domain}",
+            "versions": layer_template["versions"],
+            "domain": domain,
+            "description": (
+                f"Aggregated ATT&CK technique coverage across {len(paths)} report(s) "
+                f"in project '{proj.name}'. Per technique, the highest score across "
+                f"all reports wins."
+            ),
+            "filters": {"platforms": []},
+            "sorting": 3,
+            "layout": layer_template.get("layout"),
+            "hideDisabled": False,
+            "techniques": sorted(merged.values(), key=lambda t: -t.get("score", 0)),
+            "gradient": layer_template["gradient"],
+            "legendItems": layer_template.get("legendItems"),
+            "metadata": [
+                {"name": "project", "value": proj.name},
+                {"name": "report_count", "value": str(len(paths))},
+                {"name": "produced_by", "value": "MarlinSpike"},
+            ],
+        }
+        return Response(
+            json.dumps(out, indent=2),
+            mimetype="application/json",
+            headers={
+                "Content-Disposition": f'attachment; filename="{proj.name}.navigator.{("ics" if domain == "ics-attack" else "enterprise")}.json"',
+            },
+        )
+
+    @app.route("/api/projects/<int:pid>/stix")
+    @login_required
+    def api_project_stix(pid):
+        """Merge every report's STIX bundle into one project-level bundle.
+
+        Identity object is deduplicated; all other objects are
+        concatenated. Stable IDs mean the same finding across reports
+        appears once.
+        """
+        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        if not proj:
+            return jsonify({"error": "Project not found"}), 404
+        from marlinspike.emit import stix as _stix_emit
+        paths = _project_report_paths(pid)
+        if not paths:
+            return jsonify({"error": "No reports in project"}), 404
+
+        all_objects: dict[str, dict] = {}  # by stix id, dedupe
+        for json_path in paths:
+            try:
+                with open(json_path) as f:
+                    report = json.load(f)
+            except Exception:
+                continue
+            bundle = _stix_emit.render_bundle(report)
+            for obj in bundle.get("objects") or []:
+                oid = obj.get("id")
+                if oid and oid not in all_objects:
+                    all_objects[oid] = obj
+
+        if not all_objects:
+            return jsonify({"error": "No STIX objects across project reports"}), 404
+
+        merged_bundle = {
+            "type": "bundle",
+            "id": _stix_emit._stable_id("bundle", f"project:{pid}:{proj.name}"),
+            "objects": list(all_objects.values()),
+        }
+        from flask import Response
+        return Response(
+            json.dumps(merged_bundle, indent=2),
+            mimetype="application/json",
+            headers={
+                "Content-Disposition": f'attachment; filename="{proj.name}.stix.json"',
+            },
+        )
+
+    @app.route("/api/projects/<int:pid>/sigma")
+    @login_required
+    def api_project_sigma(pid):
+        """Concatenate every report's Sigma rules into one multi-document YAML stream.
+
+        Rules are deduplicated by their stable ``id`` field — same finding
+        across reports appears once in the output.
+        """
+        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        if not proj:
+            return jsonify({"error": "Project not found"}), 404
+        from marlinspike.emit import sigma as _sigma_emit
+        from flask import Response
+        paths = _project_report_paths(pid)
+        if not paths:
+            return jsonify({"error": "No reports in project"}), 404
+
+        seen_ids: set[str] = set()
+        rules_yaml: list[str] = []
+        for json_path in paths:
+            try:
+                with open(json_path) as f:
+                    report = json.load(f)
+            except Exception:
+                continue
+            for filename, rule in _sigma_emit.render_rules(report):
+                rid = rule.get("id")
+                if not rid or rid in seen_ids:
+                    continue
+                seen_ids.add(rid)
+                rules_yaml.append(_sigma_emit._yaml_dump(rule))
+
+        if not rules_yaml:
+            return jsonify({"error": "No Sigma-emittable findings across project reports"}), 404
+
+        body = "\n---\n".join(rules_yaml) + "\n"
+        return Response(
+            body,
+            mimetype="application/x-yaml",
+            headers={
+                "Content-Disposition": f'attachment; filename="{proj.name}.sigma.yml"',
+            },
+        )
+
     @app.route("/api/projects/<int:pid>/upload", methods=["POST"])
     @login_required
     @limiter.limit("10 per minute")
@@ -4431,6 +4658,76 @@ def create_app():
             mimetype="application/json",
             headers={
                 "Content-Disposition": f'attachment; filename="{safe_name.replace(".json", f".navigator.{short}.json")}"',
+            },
+        )
+
+    @app.route("/api/reports/<filename>/stix")
+    @login_required
+    def api_report_stix(filename):
+        """Stream the STIX 2.1 bundle sibling, or generate on-the-fly."""
+        safe_name = os.path.basename(filename)
+        project_id = request.args.get("project_id", None, type=int)
+        json_path = os.path.join(user_reports_dir(project_id), safe_name)
+        if not os.path.isfile(json_path):
+            return jsonify({"error": "Report not found"}), 404
+        stix_path = json_path.replace(".json", ".stix.json")
+        if os.path.isfile(stix_path):
+            return send_file(
+                stix_path,
+                as_attachment=True,
+                download_name=safe_name.replace(".json", ".stix.json"),
+                mimetype="application/json",
+            )
+        try:
+            from marlinspike.emit import stix as _stix_emit
+            with open(json_path) as f:
+                report = json.load(f)
+            bundle_json = _stix_emit.render_json(report)
+        except Exception as exc:
+            log.warning("STIX on-demand render failed for %s: %s", safe_name, exc)
+            return jsonify({"error": "STIX emit failed"}), 500
+        from flask import Response
+        return Response(
+            bundle_json,
+            mimetype="application/json",
+            headers={
+                "Content-Disposition": f'attachment; filename="{safe_name.replace(".json", ".stix.json")}"',
+            },
+        )
+
+    @app.route("/api/reports/<filename>/sigma")
+    @login_required
+    def api_report_sigma(filename):
+        """Stream the Sigma YAML sibling, or generate on-the-fly."""
+        safe_name = os.path.basename(filename)
+        project_id = request.args.get("project_id", None, type=int)
+        json_path = os.path.join(user_reports_dir(project_id), safe_name)
+        if not os.path.isfile(json_path):
+            return jsonify({"error": "Report not found"}), 404
+        sigma_path = json_path.replace(".json", ".sigma.yml")
+        if os.path.isfile(sigma_path):
+            return send_file(
+                sigma_path,
+                as_attachment=True,
+                download_name=safe_name.replace(".json", ".sigma.yml"),
+                mimetype="application/x-yaml",
+            )
+        try:
+            from marlinspike.emit import sigma as _sigma_emit
+            with open(json_path) as f:
+                report = json.load(f)
+            yaml_text = _sigma_emit.render_yaml_concat(report)
+        except Exception as exc:
+            log.warning("Sigma on-demand render failed for %s: %s", safe_name, exc)
+            return jsonify({"error": "Sigma emit failed"}), 500
+        if not yaml_text:
+            return jsonify({"error": "No Sigma-emittable findings in report"}), 404
+        from flask import Response
+        return Response(
+            yaml_text + "\n",
+            mimetype="application/x-yaml",
+            headers={
+                "Content-Disposition": f'attachment; filename="{safe_name.replace(".json", ".sigma.yml")}"',
             },
         )
 

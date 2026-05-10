@@ -133,6 +133,21 @@ MARLINSPIKE_EMIT_OCSF = _env_bool("MARLINSPIKE_EMIT_OCSF", default=True)
 # See marlinspike.emit.navigator and docs/ocsf-emit.md.
 MARLINSPIKE_EMIT_NAVIGATOR = _env_bool("MARLINSPIKE_EMIT_NAVIGATOR", default=True)
 
+# STIX 2.1 bundle emit. When true, every chain scan also writes
+# ``<basename>.stix.json`` — risk_findings + c2_indicators +
+# malware_findings + mitre_classifications mapped to STIX indicators
+# / attack-patterns / sightings. Stable IDs (UUIDv5) so re-running
+# emit is reproducible.
+MARLINSPIKE_EMIT_STIX = _env_bool("MARLINSPIKE_EMIT_STIX", default=True)
+
+# Sigma rule emit. When true, every chain scan that produces
+# Sigma-translatable findings (CROSS_PURDUE / ICS_EXTERNAL_COMMS /
+# CLEARTEXT_REMOTE_ACCESS / CLEARTEXT_ENG / MODBUS_WRITE_ANON /
+# C2_BEACONING / MALWARE_IOC_MATCH) writes ``<basename>.sigma.yml``,
+# a multi-document YAML stream of Sigma rules targeting Zeek conn.log
+# / dns.log / modbus.log.
+MARLINSPIKE_EMIT_SIGMA = _env_bool("MARLINSPIKE_EMIT_SIGMA", default=True)
+
 # Live capture (capd sidecar). Disabled by default; enable per-deployment.
 LIVE_CAPTURE_ENABLED = _env_bool("LIVE_CAPTURE_ENABLED", default=False)
 LIVE_CAPTURE_SOCKET = os.environ.get(

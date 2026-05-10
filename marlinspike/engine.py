@@ -5339,6 +5339,41 @@ def run_chain(args):
     except Exception as _nav_exc:
         print(f"[!] Navigator emit skipped: {_nav_exc}")
 
+    # STIX 2.1 bundle emit — risk_findings + c2_indicators +
+    # malware_findings + mitre_classifications -> STIX indicators /
+    # attack-patterns / sightings. See marlinspike.emit.stix.
+    try:
+        from marlinspike import config as _ms_config
+        if getattr(_ms_config, "MARLINSPIKE_EMIT_STIX", False):
+            from marlinspike.emit import stix as _stix_emit
+            capture_id = os.path.splitext(os.path.basename(args.pcap or ""))[0] or "capture"
+            stix_path = args.output.replace(".json", ".stix.json")
+            stix_json = _stix_emit.render_json(report.to_dict(), capture_id=capture_id)
+            with open(stix_path, "w") as stix_f:
+                stix_f.write(stix_json + "\n")
+            print(f"[*] STIX emit: {os.path.basename(stix_path)}")
+    except Exception as _stix_exc:
+        print(f"[!] STIX emit skipped: {_stix_exc}")
+
+    # Sigma rule emit — Zeek-targeted detection rules for finding
+    # categories that translate to per-event predicates. See
+    # marlinspike.emit.sigma for the emittable category list.
+    try:
+        from marlinspike import config as _ms_config
+        if getattr(_ms_config, "MARLINSPIKE_EMIT_SIGMA", False):
+            from marlinspike.emit import sigma as _sigma_emit
+            capture_id = os.path.splitext(os.path.basename(args.pcap or ""))[0] or "capture"
+            sigma_path = args.output.replace(".json", ".sigma.yml")
+            sigma_yaml = _sigma_emit.render_yaml_concat(
+                report.to_dict(), capture_id=capture_id
+            )
+            if sigma_yaml:
+                with open(sigma_path, "w") as sigma_f:
+                    sigma_f.write(sigma_yaml + "\n")
+                print(f"[*] Sigma emit: {os.path.basename(sigma_path)}")
+    except Exception as _sigma_exc:
+        print(f"[!] Sigma emit skipped: {_sigma_exc}")
+
     _active_report = None
     _active_report_path = None
     return report
