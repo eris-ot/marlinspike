@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "marlinspike"
-version = "3.5.2"
+version = "3.5.3"
 description = "Passive OT/IT network topology mapper and PCAP risk analysis."
 readme = "README.md"
 requires-python = ">=3.10"

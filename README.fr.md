@@ -1,6 +1,6 @@
 # MarlinSpike
 
-Version actuelle : `3.5.2`
+Version actuelle : `3.5.3`
 
 Langues : [English](README.md) · **Français**
 

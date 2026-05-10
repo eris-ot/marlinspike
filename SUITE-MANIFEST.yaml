@@ -10,23 +10,18 @@ report_contract:
 
 components:
   msengine:
-    status: bootstrap_present
+    status: dropped
+    note: |
+      The msengine/ subtree bootstrap and scripts/sync-msengine-bootstrap.sh
+      were removed in v3.5.3. The bootstrap was supposed to seed a future
+      standalone marlinspike-msengine repo but that extraction never
+      happened, the sync script broke when the v3.0 package restructure
+      moved sources into marlinspike/, and the snapshot drifted ~636
+      lines behind the operational engine. Operational source of truth
+      is marlinspike/engine.py. If/when the standalone repo is extracted,
+      pull from marlinspike/engine.py at that point via git filter-repo.
+    operational_source_of_truth: marlinspike/engine.py
     target_repo: eris-ot/marlinspike-msengine
-    target_subtree: msengine
-    current_source_paths:
-      - _ms_engine.py
-      - marlinspike.py
-      - data/oui.json
-    bootstrap_paths:
-      - msengine/pyproject.toml
-      - msengine/README.md
-      - msengine/msengine/__init__.py
-      - msengine/msengine/__main__.py
-      - msengine/msengine/engine.py
-      - msengine/msengine/data/oui.json
-    bootstrap_sync_helper: scripts/sync-msengine-bootstrap.sh
-    operational_source_of_truth: _ms_engine.py
-    target_internal_name: msengine
 
   workbench:
     status: extraction_planned
