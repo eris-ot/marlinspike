@@ -87,7 +87,7 @@ from marlinspike.models import (
     db,
 )
 
-APP_VERSION = "3.5.3"
+APP_VERSION = "3.5.4"
 
 log = logging.getLogger("marlinspike")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(message)s")
