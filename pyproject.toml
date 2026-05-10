@@ -35,9 +35,11 @@ dependencies = [
 
 [project.optional-dependencies]
 cython = ["Cython>=3.0", "setuptools>=68"]
-test = ["pytest>=7.0"]
+test = ["pytest>=7.0", "pytest-cov>=5.0"]
 lint = ["ruff>=0.6.0"]
-dev = ["ruff>=0.6.0", "pytest>=7.0", "build>=1.0", "twine>=5.0"]
+typecheck = ["mypy>=1.10", "types-PyYAML", "types-requests"]
+dev = ["ruff>=0.6.0", "pytest>=7.0", "pytest-cov>=5.0", "mypy>=1.10",
+       "build>=1.0", "twine>=5.0"]
 
 [project.scripts]
 # `marlinspike` runs the analysis engine on a pcap; same as `python -m marlinspike`.
@@ -98,6 +100,71 @@ ignore = [
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+
+# ── Type checking (mypy) ─────────────────────────────────────────────────
+# Strict on the new modules where annotations are clean. Lax on the
+# legacy giants (app.py, engine.py) — the v3.6+ split will land typed
+# replacements; doing it now would create churn-in-place. CI runs
+# `mypy --config-file pyproject.toml` and fails on the strict set.
+[tool.mypy]
+python_version = "3.10"
+strict_optional = true
+check_untyped_defs = false
+ignore_missing_imports = true
+exclude = [
+    "marlinspike/app\\.py$",
+    "marlinspike/engine\\.py$",
+    "msengine/",
+    "marlinspike-dpi/",
+    "marlinspike-capd/",
+    "windows/",
+    "build/",
+    "dist/",
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "marlinspike.taxonomy",
+    "marlinspike.run_store",
+    "marlinspike.recovery",
+    "marlinspike.setup_wizard",
+    "marlinspike.emit.ocsf",
+    "marlinspike.emit.navigator",
+    "marlinspike.emit.stix",
+    "marlinspike.emit.sigma",
+]
+disallow_untyped_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+
+# ── Coverage (pytest-cov) ─────────────────────────────────────────────────
+# Coverage gate is asymmetric: 70% on new modules, no floor on legacy.
+# Run via `pytest --cov=marlinspike --cov-report=term-missing
+# --cov-fail-under=...` — CI reports the legacy coverage but only fails
+# on regressions in the new-module set.
+[tool.coverage.run]
+source = ["marlinspike"]
+branch = true
+omit = [
+    "marlinspike/app.py",       # tracked separately; full route coverage is v3.6+
+    "marlinspike/engine.py",    # ditto
+    "marlinspike/__main__.py",
+    "*/tests/*",
+]
+
+[tool.coverage.report]
+precision = 1
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
 
 # The wheel ships the application package plus the top-level ``plugins``
 # namespace so that ``pip install marlinspike`` exposes ``plugins.marlinspike_*``

@@ -792,6 +792,55 @@ def _build_findings_catalog():
 MAX_CONCURRENT_SCANS = 1
 
 
+# ── Password policy (v3.5.4) ────────────────────────────────────────────────
+#
+# Pre-v3.5.4 only enforced len >= 8. Now enforces a policy that's strict
+# enough to reject the worst common passwords (length + multi-class), but
+# loose enough that it doesn't break real-world admin passphrases.
+# Reject common predictable passwords explicitly — the bar is "not in the
+# top-100 most common", not a full HIBP integration.
+
+_PASSWORD_MIN_LENGTH = 12
+_PASSWORD_REJECT = {
+    "password", "password1", "password123", "passw0rd",
+    "marlinspike", "marlinspike1", "admin", "admin123",
+    "letmein", "qwerty", "12345678", "123456789",
+    "changeme", "change-me", "secret", "default",
+}
+
+
+def _password_meets_policy(password: str) -> bool:
+    """Strict-enough policy: length + multi-class + not in deny-list.
+
+    Length 12+ (was 8+ pre-v3.5.4 — accommodate cloudmarlin's tier
+    requirements while remaining usable for real admins).
+    Two of: uppercase, lowercase, digit, symbol.
+    Not in the explicit reject list (covers the worst common picks).
+    """
+    if not password or len(password) < _PASSWORD_MIN_LENGTH:
+        return False
+    if password.lower() in _PASSWORD_REJECT:
+        return False
+    classes = 0
+    if any(c.isupper() for c in password):
+        classes += 1
+    if any(c.islower() for c in password):
+        classes += 1
+    if any(c.isdigit() for c in password):
+        classes += 1
+    if any(not c.isalnum() for c in password):
+        classes += 1
+    return classes >= 2
+
+
+def _password_policy_message() -> str:
+    return (
+        f"Password must be at least {_PASSWORD_MIN_LENGTH} characters and "
+        f"include at least two of: uppercase, lowercase, digits, symbols. "
+        f"Common predictable passwords are rejected."
+    )
+
+
 def _get_active_runs(user_id=None):
     """Return list of (run_id, run_state) for active runs.
 
@@ -5614,33 +5663,47 @@ def create_app():
 
     @app.route("/api/users/<username>/password", methods=["POST"])
     @admin_required
+    @limiter.limit("10 per hour")
     def api_users_change_password(username):
         body = request.get_json(silent=True) or {}
         new_pass = body.get("password", "")
         if not new_pass:
             return jsonify({"ok": False, "error": "Password required"}), 400
-        if len(new_pass) < 8:
-            return jsonify({"ok": False, "error": "Password must be at least 8 characters"}), 400
+        if not _password_meets_policy(new_pass):
+            return jsonify({"ok": False, "error": _password_policy_message()}), 400
         user = User.query.filter_by(username=username).first()
         if not user:
+            audit("auth.password_change_failed",
+                  target_type="user", target_id=username,
+                  status="not_found")
             return jsonify({"ok": False, "error": "User not found"}), 404
         change_password(user, new_pass)
+        audit("auth.password_change_admin",
+              target_type="user", target_id=username,
+              status="success")
         return jsonify({"ok": True})
 
     @app.route("/api/account/password", methods=["POST"])
     @login_required
+    @limiter.limit("5 per hour")
     def api_account_change_password():
         body = request.get_json(silent=True) or {}
         current = body.get("current_password", "")
         new_pass = body.get("new_password", "")
         if not current or not new_pass:
             return jsonify({"ok": False, "error": "Current and new password required"}), 400
-        if len(new_pass) < 8:
-            return jsonify({"ok": False, "error": "Password must be at least 8 characters"}), 400
+        if not _password_meets_policy(new_pass):
+            return jsonify({"ok": False, "error": _password_policy_message()}), 400
         user = User.query.filter_by(username=session["user"]).first()
         if not verify_user(user.username, current):
+            audit("auth.password_change_failed",
+                  target_type="user", target_id=user.username if user else session.get("user"),
+                  status="wrong_current_password")
             return jsonify({"ok": False, "error": "Current password is incorrect"}), 403
         change_password(user, new_pass)
+        audit("auth.password_change",
+              target_type="user", target_id=user.username,
+              status="success")
         return jsonify({"ok": True})
 
     # ── Profile ───────────────────────────────────────────────
