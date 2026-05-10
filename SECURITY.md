@@ -12,11 +12,43 @@
 - **MS-2026-008 (v3.5.2, 2026-05-10) — Missing browser security headers.** Pre-v3.5.2 templates carried `nonce="{{ csp_nonce }}"` markers but no code generated the nonce or emitted a CSP header. **Severity: MEDIUM.** Fixed in v3.5.2 — per-request nonce generation, full CSP with `frame-ancestors 'none'` + `object-src 'none'`, plus `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` lockdown, and HSTS when `SESSION_COOKIE_SECURE`.
 - **MS-2026-009 (v3.5.2, 2026-05-10) — `SESSION_COOKIE_SECURE` defaulted to False.** Pre-v3.5.2 cookies were sent over plain HTTP by default. **Severity: MEDIUM.** Fixed in v3.5.2 — defaults to True. Dev opt-out: `MARLINSPIKE_DEV_INSECURE_COOKIES=true`.
 
-## Tracked for v3.5.3+
+## CSRF token model (v3.5.4)
+
+MarlinSpike v3.5.4 added a proper per-session CSRF token as the **primary** defense against cross-site request forgery. The origin/referer check from v3.5.2 (MS-2026-006) is retained as defense-in-depth.
+
+**Token lifecycle:**
+
+| Event | Action |
+|---|---|
+| First state-changing request (or `csrf_token()` called in a template) | 32-byte URL-safe token minted via `secrets.token_urlsafe(32)`, stored in `session['_csrf']` |
+| Subsequent requests in the same session | Same token returned (idempotent) |
+| Successful login (`/login` POST) | `rotate_csrf()` drops `session['_csrf']`; next access mints a fresh token |
+| Session cleared (logout) | Token destroyed with the session |
+
+**Validation (v3.5.4):** `before_request` in `create_app()` (app.py, `csrf_check` function, ~line 2955) enforces for POST/PUT/DELETE/PATCH:
+
+1. If the view is decorated with `@csrf_exempt` — skip all checks.
+2. Read `X-CSRF-Token` header (all content types) or `_csrf` form field (`multipart/form-data`).
+3. Validate with `validate_csrf()` in `marlinspike/csrf.py` — uses `secrets.compare_digest` (constant-time).
+4. If valid → allow. If invalid or absent → fall back to origin/referer check (v3.5.2 logic, unchanged).
+5. If both fail → 403 JSON `{"error": "CSRF token missing or invalid"}`.
+
+**Jinja context:** `csrf_token()` is a callable injected into every template context via the `inject_csrf_token` context processor. Use as:
+
+```jinja
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+```
+
+**JS integration:** `base.html` monkey-patches `window.fetch` to automatically set `X-CSRF-Token` on every non-GET/HEAD/OPTIONS request using the value in `<meta name="csrf-token">`. All existing JS fetch call sites gain CSRF protection without modification.
+
+**Login exemption:** `/login` is `@csrf_exempt` because no session token exists before login. The endpoint is protected by `flask-limiter` (5 req/min). A CSRF on login at most logs the attacker into their own account.
+
+**Origin check (belt-and-suspenders):** The v3.5.2 full-origin comparison (scheme + host + port) remains active. A request that passes *either* the token check or the origin check is allowed. Both must fail to get a 403.
+
+## Tracked for v3.5.5+
 
 These are flagged but not yet shipped:
-
-- Proper CSRF token (origin checks alone don't defend against SOP bypasses; v3.5.3 will add a per-session token validated on state-changing requests).
 - Password-change endpoint audit logging + rate limiting.
 - Live capture per-project capture policy + interface allowlist.
 - Schema migrations: ad-hoc `ALTER TABLE` in `create_app()` → proper Alembic.

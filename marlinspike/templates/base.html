@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{ csrf_token() }}">
 <title>{% block title %}MarlinSpike{% endblock %}</title>
 <style nonce="{{ csp_nonce }}">
 @font-face {
@@ -844,6 +845,25 @@ body {
 </div>
 
 <script nonce="{{ csp_nonce }}">
+/** CSRF — pick up the per-session token from the meta tag and inject it
+ *  into every non-safe fetch() call automatically.  This monkey-patch
+ *  runs before any page JS so existing call sites need no changes. */
+window.MS_CSRF = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+(function() {
+  var origFetch = window.fetch;
+  window.fetch = function(url, opts) {
+    opts = opts || {};
+    var method = (opts.method || 'GET').toUpperCase();
+    if (['GET', 'HEAD', 'OPTIONS'].indexOf(method) === -1 && window.MS_CSRF) {
+      opts.headers = new Headers(opts.headers || {});
+      opts.headers.set('X-CSRF-Token', window.MS_CSRF);
+    }
+    return origFetch.call(this, url, opts);
+  };
+})();
+/** msFetch — explicit named wrapper (same behaviour, useful for call sites
+ *  that want to be self-documenting about CSRF awareness). */
+window.msFetch = function(url, opts) { return window.fetch(url, opts); };
 /** Taxonomy: entity visual specs for client-side chip / graph rendering.
  *  Keyed by entity_type value (e.g. "asset", "finding").
  *  Each entry: { entity_type, color_var, node_shape, chip_class,
