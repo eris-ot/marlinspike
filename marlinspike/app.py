@@ -2620,6 +2620,87 @@ def _scan_stage_names(command: str) -> list[str]:
     return ["Run"]
 
 
+def _run_schema_init(app) -> None:
+    """Apply Alembic migrations (preferred) or db.create_all() (fallback).
+
+    Priority order:
+      1. If the ``migrations/`` directory is present, ``flask-migrate`` is
+         installed, and the database URL is not an in-memory SQLite URI, run
+         ``flask_migrate.upgrade()`` to bring the DB to head.  This is the
+         standard path for all persistent-DB installs (Docker, production,
+         editable installs with DATABASE_URL pointing at a file or Postgres).
+      2. In-memory SQLite (``sqlite:///:memory:``): Alembic opens connections
+         via NullPool; each connection is a fresh empty DB.  Fall back to
+         ``db.create_all()`` which uses the app's shared connection pool.
+      3. If ``migrations/`` is missing (bare ``pip install marlinspike``
+         without the source tree) or flask-migrate is not installed, fall
+         back to ``db.create_all()``.  No version tracking is performed.
+      4. If ``MARLINSPIKE_ALLOW_NO_DATABASE_URL=true`` is set (test mode),
+         skip the Alembic path only — still run ``db.create_all()`` so that
+         the in-process schema is initialised for the bootstrap_admin() call
+         that follows immediately inside create_app().  Test fixtures may call
+         ``db.create_all()`` again after reconfiguring the URI; that is safe.
+    """
+    import pathlib
+
+    _migrations_dir = pathlib.Path(__file__).parent.parent / "migrations"
+    _have_migrations = _migrations_dir.is_dir()
+
+    try:
+        import flask_migrate as _fm  # noqa: F401
+        _have_flask_migrate = True
+    except ImportError:
+        _have_flask_migrate = False
+
+    # Detect in-memory SQLite — Alembic's NullPool makes every statement open
+    # a fresh connection, giving each one an empty database.  Use create_all()
+    # instead so the schema lives in the app's shared connection pool.
+    _db_url = app.config.get("SQLALCHEMY_DATABASE_URI", "")
+    _is_memory_sqlite = _db_url in ("sqlite:///:memory:", "sqlite://")
+
+    # Skip the Alembic path in test mode (ALLOW_NO_DATABASE_URL) or for
+    # in-memory SQLite; always fall through to db.create_all().
+    _skip_alembic = config.ALLOW_NO_DATABASE_URL or _is_memory_sqlite
+
+    if _have_migrations and _have_flask_migrate and not _skip_alembic:
+        from flask_migrate import Migrate, upgrade as _alembic_upgrade
+
+        # Attach Migrate to the app so upgrade() can locate the migrations dir.
+        # render_as_batch=True is required for SQLite ALTER TABLE support.
+        Migrate(app, db, directory=str(_migrations_dir), render_as_batch=True)
+        with app.app_context():
+            try:
+                _alembic_upgrade()
+                log.info("Alembic upgrade to head completed successfully.")
+                return  # Alembic handled it; skip the create_all() below.
+            except Exception as exc:
+                log.error(
+                    "Alembic migration failed: %s — falling back to db.create_all(). "
+                    "Manual intervention may be required for production databases.",
+                    exc,
+                    exc_info=True,
+                )
+    else:
+        if _is_memory_sqlite:
+            log.debug("In-memory SQLite detected — using db.create_all() (Alembic skipped).")
+        elif config.ALLOW_NO_DATABASE_URL:
+            log.debug("MARLINSPIKE_ALLOW_NO_DATABASE_URL=true — using db.create_all() (test mode).")
+        elif not _have_migrations:
+            log.info(
+                "migrations/ directory not found at %s — using db.create_all() fallback.",
+                _migrations_dir,
+            )
+        elif not _have_flask_migrate:
+            log.info(
+                "flask-migrate not installed — using db.create_all() fallback. "
+                "Install marlinspike[migrations] to enable Alembic tracking."
+            )
+
+    # Fallback (and test-mode) path: create all tables using SQLAlchemy metadata.
+    with app.app_context():
+        db.create_all()
+
+
 def create_app():
     app = Flask(__name__)
 
@@ -2684,87 +2765,7 @@ def create_app():
 
     # Init DB
     db.init_app(app)
-    with app.app_context():
-        from sqlalchemy import inspect, text
-
-        db.create_all()
-
-        def _get_columns(table_name):
-            return {col["name"] for col in inspect(db.engine).get_columns(table_name)}
-
-        def _add_column_if_missing(table_name, column_name, ddl_fragment):
-            try:
-                if column_name in _get_columns(table_name):
-                    return
-                db.session.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {ddl_fragment}"))
-                db.session.commit()
-                log.info("Added %s.%s", table_name, column_name)
-            except Exception as exc:
-                db.session.rollback()
-                log.info("Column migration skipped for %s.%s: %s", table_name, column_name, exc)
-
-        def _drop_column_if_present(table_name, column_name):
-            try:
-                if column_name not in _get_columns(table_name):
-                    return
-                db.session.execute(text(f"ALTER TABLE {table_name} DROP COLUMN {column_name}"))
-                db.session.commit()
-                log.info("Dropped legacy %s.%s", table_name, column_name)
-            except Exception as exc:
-                db.session.rollback()
-                log.info("Legacy column cleanup skipped for %s.%s: %s", table_name, column_name, exc)
-
-        # Migrate: add project_id column to scan_history if missing
-        _add_column_if_missing(
-            "scan_history",
-            "project_id",
-            "project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL",
-        )
-        _add_column_if_missing(
-            "scan_history",
-            "scan_profile",
-            "scan_profile VARCHAR(12) NOT NULL DEFAULT 'full'",
-        )
-
-        # v3.4.0 — recovery columns. Nullable, so existing rows
-        # are unaffected; new rows populate them at scan launch.
-        for column_name, ddl_fragment in [
-            ("pcap_path", "pcap_path TEXT"),
-            ("engine_pid", "engine_pid INTEGER"),
-            ("engine_argv", "engine_argv TEXT"),
-            ("timeout_at", "timeout_at TIMESTAMP"),
-            ("recovery_state", "recovery_state VARCHAR(20)"),
-        ]:
-            _add_column_if_missing("scan_history", column_name, ddl_fragment)
-
-        # Migrate: add user profile columns if missing
-        for column_name, ddl_fragment in [
-            ("full_name", "full_name VARCHAR(120)"),
-            ("company", "company VARCHAR(120)"),
-            ("phone", "phone VARCHAR(30)"),
-            ("birthday", "birthday DATE"),
-            ("address", "address TEXT"),
-            ("upload_limit_mb", "upload_limit_mb INTEGER NOT NULL DEFAULT 200"),
-        ]:
-            _add_column_if_missing("users", column_name, ddl_fragment)
-
-        _add_column_if_missing("users", "session_version", "session_version INTEGER NOT NULL DEFAULT 1")
-
-        _drop_column_if_present("users", "subscription_tier")
-
-        # Create password_reset_tokens table if missing
-        try:
-            inspect(db.engine).get_columns("password_reset_tokens")
-        except Exception:
-            PasswordResetToken.__table__.create(db.engine, checkfirst=True)
-            log.info("Created password_reset_tokens table")
-
-        # Create audit_log table if missing
-        try:
-            inspect(db.engine).get_columns("audit_log")
-        except Exception:
-            AuditLog.__table__.create(db.engine, checkfirst=True)
-            log.info("Created audit_log table")
+    _run_schema_init(app)
 
     # Cleanup expired reset tokens
     with app.app_context():
