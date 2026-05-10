@@ -296,6 +296,62 @@
   border-radius: 3px;
   font-size: 0.88em;
 }
+
+/* policy indicator */
+.cap-policy-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 0.72em;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  background: rgba(91,138,240,0.10);
+  color: var(--accent);
+  border: 1px solid rgba(91,138,240,0.25);
+  margin-left: 6px;
+}
+.cap-policy-badge.warn {
+  background: rgba(245,158,11,0.10);
+  color: #d97706;
+  border-color: rgba(245,158,11,0.35);
+}
+
+/* operator warning modal */
+.cap-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 9000;
+  align-items: center;
+  justify-content: center;
+}
+.cap-modal-overlay.open { display: flex; }
+.cap-modal {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px 28px;
+  max-width: 460px;
+  width: 90vw;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+}
+.cap-modal h2 {
+  font-size: 0.96em;
+  font-weight: 700;
+  margin: 0 0 12px 0;
+  color: var(--text);
+}
+.cap-modal p {
+  font-size: 0.88em;
+  color: var(--text-dim);
+  margin: 0 0 20px 0;
+  line-height: 1.55;
+}
+.cap-modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
 </style>
 {% endblock %}
 
@@ -322,12 +378,27 @@
 
   <div class="cap-grid">
 
+    <!-- ── Operator warning modal ───────────────────── -->
+    <div class="cap-modal-overlay" id="cap-warning-overlay" role="dialog" aria-modal="true" aria-labelledby="cap-warning-title">
+      <div class="cap-modal">
+        <h2 id="cap-warning-title">{{ t('capture.policy.warning_title') }}</h2>
+        <p id="cap-warning-body"></p>
+        <div class="cap-modal-actions">
+          <button class="cap-btn" id="cap-warning-cancel">{{ t('capture.policy.warning_cancel') }}</button>
+          <button class="cap-btn primary" id="cap-warning-confirm">{{ t('capture.policy.warning_confirm') }}</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ── New capture form ──────────────────────────── -->
     <section class="cap-panel" aria-labelledby="cap-new-head">
       <div class="cap-panel-head" id="cap-new-head">{{ t('capture.new.title') }}</div>
       <div class="cap-panel-body">
         <div class="cap-field">
-          <label for="cap-project">{{ t('capture.new.project') }}</label>
+          <label for="cap-project">
+            {{ t('capture.new.project') }}
+            <span id="cap-policy-badge" class="cap-policy-badge" style="display:none;" title="">POLICY</span>
+          </label>
           <select class="ms-select" id="cap-project"></select>
         </div>
 
@@ -444,11 +515,16 @@
     'filter_save_prompt': "{{ t('capture.filters.save_prompt') }}",
     'filter_save_blank': "{{ t('capture.filters.save_blank') }}",
     'filter_delete_confirm': "{{ t('capture.filters.delete_confirm') }}",
+    'policy_active': "{{ t('capture.policy.badge_active') }}",
+    'policy_disabled': "{{ t('capture.policy.badge_disabled') }}",
   };
 
   var streams = Object.create(null); // sessionId -> EventSource
   var bpfDebounce = null;
   var savedFilters = []; // [{id, name, expression}, ...] for the active project
+  var activePolicy = null; // current project's parsed policy (or null)
+  var effectiveAllowlist = null; // null=any, []=none, [...]=list
+  var pendingStartBody = null; // held while operator-warning modal is open
 
   function esc(s) {
     return String(s == null ? '' : s)
@@ -517,6 +593,34 @@
   function currentProjectId() {
     var sel = document.getElementById('cap-project');
     return parseInt(sel && sel.value, 10) || null;
+  }
+
+  // Load per-project policy and update badge + interface list.
+  function loadPolicy() {
+    var pid = currentProjectId();
+    var badge = document.getElementById('cap-policy-badge');
+    activePolicy = null;
+    effectiveAllowlist = null;
+    badge.style.display = 'none';
+    badge.className = 'cap-policy-badge';
+    if (pid == null) return Promise.resolve();
+    return fetchJson('/api/capture/policy/' + pid).then(function(j){
+      if (!j || !j.ok) return;
+      activePolicy = j.policy || {};
+      effectiveAllowlist = j.effective_allowed_interfaces; // null or []
+      var hasPolicy = Object.keys(activePolicy).length > 0;
+      if (hasPolicy) {
+        badge.style.display = '';
+        if (activePolicy.enabled === false) {
+          badge.textContent = T.policy_disabled;
+          badge.classList.add('warn');
+          badge.title = 'Capture disabled for this project by policy';
+        } else {
+          badge.textContent = T.policy_active;
+          badge.title = 'Capture policy active for this project';
+        }
+      }
+    }).catch(function(){ /* non-fatal */ });
   }
 
   // ── saved filters ─────────────────────────────────────────
@@ -590,7 +694,11 @@
   // ── interfaces ────────────────────────────────────────────
   function loadInterfaces() {
     var showVirtual = document.getElementById('cap-show-virtual').checked;
-    var url = '/api/capture/interfaces' + (showVirtual ? '?include_virtual=1' : '');
+    var pid = currentProjectId();
+    var params = [];
+    if (showVirtual) params.push('include_virtual=1');
+    if (pid != null) params.push('project_id=' + pid);
+    var url = '/api/capture/interfaces' + (params.length ? '?' + params.join('&') : '');
     var sel = document.getElementById('cap-iface');
     sel.disabled = true;
     sel.innerHTML = '<option>…</option>';
@@ -646,10 +754,36 @@
     document.getElementById('cap-start').disabled = !enabled;
   }
 
+  // ── operator warning modal ────────────────────────────────
+  function showWarningModal(message, onConfirm) {
+    document.getElementById('cap-warning-body').textContent = message;
+    document.getElementById('cap-warning-overlay').classList.add('open');
+    document.getElementById('cap-warning-confirm').onclick = function() {
+      closeWarningModal();
+      onConfirm();
+    };
+    document.getElementById('cap-warning-cancel').onclick = function() {
+      closeWarningModal();
+      var btn = document.getElementById('cap-start');
+      btn.disabled = false;
+      document.getElementById('cap-start-help').textContent = '';
+    };
+  }
+  function closeWarningModal() {
+    document.getElementById('cap-warning-overlay').classList.remove('open');
+  }
+
   // ── start / stop ──────────────────────────────────────────
   function onStart() {
     var btn = document.getElementById('cap-start');
     var help = document.getElementById('cap-start-help');
+
+    // Check if capture is disabled for this project by policy (client-side fast-fail).
+    if (activePolicy && activePolicy.enabled === false) {
+      help.textContent = 'Capture is disabled for this project.';
+      return;
+    }
+
     btn.disabled = true; help.textContent = T.starting;
     var body = {
       project_id: parseInt(document.getElementById('cap-project').value, 10) || null,
@@ -659,9 +793,28 @@
       ring_files: parseInt(document.getElementById('cap-files').value, 10) || 10,
       max_duration_s: parseInt(document.getElementById('cap-duration').value, 10) || 0,
     };
+
+    // If there is an operator_warning in the active policy, show confirmation before POSTing.
+    var warning = activePolicy && activePolicy.operator_warning;
+    if (warning) {
+      showWarningModal(warning, function() { doStartSession(body); });
+    } else {
+      doStartSession(body);
+    }
+  }
+
+  function doStartSession(body) {
+    var btn = document.getElementById('cap-start');
+    var help = document.getElementById('cap-start-help');
+    btn.disabled = true;
+    help.textContent = T.starting;
     postJson('/api/capture/sessions', body).then(function(j){
       help.textContent = '';
       btn.disabled = false;
+      // Server may also return operator_warning (e.g. warning was added after page load).
+      if (j && j.operator_warning) {
+        help.textContent = '⚠ ' + j.operator_warning;
+      }
       refreshSessions();
     }).catch(function(e){
       help.textContent = String(e.message || e);
@@ -808,12 +961,19 @@
   }
 
   // ── wire ──────────────────────────────────────────────────
+  function onProjectChange() {
+    loadPolicy().then(function(){
+      loadInterfaces();
+      loadFilters();
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', function(){
     document.getElementById('cap-show-virtual').addEventListener('change', loadInterfaces);
     document.getElementById('cap-iface').addEventListener('change', maybeEnableStart);
     document.getElementById('cap-bpf').addEventListener('input', onBpfInput);
     document.getElementById('cap-start').addEventListener('click', onStart);
-    document.getElementById('cap-project').addEventListener('change', loadFilters);
+    document.getElementById('cap-project').addEventListener('change', onProjectChange);
     document.getElementById('cap-filter-pick').addEventListener('change', onFilterPick);
     document.getElementById('cap-filter-save').addEventListener('click', onFilterSave);
     document.getElementById('cap-filter-del').addEventListener('click', onFilterDelete);
@@ -826,8 +986,10 @@
     setInterval(pollHealth, 15000);
 
     loadProjects().then(function(){
-      loadInterfaces();
-      loadFilters();
+      loadPolicy().then(function(){
+        loadInterfaces();
+        loadFilters();
+      });
       refreshSessions();
       setInterval(refreshSessions, 8000);
     });

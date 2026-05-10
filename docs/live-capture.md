@@ -249,6 +249,69 @@ If you close the browser tab, the capture keeps running. Reopen
 
 ---
 
+## Per-project capture policy
+
+Each project can carry an optional `capture_policy` JSON blob that tightens or
+blocks capture for that project independently of the system-wide defaults. This
+is useful for multi-tenant deployments and OT engagements where individual
+project scope must be enforced at the config layer.
+
+### Policy schema
+
+```json
+{
+  "enabled": true,
+  "allowed_interfaces": ["eth0"],
+  "max_session_duration_s": 3600,
+  "max_total_bytes": null,
+  "operator_warning": "OT engagement — confirm scope before starting capture."
+}
+```
+
+All fields are optional. A missing field means "use the system default."
+
+| field | type | effect |
+|---|---|---|
+| `enabled` | `bool` | When `false`, all capture starts for this project are rejected with 403. |
+| `allowed_interfaces` | `[string]` | Intersected with `MARLINSPIKE_CAPTURE_INTERFACE_ALLOWLIST`. Empty intersection → 403. |
+| `max_session_duration_s` | `int \| null` | Caps `max_duration_s` from the start request. Original-vs-applied values are logged with `audit("capture.policy_capped", …)`. |
+| `max_total_bytes` | `int \| null` | Reserved field; not yet enforced by the start-session gate (future use). |
+| `operator_warning` | `string \| null` | When present, the string is returned in the start-session response body as `operator_warning`. The web UI shows a confirmation modal before submitting. |
+
+### Gate order in `start_session`
+
+Gates fire in this order; the first rejection short-circuits:
+
+1. **project.enabled** — if `false`, immediate 403.
+2. **Interface allowlist** — effective list = `MARLINSPIKE_CAPTURE_INTERFACE_ALLOWLIST` ∩ `policy.allowed_interfaces`. When either side is unset, the other side is used as-is. 403 if the requested interface is not in the effective list.
+3. **Duration cap** — `max_duration_s` in the request is silently clamped to `max_session_duration_s`. An `audit("capture.policy_capped", …)` event records the original and applied values.
+4. **operator_warning** — non-blocking; passed through to the 201 response and surfaced as a confirmation modal in the UI.
+
+### System-wide interface allowlist
+
+`MARLINSPIKE_CAPTURE_INTERFACE_ALLOWLIST` is a comma-separated list of NIC names
+set in the web app's environment. When set, it applies to **all projects**,
+independently of per-project policy. Per-project `allowed_interfaces` is
+intersected with the system allowlist; a project cannot grant access to an
+interface the system allowlist prohibits.
+
+```
+MARLINSPIKE_CAPTURE_INTERFACE_ALLOWLIST=eth0,eth1
+```
+
+When unset, no system-level interface restriction applies.
+
+### Policy API
+
+| method | URL | access | description |
+|---|---|---|---|
+| `GET` | `/api/capture/policy/<pid>` | admin or project owner | Returns current policy dict + `effective_allowed_interfaces` (post-intersection). |
+| `PUT` | `/api/capture/policy/<pid>` | admin or project owner | Sets the policy. Validates shape; rejects unknown keys with 400. Emits `audit("capture.policy_set", …)`. |
+
+Both endpoints return 404 to callers who are neither admin nor the project owner.
+
+---
+
 ## Concurrency and locking
 
 - **Per-host cap:** `LIVE_CAPTURE_MAX_CONCURRENT` (default 2). When

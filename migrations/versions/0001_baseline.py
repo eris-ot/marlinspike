@@ -64,6 +64,9 @@ def upgrade() -> None:
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("name", sa.String(length=200), nullable=False),
         sa.Column("created_at", sa.DateTime(), nullable=True),
+        # v3.5.4: per-project capture policy (nullable JSON-encoded TEXT).
+        # Shape documented in marlinspike/models.py:Project.capture_policy.
+        sa.Column("capture_policy", sa.Text(), nullable=True),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("user_id", "name", name="uq_project_user_name"),

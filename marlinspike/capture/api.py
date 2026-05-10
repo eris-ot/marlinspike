@@ -15,6 +15,7 @@ import logging
 import time
 import uuid
 from datetime import datetime, timezone
+from typing import Any
 
 from flask import Blueprint, Response, jsonify, request, session, stream_with_context
 
@@ -48,6 +49,81 @@ log = logging.getLogger(__name__)
 
 bp = Blueprint("capture", __name__, url_prefix="/api/capture")
 
+# ── Policy schema ─────────────────────────────────────────────
+
+_POLICY_ALLOWED_KEYS = frozenset({
+    "enabled",
+    "allowed_interfaces",
+    "max_session_duration_s",
+    "max_total_bytes",
+    "operator_warning",
+})
+
+
+def _parse_policy(raw: str | None) -> dict[str, Any]:
+    """Return a parsed policy dict from the JSON column, or {} if absent/invalid."""
+    if not raw:
+        return {}
+    try:
+        p = json.loads(raw)
+        if not isinstance(p, dict):
+            return {}
+        return p
+    except (ValueError, TypeError):
+        return {}
+
+
+def _validate_policy_body(body: dict) -> str | None:
+    """Validate a policy PUT body. Returns an error string or None."""
+    unknown = set(body.keys()) - _POLICY_ALLOWED_KEYS
+    if unknown:
+        return f"unknown keys: {', '.join(sorted(unknown))}"
+    if "enabled" in body and not isinstance(body["enabled"], bool):
+        return "enabled must be a boolean"
+    if "allowed_interfaces" in body:
+        ai = body["allowed_interfaces"]
+        if not isinstance(ai, list) or not all(isinstance(x, str) for x in ai):
+            return "allowed_interfaces must be a list of strings"
+    if "max_session_duration_s" in body:
+        v = body["max_session_duration_s"]
+        if v is not None and (not isinstance(v, int) or v < 0):
+            return "max_session_duration_s must be a non-negative integer or null"
+    if "max_total_bytes" in body:
+        v = body["max_total_bytes"]
+        if v is not None and (not isinstance(v, int) or v < 0):
+            return "max_total_bytes must be a non-negative integer or null"
+    if "operator_warning" in body:
+        v = body["operator_warning"]
+        if v is not None and not isinstance(v, str):
+            return "operator_warning must be a string or null"
+    return None
+
+
+def _resolve_interface_allowlist(policy: dict) -> list[str] | None:
+    """Return the effective interface allowlist (intersection of system + project).
+
+    Returns None when there is no restriction (either system or project),
+    meaning all interfaces are allowed. Returns a (possibly empty) list
+    when restrictions exist — an empty list means no interface is permitted.
+    """
+    system = config.MARLINSPIKE_CAPTURE_INTERFACE_ALLOWLIST  # [] = no restriction
+    project_ifaces = policy.get("allowed_interfaces")  # None = no project restriction
+
+    if not system and project_ifaces is None:
+        return None  # no restriction from either side
+
+    if system and project_ifaces is None:
+        return list(system)
+
+    if not system and project_ifaces is not None:
+        return list(project_ifaces)
+
+    # Both set: intersect, preserving project list order.
+    system_set = set(system)
+    return [i for i in project_ifaces if i in system_set]
+
+
+# ── Helpers ───────────────────────────────────────────────────
 
 def _client() -> CapdClient:
     return CapdClient(config.LIVE_CAPTURE_SOCKET, timeout=float(config.LIVE_CAPTURE_TIMEOUT_S))
@@ -61,6 +137,17 @@ def _require_project(project_id) -> Project | None:
     except (ValueError, TypeError):
         return None
     return Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+
+
+def _require_project_admin_or_owner(pid: int) -> Project | None:
+    """Return the project if the caller is admin OR the project owner."""
+    is_admin = session.get("role") == "admin"
+    p = Project.query.get(pid)
+    if p is None:
+        return None
+    if is_admin or p.user_id == session["user_id"]:
+        return p
+    return None
 
 
 def _serialize(s: CaptureSession) -> dict:
@@ -108,6 +195,18 @@ def health():
 def list_interfaces():
     if not config.LIVE_CAPTURE_ENABLED:
         return jsonify({"ok": False, "error": "live capture disabled"}), 503
+
+    # Optionally filter by project policy + system allowlist.
+    project_id = request.args.get("project_id", type=int)
+    effective_allowlist: list[str] | None = None
+    if project_id is not None:
+        project = _require_project(project_id)
+        if project is not None:
+            policy = _parse_policy(project.capture_policy)
+            effective_allowlist = _resolve_interface_allowlist(policy)
+    elif config.MARLINSPIKE_CAPTURE_INTERFACE_ALLOWLIST:
+        effective_allowlist = list(config.MARLINSPIKE_CAPTURE_INTERFACE_ALLOWLIST)
+
     include_virtual = request.args.get("include_virtual", "0") in ("1", "true", "yes", "on")
     try:
         ifaces = _client().list_interfaces(include_virtual=include_virtual)
@@ -115,14 +214,17 @@ def list_interfaces():
         return jsonify({"ok": False, "error": str(exc)}), 503
     except CapdError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 502
-    return jsonify({"ok": True, "interfaces": [
+
+    iface_list = [
         {
             "name": i.name, "mac": i.mac, "ips": i.ips, "is_up": i.is_up,
             "is_loopback": i.is_loopback, "is_virtual": i.is_virtual,
             "mtu": i.mtu, "speed_mbps": i.speed_mbps,
         }
         for i in ifaces
-    ]})
+        if effective_allowlist is None or i.name in effective_allowlist
+    ]
+    return jsonify({"ok": True, "interfaces": iface_list})
 
 
 @bp.route("/validate-bpf", methods=["POST"])
@@ -161,7 +263,43 @@ def start_session():
     if project is None:
         return jsonify({"ok": False, "error": "valid project_id required"}), 400
 
-    # Per-host concurrency cap.
+    # ── Gate 1: per-project enabled flag ─────────────────────
+    policy = _parse_policy(project.capture_policy)
+    if policy.get("enabled") is False:
+        return jsonify({"ok": False, "error": "Live capture disabled for this project"}), 403
+
+    # ── Gate 2: interface allowlist (system ∩ project) ───────
+    effective_allowlist = _resolve_interface_allowlist(policy)
+    if effective_allowlist is not None and interface not in effective_allowlist:
+        if effective_allowlist:
+            allowed_str = ", ".join(effective_allowlist)
+            msg = f"interface {interface!r} not permitted by policy; allowed: {allowed_str}"
+        else:
+            msg = f"interface {interface!r} not permitted by policy (empty intersection of system and project allowlists)"
+        return jsonify({"ok": False, "error": msg}), 403
+
+    # ── Gate 3: duration cap ──────────────────────────────────
+    policy_max_dur = policy.get("max_session_duration_s")
+    applied_duration_s = max_duration_s
+    if policy_max_dur is not None and isinstance(policy_max_dur, int) and policy_max_dur > 0:
+        if max_duration_s <= 0 or max_duration_s > policy_max_dur:
+            applied_duration_s = policy_max_dur
+            audit("capture.policy_capped",
+                  target_type="project", target_id=str(project.id),
+                  detail=json.dumps({
+                      "field": "max_session_duration_s",
+                      "requested": max_duration_s,
+                      "applied": applied_duration_s,
+                      "project_id": project.id,
+                      "interface": interface,
+                  }))
+
+    # ── Gate 4: operator_warning (non-blocking, pass through) ─
+    operator_warning = policy.get("operator_warning") or None
+    if isinstance(operator_warning, str):
+        operator_warning = operator_warning.strip() or None
+
+    # ── Per-host concurrency cap ──────────────────────────────
     if manager.active_session_count() >= config.LIVE_CAPTURE_MAX_CONCURRENT:
         return jsonify({
             "ok": False,
@@ -181,7 +319,7 @@ def start_session():
         bpf_filter=bpf_filter,
         ring_filesize_kb=ring_filesize_kb,
         ring_files=ring_files,
-        max_duration_s=max_duration_s,
+        max_duration_s=applied_duration_s,
         status="pending",
     )
     db.session.add(cs)
@@ -197,7 +335,7 @@ def start_session():
             bpf_filter=bpf_filter,
             ring_filesize_kb=ring_filesize_kb,
             ring_files=ring_files,
-            max_duration_s=max_duration_s,
+            max_duration_s=applied_duration_s,
         )
     except (CapdUnavailable, CapdError) as exc:
         cs.status = "failed"
@@ -226,7 +364,10 @@ def start_session():
     audit("capture.start", target_type="capture_session", target_id=cs.id,
           detail=json.dumps({"interface": interface, "bpf": bpf_filter, "project_id": project.id}))
 
-    return jsonify({"ok": True, "session": _serialize(cs)}), 201
+    result = {"ok": True, "session": _serialize(cs)}
+    if operator_warning:
+        result["operator_warning"] = operator_warning
+    return jsonify(result), 201
 
 
 @bp.route("/sessions/<int:sid>/stop", methods=["POST"])
@@ -363,6 +504,73 @@ def stream_session(sid: int):
     resp.headers["Cache-Control"] = "no-cache, no-store"
     resp.headers["X-Accel-Buffering"] = "no"  # disable nginx buffering
     return resp
+
+
+# ── Per-project capture policy ───────────────────────────────
+
+@bp.route("/policy/<int:pid>", methods=["GET"])
+@login_required
+def get_capture_policy(pid: int):
+    """Return the current capture policy for project <pid>.
+
+    Accessible by admin or the project owner.
+    """
+    project = _require_project_admin_or_owner(pid)
+    if project is None:
+        return jsonify({"ok": False, "error": "not found"}), 404
+
+    policy = _parse_policy(project.capture_policy)
+    # Include effective allowlist so callers can know the true permitted set.
+    effective = _resolve_interface_allowlist(policy)
+    return jsonify({
+        "ok": True,
+        "project_id": pid,
+        "policy": policy,
+        "effective_allowed_interfaces": effective,
+        "system_allowlist": config.MARLINSPIKE_CAPTURE_INTERFACE_ALLOWLIST or None,
+    })
+
+
+@bp.route("/policy/<int:pid>", methods=["PUT"])
+@login_required
+def set_capture_policy(pid: int):
+    """Set the capture policy for project <pid>.
+
+    Accessible by admin or the project owner.
+    Validates shape; rejects unknown keys.
+    """
+    project = _require_project_admin_or_owner(pid)
+    if project is None:
+        return jsonify({"ok": False, "error": "not found"}), 404
+
+    body = request.get_json(silent=True)
+    if body is None or not isinstance(body, dict):
+        return jsonify({"ok": False, "error": "JSON body required"}), 400
+
+    err = _validate_policy_body(body)
+    if err:
+        return jsonify({"ok": False, "error": f"invalid policy: {err}"}), 400
+
+    old_raw = project.capture_policy
+    project.capture_policy = json.dumps(body) if body else None
+    db.session.commit()
+
+    audit("capture.policy_set",
+          target_type="project", target_id=str(pid),
+          detail=json.dumps({
+              "project_id": pid,
+              "old_policy": json.loads(old_raw) if old_raw else None,
+              "new_policy": body,
+          }))
+
+    policy = _parse_policy(project.capture_policy)
+    effective = _resolve_interface_allowlist(policy)
+    return jsonify({
+        "ok": True,
+        "project_id": pid,
+        "policy": policy,
+        "effective_allowed_interfaces": effective,
+    })
 
 
 # ── saved filters ────────────────────────────────────────────

@@ -43,6 +43,11 @@ class Project(db.Model):
     created_at = db.Column(
         db.DateTime, default=lambda: datetime.now(timezone.utc)
     )
+    # JSON-encoded per-project capture policy. NULL = use system defaults.
+    # Shape: {"enabled": bool, "allowed_interfaces": [str, ...],
+    #         "max_session_duration_s": int|null, "max_total_bytes": int|null,
+    #         "operator_warning": str|null}
+    capture_policy = db.Column(db.Text, nullable=True)
 
     __table_args__ = (
         db.UniqueConstraint("user_id", "name", name="uq_project_user_name"),

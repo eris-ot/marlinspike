@@ -209,3 +209,12 @@ LIVE_CAPTURE_SOCKET = os.environ.get(
 )
 LIVE_CAPTURE_TIMEOUT_S = float(os.environ.get("LIVE_CAPTURE_TIMEOUT_S", "5"))
 LIVE_CAPTURE_MAX_CONCURRENT = int(os.environ.get("LIVE_CAPTURE_MAX_CONCURRENT", "2"))
+
+# System-wide interface allowlist. When unset, any interface is permitted.
+# When set to a comma-separated list, only those interfaces may be captured on.
+# Example: MARLINSPIKE_CAPTURE_INTERFACE_ALLOWLIST=eth0,eth1
+# Use to prevent capture on management NICs.
+_raw_iface_allowlist = os.environ.get("MARLINSPIKE_CAPTURE_INTERFACE_ALLOWLIST", "").strip()
+MARLINSPIKE_CAPTURE_INTERFACE_ALLOWLIST: list[str] = [
+    i.strip() for i in _raw_iface_allowlist.split(",") if i.strip()
+]
