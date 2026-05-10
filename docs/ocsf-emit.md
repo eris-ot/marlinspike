@@ -20,10 +20,16 @@ computes on top of aggregated Bronze events:
 
 The wire-derived Bronze events (ProtocolTransaction, AssetObservation,
 ParseAnomaly) get their own native OCSF emit from
-`marlinspike-dpi --format ocsf` once that CLI surface lands. Until
-then, only the application-layer findings are in `report.ocsf.ndjson`.
-Concatenate the two streams to produce a complete OCSF view per
-capture.
+`marlinspike-dpi --format ocsf` (v1.7.0+). MarlinSpike's chain runner
+invokes both streams and concatenates them into a single
+`report.ocsf.ndjson`. The DPI stream comes first (one record per
+event); the application-layer findings follow (one record per finding).
+A consumer ingesting the file gets a complete OCSF view per capture
+without having to merge files itself.
+
+If the pinned DPI binary predates v1.7.0 (no `--format ocsf` support),
+the file contains only the application-layer findings — DPI's portion
+is silently empty. Bump the DPI pin to fix.
 
 ## How to enable
 

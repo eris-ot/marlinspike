@@ -1017,6 +1017,37 @@ def _run_marlinspike_dpi(binary_path: str, pcap_path: str, capture_id: str) -> d
             pass
 
 
+def _run_marlinspike_dpi_ocsf(binary_path: str, pcap_path: str, capture_id: str) -> str:
+    """Run marlinspike-dpi with --format ocsf and return NDJSON.
+
+    Returns "" if the binary is missing, doesn't recognise --format
+    (older than v1.7.0), or fails for any other reason. The chain
+    continues with application-layer OCSF only when this returns "".
+    Re-runs the engine on the same PCAP — the cost is one extra DPI
+    pass per chain scan when MARLINSPIKE_EMIT_OCSF is enabled.
+    """
+    resolved = shutil.which(binary_path) or binary_path
+    if not resolved or not os.path.exists(resolved):
+        return ""
+
+    cmd = [
+        resolved,
+        "--input",
+        pcap_path,
+        "--capture-id",
+        capture_id,
+        "--format",
+        "ocsf",
+    ]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    except (subprocess.TimeoutExpired, OSError):
+        return ""
+    if result.returncode != 0:
+        return ""
+    return result.stdout or ""
+
+
 def _dissect_with_selected_engine(pcap_path: str, args, capture_id: str):
     """Dispatch Stage 2 to the selected DPI engine with safe fallback."""
     requested_engine = getattr(args, "dpi_engine", "auto") or "auto"
@@ -5254,18 +5285,36 @@ def run_chain(args):
         report.save_yaml_map(yaml_path)
 
     # OCSF v1.4.0 Detection Finding emit (sibling NDJSON file).
-    # Application-layer findings only; wire-derived Bronze events get
-    # OCSF emit from marlinspike-dpi --format ocsf when wired there.
+    # Two streams concatenated:
+    #   1. marlinspike-dpi --format ocsf (wire-derived Bronze events:
+    #      ProtocolTransaction, AssetObservation, ParseAnomaly).
+    #      Requires marlinspike-dpi v1.7.0+; older versions silently
+    #      skipped.
+    #   2. marlinspike.emit.ocsf — application-layer findings
+    #      (risk_findings, c2_indicators, malware_findings,
+    #      mitre_classifications) as Detection Finding (2004).
     # See marlinspike.emit.ocsf and docs/ocsf-emit.md.
     try:
         from marlinspike import config as _ms_config
         if getattr(_ms_config, "MARLINSPIKE_EMIT_OCSF", False):
             from marlinspike.emit import ocsf as _ocsf_emit
             ocsf_path = args.output.replace(".json", ".ocsf.ndjson")
-            ndjson = _ocsf_emit.render_ndjson(report.to_dict())
+            capture_id = os.path.splitext(os.path.basename(args.pcap or ""))[0] or "capture"
+            dpi_ocsf = _run_marlinspike_dpi_ocsf(
+                getattr(args, "dpi_binary", "") or os.environ.get(
+                    "MARLINSPIKE_DPI_BIN", "marlinspike-dpi"
+                ),
+                args.pcap,
+                capture_id,
+            )
+            app_ocsf = _ocsf_emit.render_ndjson(report.to_dict(), capture_id=capture_id)
             with open(ocsf_path, "w") as ocsf_f:
-                if ndjson:
-                    ocsf_f.write(ndjson + "\n")
+                if dpi_ocsf:
+                    ocsf_f.write(dpi_ocsf)
+                    if not dpi_ocsf.endswith("\n"):
+                        ocsf_f.write("\n")
+                if app_ocsf:
+                    ocsf_f.write(app_ocsf + "\n")
             print(f"[*] OCSF emit: {os.path.basename(ocsf_path)}")
     except Exception as _ocsf_exc:
         print(f"[!] OCSF emit skipped: {_ocsf_exc}")
