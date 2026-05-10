@@ -5319,6 +5319,26 @@ def run_chain(args):
     except Exception as _ocsf_exc:
         print(f"[!] OCSF emit skipped: {_ocsf_exc}")
 
+    # MITRE ATT&CK Navigator v4.5 layer JSON emit. One file per domain
+    # (ics-attack / enterprise-attack) — defenders drop these into a
+    # hosted Navigator instance to visualise technique coverage.
+    # See marlinspike.emit.navigator and docs/ocsf-emit.md.
+    try:
+        from marlinspike import config as _ms_config
+        if getattr(_ms_config, "MARLINSPIKE_EMIT_NAVIGATOR", False):
+            from marlinspike.emit import navigator as _nav_emit
+            capture_id = os.path.splitext(os.path.basename(args.pcap or ""))[0] or "capture"
+            layers = _nav_emit.render_layers(report.to_dict(), capture_id=capture_id)
+            for domain, layer in layers.items():
+                short = "ics" if domain == _nav_emit.DOMAIN_ICS else "enterprise"
+                nav_path = args.output.replace(".json", f".navigator.{short}.json")
+                with open(nav_path, "w") as nav_f:
+                    json.dump(layer, nav_f, indent=2)
+                    nav_f.write("\n")
+                print(f"[*] Navigator emit: {os.path.basename(nav_path)}")
+    except Exception as _nav_exc:
+        print(f"[!] Navigator emit skipped: {_nav_exc}")
+
     _active_report = None
     _active_report_path = None
     return report

@@ -4355,6 +4355,85 @@ def create_app():
             return jsonify({"error": "Report not found"}), 404
         return send_file(path, as_attachment=True, download_name=safe_name)
 
+    @app.route("/api/reports/<filename>/ocsf")
+    @login_required
+    def api_report_ocsf(filename):
+        """Stream the OCSF NDJSON sibling next to the report (or generate
+        on-the-fly for the application-layer slice if the sibling file
+        doesn't exist on disk — older report or
+        MARLINSPIKE_EMIT_OCSF=false)."""
+        safe_name = os.path.basename(filename)
+        project_id = request.args.get("project_id", None, type=int)
+        json_path = os.path.join(user_reports_dir(project_id), safe_name)
+        if not os.path.isfile(json_path):
+            return jsonify({"error": "Report not found"}), 404
+        ocsf_path = json_path.replace(".json", ".ocsf.ndjson")
+        if os.path.isfile(ocsf_path):
+            return send_file(
+                ocsf_path,
+                as_attachment=True,
+                download_name=safe_name.replace(".json", ".ocsf.ndjson"),
+                mimetype="application/x-ndjson",
+            )
+        # Fallback: generate the application-layer slice from the report.
+        try:
+            from marlinspike.emit import ocsf as _ocsf_emit
+            with open(json_path) as f:
+                report = json.load(f)
+            ndjson = _ocsf_emit.render_ndjson(report)
+        except Exception as exc:
+            log.warning("OCSF on-demand render failed for %s: %s", safe_name, exc)
+            return jsonify({"error": "OCSF emit failed"}), 500
+        from flask import Response
+        return Response(
+            (ndjson + "\n") if ndjson else "",
+            mimetype="application/x-ndjson",
+            headers={
+                "Content-Disposition": f'attachment; filename="{safe_name.replace(".json", ".ocsf.ndjson")}"',
+            },
+        )
+
+    @app.route("/api/reports/<filename>/navigator")
+    @login_required
+    def api_report_navigator(filename):
+        """Return a MITRE ATT&CK Navigator v4.5 layer for one domain.
+        Query string: ?domain=ics-attack|enterprise-attack (default ics)."""
+        safe_name = os.path.basename(filename)
+        project_id = request.args.get("project_id", None, type=int)
+        domain = request.args.get("domain", "ics-attack").lower()
+        json_path = os.path.join(user_reports_dir(project_id), safe_name)
+        if not os.path.isfile(json_path):
+            return jsonify({"error": "Report not found"}), 404
+        # Prefer the on-disk sibling if it exists.
+        short = "ics" if domain == "ics-attack" else "enterprise"
+        nav_path = json_path.replace(".json", f".navigator.{short}.json")
+        if os.path.isfile(nav_path):
+            return send_file(
+                nav_path,
+                as_attachment=True,
+                download_name=safe_name.replace(".json", f".navigator.{short}.json"),
+                mimetype="application/json",
+            )
+        # Fallback: generate from report.
+        try:
+            from marlinspike.emit import navigator as _nav_emit
+            with open(json_path) as f:
+                report = json.load(f)
+            layer = _nav_emit.render_layer_for_domain(report, domain)
+        except Exception as exc:
+            log.warning("Navigator on-demand render failed for %s: %s", safe_name, exc)
+            return jsonify({"error": "Navigator emit failed"}), 500
+        if layer is None:
+            return jsonify({"error": f"No {domain} techniques in report"}), 404
+        from flask import Response
+        return Response(
+            json.dumps(layer, indent=2),
+            mimetype="application/json",
+            headers={
+                "Content-Disposition": f'attachment; filename="{safe_name.replace(".json", f".navigator.{short}.json")}"',
+            },
+        )
+
     @app.route("/api/reports/<filename>/viewer")
     @login_required
     def api_report_viewer(filename):

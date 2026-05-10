@@ -125,6 +125,14 @@ MARLINSPIKE_SCAN_TIMEOUT_S = int(os.environ.get("MARLINSPIKE_SCAN_TIMEOUT_S", "3
 # See marlinspike.emit.ocsf and docs/ocsf-emit.md.
 MARLINSPIKE_EMIT_OCSF = _env_bool("MARLINSPIKE_EMIT_OCSF", default=True)
 
+# MITRE ATT&CK Navigator v4.5 layer JSON emit. When true, every chain
+# scan that produces MITRE classifications also writes per-domain
+# Navigator layer files (``<basename>.navigator.ics.json`` and/or
+# ``<basename>.navigator.enterprise.json``). Defenders can drop these
+# directly into a hosted ATT&CK Navigator instance for visualisation.
+# See marlinspike.emit.navigator and docs/ocsf-emit.md.
+MARLINSPIKE_EMIT_NAVIGATOR = _env_bool("MARLINSPIKE_EMIT_NAVIGATOR", default=True)
+
 # Live capture (capd sidecar). Disabled by default; enable per-deployment.
 LIVE_CAPTURE_ENABLED = _env_bool("LIVE_CAPTURE_ENABLED", default=False)
 LIVE_CAPTURE_SOCKET = os.environ.get(

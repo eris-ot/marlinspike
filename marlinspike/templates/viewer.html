@@ -2262,6 +2262,8 @@ textarea.ms-input {
       <a class="ms-btn" href="/api/reports/{{ filename }}/assets" target="_blank">{{ t('viewer.utilities.assets') }}</a>
       <button class="ms-btn" onclick="MS.exportCsvAssets()">{{ t('viewer.utilities.csv_assets') }}</button>
       <button class="ms-btn" onclick="MS.exportCsvFindings()">{{ t('viewer.utilities.csv_findings') }}</button>
+      <a class="ms-btn" href="/api/reports/{{ filename }}/ocsf{% if viewer_context.project_id %}?project_id={{ viewer_context.project_id }}{% endif %}" target="_blank" title="{{ t('viewer.utilities.ocsf_tooltip') }}">{{ t('viewer.utilities.ocsf') }}</a>
+      <a class="ms-btn" href="/api/reports/{{ filename }}/navigator?domain=ics-attack{% if viewer_context.project_id %}&project_id={{ viewer_context.project_id }}{% endif %}" target="_blank" title="{{ t('viewer.utilities.navigator_tooltip') }}">{{ t('viewer.utilities.navigator') }}</a>
       <button class="ms-btn" onclick="MS.exportPng()">{{ t('viewer.utilities.png') }}</button>
     </div>
   </div>

@@ -156,10 +156,59 @@ into `unmapped.marlinspike.*` for richer context.
   user-edited annotations, not detection findings. Not part of the
   scan output. Surface in the workbench instead.
 
+## MITRE ATT&CK Navigator emit (sibling format)
+
+Same scaffold, different output: the Python engine also writes ATT&CK
+Navigator v4.5 layer JSON files alongside `report.ocsf.ndjson`. One
+file per ATT&CK domain present in the report:
+
+```
+data/reports/<user>/<project>/<basename>.navigator.ics.json
+data/reports/<user>/<project>/<basename>.navigator.enterprise.json
+```
+
+Each layer carries every technique from `mitre_classifications` and
+`mitre_platform_coverage` for that domain, scored 0-100 by confidence
+(observed → high score → red, inferred → mid score → orange, platform
+coverage → low score → blue). Drop the file directly into a hosted
+Navigator instance to visualise technique coverage.
+
+Configuration:
+
+```sh
+MARLINSPIKE_EMIT_NAVIGATOR=true   # default
+```
+
+Standalone CLI:
+
+```sh
+python -m marlinspike.emit.navigator report.json -o report.navigator.json
+# writes report.navigator.ics.json + report.navigator.enterprise.json
+
+python -m marlinspike.emit.navigator report.json -o ics.json --domain ics-attack
+```
+
+Workbench: the **Navigator** button on the lens-strip control bar
+downloads the ICS layer for the current report (Enterprise via the
+endpoint `/api/reports/<filename>/navigator?domain=enterprise-attack`).
+
+## Endpoints
+
+| URL | What it serves |
+|---|---|
+| `/api/reports/<filename>/ocsf` | OCSF NDJSON sibling (or generates application-layer slice on demand if file is absent) |
+| `/api/reports/<filename>/navigator?domain=ics-attack` | Navigator ICS layer (or generates from report on demand) |
+| `/api/reports/<filename>/navigator?domain=enterprise-attack` | Navigator Enterprise layer |
+
+All three accept `?project_id=N` for per-project scoping (matches the
+existing report-download URL convention).
+
 ## See also
 
 - [bronze-consumer-contract.md](bronze-consumer-contract.md) — what
   the Python consumer reads from `marlinspike-dpi` Bronze events,
-  including the OCSF surface marlinspike-dpi v1.6.0 emits natively.
+  including the OCSF surface marlinspike-dpi v1.7.0 emits natively.
 - OCSF schema explorer: https://schema.ocsf.io/
 - OCSF on GitHub: https://github.com/ocsf/ocsf-schema
+- ATT&CK Navigator: https://github.com/mitre-attack/attack-navigator
+- ATT&CK Navigator hosted instance: https://mitre-attack.github.io/attack-navigator/
