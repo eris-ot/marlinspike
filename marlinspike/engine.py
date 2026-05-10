@@ -5253,6 +5253,23 @@ def run_chain(args):
     if yaml_path:
         report.save_yaml_map(yaml_path)
 
+    # OCSF v1.4.0 Detection Finding emit (sibling NDJSON file).
+    # Application-layer findings only; wire-derived Bronze events get
+    # OCSF emit from marlinspike-dpi --format ocsf when wired there.
+    # See marlinspike.emit.ocsf and docs/ocsf-emit.md.
+    try:
+        from marlinspike import config as _ms_config
+        if getattr(_ms_config, "MARLINSPIKE_EMIT_OCSF", False):
+            from marlinspike.emit import ocsf as _ocsf_emit
+            ocsf_path = args.output.replace(".json", ".ocsf.ndjson")
+            ndjson = _ocsf_emit.render_ndjson(report.to_dict())
+            with open(ocsf_path, "w") as ocsf_f:
+                if ndjson:
+                    ocsf_f.write(ndjson + "\n")
+            print(f"[*] OCSF emit: {os.path.basename(ocsf_path)}")
+    except Exception as _ocsf_exc:
+        print(f"[!] OCSF emit skipped: {_ocsf_exc}")
+
     _active_report = None
     _active_report_path = None
     return report

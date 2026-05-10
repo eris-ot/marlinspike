@@ -4,7 +4,7 @@ services:
       context: .
       args:
         MARLINSPIKE_DPI_REPO: ${MARLINSPIKE_DPI_REPO:-https://github.com/eris-ot/marlinspike-dpi.git}
-        MARLINSPIKE_DPI_REF: ${MARLINSPIKE_DPI_REF:-0b9c67708a30572239652fcaa912fa314f737096}
+        MARLINSPIKE_DPI_REF: ${MARLINSPIKE_DPI_REF:-e29a6eb29a716b219ca2e58ba1e8874cd73ed9b8}
         MARLINSPIKE_MITRE_REPO: ${MARLINSPIKE_MITRE_REPO:-https://github.com/eris-ot/marlinspike-mitre.git}
         MARLINSPIKE_MITRE_REF: ${MARLINSPIKE_MITRE_REF:-c3583ec2d189b8cde69f2160da6a5e8e5b643f7b}
         MARLINSPIKE_MALWARE_REPO: ${MARLINSPIKE_MALWARE_REPO:-https://github.com/eris-ot/marlinspike-malware.git}

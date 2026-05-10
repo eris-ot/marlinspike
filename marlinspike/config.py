@@ -115,6 +115,16 @@ MARLINSPIKE_RUN_STORE = os.environ.get("MARLINSPIKE_RUN_STORE", "memory").lower(
 # abandoned reason. Set to 0 to disable (unbounded scans).
 MARLINSPIKE_SCAN_TIMEOUT_S = int(os.environ.get("MARLINSPIKE_SCAN_TIMEOUT_S", "3600"))
 
+# OCSF v1.4.0 emit. When true, every chain-style scan that produces a
+# ``report.json`` also writes a sibling ``report.ocsf.ndjson`` containing
+# OCSF Detection Finding (2004) records for the application-layer
+# findings (risk_findings, c2_indicators, malware_findings,
+# mitre_classifications). Wire-derived Bronze events get OCSF emit by
+# ``marlinspike-dpi`` itself when called with ``--format ocsf``;
+# concatenate the two streams for a complete OCSF view of one capture.
+# See marlinspike.emit.ocsf and docs/ocsf-emit.md.
+MARLINSPIKE_EMIT_OCSF = _env_bool("MARLINSPIKE_EMIT_OCSF", default=True)
+
 # Live capture (capd sidecar). Disabled by default; enable per-deployment.
 LIVE_CAPTURE_ENABLED = _env_bool("LIVE_CAPTURE_ENABLED", default=False)
 LIVE_CAPTURE_SOCKET = os.environ.get(
