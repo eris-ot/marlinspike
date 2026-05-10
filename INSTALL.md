@@ -181,6 +181,7 @@ A reachable capd reports `{"reachable": true, "libpcap": "libpcap version ..."}`
 | `LIVE_CAPTURE_SOCKET` | `/var/run/marlinspike-capd.sock` | uds path; both processes must agree. |
 | `LIVE_CAPTURE_TIMEOUT_S` | `5` | Per-RPC timeout in seconds. |
 | `LIVE_CAPTURE_MAX_CONCURRENT` | `2` | Per-host cap on active capture sessions. |
+| `MARLINSPIKE_CAPTURE_INTERFACE_ALLOWLIST` | *(unset)* | Comma-separated list of interface names that capture is permitted on (e.g. `eth0,eth1`). When unset, any interface is allowed. Use to prevent captures on management NICs. |
 
 ## Mid-scan recovery (v3.4.0+)
 

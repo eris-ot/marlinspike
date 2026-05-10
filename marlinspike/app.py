@@ -2752,6 +2752,9 @@ def create_app():
 
         _drop_column_if_present("users", "subscription_tier")
 
+        # v3.5.3 — per-project capture policy (nullable TEXT column)
+        _add_column_if_missing("projects", "capture_policy", "capture_policy TEXT")
+
         # Create password_reset_tokens table if missing
         try:
             inspect(db.engine).get_columns("password_reset_tokens")
