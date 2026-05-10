@@ -136,12 +136,14 @@ def test_permissions_policy(client):
 
 
 def test_csrf_requires_origin_or_referer(client):
-    """A POST without Origin and without Referer should be rejected."""
+    """A POST without a CSRF token and without Origin/Referer should be rejected."""
     resp = client.post("/api/auth/reset-request", json={"username": "x"})
-    # Either 403 origin/referer required, OR 503 if reset is disabled.
+    # Either 403 (no token + no origin) OR 503 if reset is disabled.
     assert resp.status_code in (403, 503)
     if resp.status_code == 403:
-        assert "Origin/Referer" in resp.get_json()["error"]
+        # v3.5.4: unified error message covers both token and origin failures
+        err = resp.get_json()["error"]
+        assert "CSRF" in err or "Origin" in err
 
 
 def test_csrf_rejects_different_scheme(client):

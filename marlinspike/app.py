@@ -51,11 +51,13 @@ from marlinspike.auth import (
     cleanup_expired_tokens,
     create_reset_token,
     create_user,
+    csrf_exempt,
     login_required,
     use_reset_token,
     validate_reset_token,
     verify_user,
 )
+from marlinspike.csrf import csrf_token, rotate_csrf, validate_csrf
 from marlinspike.i18n import (
     DEFAULT_LOCALE,
     LOCALE_LABELS,
@@ -2937,50 +2939,63 @@ def create_app():
         from marlinspike import taxonomy as _tax
         return jsonify(_tax.taxonomy_export())
 
-    # ── CSRF origin check (v3.5.2: full-origin) ────────────────
+    # ── CSRF defense (v3.5.4: token primary + origin belt-and-suspenders) ───
     #
-    # Pre-v3.5.2 compared only the hostname, which let same-host
-    # different-port (dev:3000 vs prod:5001) and mixed-scheme
-    # (http vs https) requests slip through. Now compares the full
-    # origin (scheme + host + port). Operators with multiple legitimate
-    # origins set MARLINSPIKE_ALLOWED_ORIGINS as a comma-separated list.
+    # v3.5.4 adds a proper per-session CSRF token as the *primary* defense.
+    # The origin/referer check introduced in v3.5.2 is kept unchanged as
+    # defense-in-depth (SOP bypasses, browser bugs).
     #
-    # NOTE: this is still origin-based, not a proper CSRF token.
-    # A token-based CSRF mechanism is planned for v3.5.3 — origin checks
-    # alone don't defend against SOP bypasses or browser bugs that leak
-    # the origin header. SameSite=Lax cookies (set above) provide
-    # defense in depth against most CSRF.
+    # Validation order for state-changing methods (POST/PUT/DELETE/PATCH):
+    #   1. If view is @csrf_exempt → skip all checks and return.
+    #   2. Check per-session token:
+    #        - X-CSRF-Token header (all content types)
+    #        - _csrf form field   (multipart/form-data only)
+    #      If the token is valid, the request is accepted and origin checks
+    #      are skipped (token is strictly stronger).
+    #   3. Fall back to origin/referer check (legacy belt-and-suspenders).
+    #      A request that passes *either* the token check OR the origin
+    #      check is allowed through; both failing returns 403.
+    #
+    # GET/HEAD/OPTIONS are never checked.
 
     @app.before_request
     def csrf_check():
-        if request.method in ('POST', 'PUT', 'DELETE'):
-            view = app.view_functions.get(request.endpoint)
-            if view is not None and getattr(view, "_csrf_exempt", False):
-                return
-            origin = request.headers.get('Origin') or ''
-            referer = request.headers.get('Referer') or ''
-            # Build the allowed-origin set: request's own URL root
-            # (full scheme://host:port), plus any explicit allowlist.
-            expected_origin = (request.url_root or '').rstrip('/')
-            allowed_origins = {expected_origin}
-            for extra in config.MARLINSPIKE_ALLOWED_ORIGINS:
-                allowed_origins.add(extra)
-            origin_full = origin.rstrip('/') if origin else None
-            # For Referer, reduce to scheme://host:port for comparison.
-            referer_origin = None
-            if referer:
-                p = urlparse(referer)
-                if p.scheme and p.netloc:
-                    referer_origin = f"{p.scheme}://{p.netloc}"
-            if origin_full is None and referer_origin is None:
-                # No Origin / Referer at all — be strict for state-changing
-                # requests, refuse outright. (Browsers always send one or
-                # both for cross-origin POSTs that hit this code path.)
-                return jsonify({"error": "Origin/Referer header required"}), 403
-            if origin_full and origin_full not in allowed_origins:
-                return jsonify({"error": "Origin check failed"}), 403
-            if referer_origin and referer_origin not in allowed_origins:
-                return jsonify({"error": "Referer check failed"}), 403
+        if request.method not in ('POST', 'PUT', 'DELETE', 'PATCH'):
+            return
+        view = app.view_functions.get(request.endpoint)
+        if view is not None and getattr(view, "_csrf_exempt", False):
+            return
+
+        # ── Token check (primary, v3.5.4) ──────────────────────────
+        candidate = request.headers.get('X-CSRF-Token')
+        if candidate is None and request.content_type and 'multipart/form-data' in request.content_type:
+            candidate = request.form.get('_csrf')
+        if validate_csrf(candidate):
+            return  # token valid — no need to also check origin
+
+        # ── Origin/referer check (belt-and-suspenders, v3.5.2) ─────
+        origin = request.headers.get('Origin') or ''
+        referer = request.headers.get('Referer') or ''
+        # Build the allowed-origin set: request's own URL root
+        # (full scheme://host:port), plus any explicit allowlist.
+        expected_origin = (request.url_root or '').rstrip('/')
+        allowed_origins = {expected_origin}
+        for extra in config.MARLINSPIKE_ALLOWED_ORIGINS:
+            allowed_origins.add(extra)
+        origin_full = origin.rstrip('/') if origin else None
+        # For Referer, reduce to scheme://host:port for comparison.
+        referer_origin = None
+        if referer:
+            p = urlparse(referer)
+            if p.scheme and p.netloc:
+                referer_origin = f"{p.scheme}://{p.netloc}"
+        if origin_full is None and referer_origin is None:
+            # No token, no Origin, no Referer — reject.
+            return jsonify({"error": "CSRF token missing or invalid"}), 403
+        if origin_full and origin_full not in allowed_origins:
+            return jsonify({"error": "Origin check failed"}), 403
+        if referer_origin and referer_origin not in allowed_origins:
+            return jsonify({"error": "Referer check failed"}), 403
 
     # ── Browser security headers + per-request CSP nonce (v3.5.2) ────
     #
@@ -3007,6 +3022,11 @@ def create_app():
     @app.context_processor
     def inject_csp_nonce():
         return {"csp_nonce": getattr(g, "csp_nonce", "")}
+
+    @app.context_processor
+    def inject_csrf_token():
+        """Expose csrf_token() callable in every Jinja template context."""
+        return {"csrf_token": csrf_token}
 
     @app.after_request
     def security_headers(resp):
@@ -3053,6 +3073,7 @@ def create_app():
 
     @app.route("/login", methods=["POST"])
     @limiter.limit("5 per minute")
+    @csrf_exempt  # no session token exists before login; rate-limiting is the guard here
     def login_submit():
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
@@ -3068,6 +3089,7 @@ def create_app():
         session["user_id"] = user.id
         session["role"] = user.role
         session["session_version"] = user.session_version or 1
+        rotate_csrf()  # session fixation: ensure a fresh CSRF token post-login
         audit("auth.login", target_type="user", target_id=username)
         return redirect(url_for("dashboard"))
 
