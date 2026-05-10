@@ -1,0 +1,43 @@
+MarlinSpike — Alembic migration directory
+==========================================
+
+This directory was initialised by Flask-Migrate / Alembic as part of
+v3.5.4.  All schema changes from v3.5.4 onwards are tracked here.
+
+Common operator commands
+------------------------
+
+  # See which revision the target DB is at
+  python -m marlinspike.db current
+
+  # Advance to the latest migration
+  python -m marlinspike.db upgrade
+
+  # Roll back one step
+  python -m marlinspike.db downgrade
+
+  # Generate a new auto-detected migration after editing models.py
+  python -m marlinspike.db migrate -m "describe the change"
+
+Existing deployments (v3.5.3 and earlier)
+------------------------------------------
+
+If you ran any version of MarlinSpike before v3.5.4 the schema was
+already created by the legacy db.create_all() + ALTER TABLE path.  Stamp
+the database at baseline so Alembic does not try to re-apply it:
+
+  python -m marlinspike.db stamp head
+
+Fresh installs
+--------------
+
+Nothing to do.  The first boot of v3.5.4 runs ``upgrade head``
+automatically and brings up a fully-initialised schema.
+
+Single-process note
+-------------------
+
+The automatic upgrade runs inside create_app().  It is intentionally
+skipped when MARLINSPIKE_ALLOW_NO_DATABASE_URL=true (test mode) or when
+the migrations/ directory cannot be located (pip-installed deployments
+that did not include this tree).

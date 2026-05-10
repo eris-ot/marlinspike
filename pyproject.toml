@@ -38,8 +38,9 @@ cython = ["Cython>=3.0", "setuptools>=68"]
 test = ["pytest>=7.0", "pytest-cov>=5.0"]
 lint = ["ruff>=0.6.0"]
 typecheck = ["mypy>=1.10", "types-PyYAML", "types-requests"]
+migrations = ["flask-migrate>=4.0", "alembic>=1.13"]
 dev = ["ruff>=0.6.0", "pytest>=7.0", "pytest-cov>=5.0", "mypy>=1.10",
-       "build>=1.0", "twine>=5.0"]
+       "build>=1.0", "twine>=5.0", "flask-migrate>=4.0", "alembic>=1.13"]
 
 [project.scripts]
 # `marlinspike` runs the analysis engine on a pcap; same as `python -m marlinspike`.
@@ -47,6 +48,9 @@ marlinspike = "marlinspike.engine:main"
 # First-run wizard — generates .env with strong secrets, admin password,
 # and sensible production defaults. See marlinspike.setup_wizard.
 marlinspike-setup = "marlinspike.setup_wizard:main"
+# Database migration wrapper around Flask-Migrate / Alembic.
+# Requires marlinspike[migrations].  Usage: marlinspike-db upgrade|downgrade|current|stamp|migrate
+marlinspike-db = "marlinspike.db_cli:main"
 
 [project.urls]
 Homepage = "https://github.com/eris-ot/marlinspike"
@@ -178,6 +182,7 @@ packages = ["marlinspike", "plugins"]
 [tool.hatch.build.targets.sdist]
 include = [
     "marlinspike/",
+    "migrations/",
     "plugins/",
     "rules/",
     "presets/",

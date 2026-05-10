@@ -1,5 +1,95 @@
 # Upgrading MarlinSpike
 
+## v3.5.3 → v3.5.4 — Alembic migrations
+
+v3.5.4 replaces the ad-hoc `db.create_all()` + `ALTER TABLE ADD COLUMN IF NOT
+EXISTS` startup path with [Alembic](https://alembic.sqlalchemy.org/) managed
+via [Flask-Migrate](https://flask-migrate.readthedocs.io/).  The v3.4 recovery
+columns (`pcap_path`, `engine_pid`, `engine_argv`, `timeout_at`,
+`recovery_state`) are included in the baseline migration.
+
+### What changed
+
+- `migrations/` directory added at repo root containing `env.py`, version
+  scripts, and `alembic.ini`.
+- `create_app()` now calls `flask_migrate.upgrade()` instead of the ad-hoc
+  ALTER TABLE loop.  The fallback to `db.create_all()` is preserved for
+  environments where the migrations tree is absent (bare `pip install`) or
+  `MARLINSPIKE_ALLOW_NO_DATABASE_URL=true` (test mode).
+- New console script `marlinspike-db` (requires `marlinspike[migrations]`).
+- New optional-dependency group: `pip install marlinspike[migrations]`.
+
+### Existing deployments (v3.5.x or earlier)
+
+Your database schema was already created by the legacy `db.create_all()` path.
+You **must stamp the database at the baseline revision** before the first boot
+of v3.5.4 — otherwise Alembic will attempt to re-create every table and fail.
+
+```sh
+# 1. Install the new extras
+pip install "marlinspike[migrations]"
+
+# 2. Stamp the existing database at the baseline (no DDL is run)
+marlinspike-db stamp head
+
+# 3. Upgrade to v3.5.4 normally; create_app() will find the DB already at head
+systemctl restart marlinspike  # or docker compose up -d --build
+```
+
+Docker Compose one-liner (runs inside the running container):
+
+```sh
+docker compose exec app python -m marlinspike.db stamp head
+docker compose up -d --build
+```
+
+### Fresh deployments
+
+Nothing to do.  The first `create_app()` boot runs `alembic upgrade head`
+automatically and creates the full schema including all recovery columns.
+
+### Day-to-day migration workflow (developers / operators)
+
+```sh
+# Check which revision the target DB is at
+python -m marlinspike.db current
+
+# Advance the DB to the latest migration (run after git pull)
+python -m marlinspike.db upgrade
+
+# Roll back one step
+python -m marlinspike.db downgrade
+
+# After editing marlinspike/models.py: auto-generate a new migration
+python -m marlinspike.db migrate -m "add widget column to users"
+# Review the generated file in migrations/versions/, then commit it.
+```
+
+### Bare `pip install` (no source tree)
+
+If you install only the wheel (not the source tree), the `migrations/`
+directory is absent.  `create_app()` detects this and falls back to
+`db.create_all()` with a log warning.  No action required; behaviour is
+identical to v3.5.3 in this scenario.  To opt in to Alembic tracking,
+supply the migrations tree alongside the installed package and set
+`MARLINSPIKE_PROJECT_ROOT` accordingly.
+
+### Breaking changes
+
+**None for standalone deployments that follow the stamp step above.**
+The schema on disk is unchanged; only the tracking mechanism is new.
+
+Deployments that skip the stamp step on an existing database will see Alembic
+errors on the next `create_app()` boot (tables already exist).  Recovery:
+
+```sh
+marlinspike-db stamp head
+```
+
+Then restart.
+
+---
+
 ## v3.3.0 → v3.4.0 — Mid-scan recovery
 
 v3.4.0 fixes a long-standing reliability gap: when the Flask process
