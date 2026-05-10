@@ -182,6 +182,28 @@ A reachable capd reports `{"reachable": true, "libpcap": "libpcap version ..."}`
 | `LIVE_CAPTURE_TIMEOUT_S` | `5` | Per-RPC timeout in seconds. |
 | `LIVE_CAPTURE_MAX_CONCURRENT` | `2` | Per-host cap on active capture sessions. |
 
+## Mid-scan recovery (v3.4.0+)
+
+When the Flask process restarts mid-scan, the engine subprocess is
+reparented to init/launchd and runs to completion. v3.4.0 added a
+startup reaper that walks `scan_history WHERE status='running'` and
+reconciles each row via saved PID + argv (PID-reuse defense). See
+[docs/run-store-and-recovery.md](docs/run-store-and-recovery.md) for
+full operator reference.
+
+| variable | default | description |
+|---|---|---|
+| `MARLINSPIKE_RUN_STORE` | `memory` | `memory` (legacy in-process registry) or `db` (active-run lookup via `scan_history`). Set to `db` for multi-worker Gunicorn so per-tier concurrency limits stay correct across workers. |
+| `MARLINSPIKE_SCAN_TIMEOUT_S` | `3600` | Per-scan deadline. Reaper marks rows still `running` past this many seconds since `started_at` as `failed`. Set to `0` to disable abandonment reaping. |
+
+For cloudmarlin and any deployment running `gunicorn -w N` with `N>1`,
+**`MARLINSPIKE_RUN_STORE=db` is required** — the default `memory` mode
+keeps active runs in a per-worker dict, which means worker A doesn't
+see worker B's runs. Per-tier concurrency silently breaks (a user can
+run `tier_limit × num_workers` scans), and `/api/runs/<id>/status`
+returns 404 when the load balancer hits a different worker than the
+one that started the scan.
+
 ## Scope
 
 MarlinSpike is a PCAP analysis tool with optional live capture. Capture with your own tooling (Wireshark, tshark, a tap, a span port) and upload PCAPs through the web UI, drive the engine from the CLI, or use the live-capture mode above to feed captures directly from an interface.
