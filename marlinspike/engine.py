@@ -1793,60 +1793,74 @@ class CaptureIngestor:
         return self.validate_pcap(self.pcap)
 
     def validate_pcap(self, path: str) -> CaptureInfo:
-        """Validate and index a PCAP file using capinfos + tshark."""
+        """Validate and index a PCAP file.
+
+        Reads the file's own headers via the stdlib-only `_pcap_header`
+        module first — works without Wireshark / libpcap installed. Falls
+        back to `capinfos` then `tshark` only when the pure-Python parser
+        rejects the file (unrecognised magic, truncated header, etc.).
+        """
         if not os.path.exists(path):
             raise FileNotFoundError(f"PCAP not found: {path}")
 
         print(f"  Validating PCAP...")
 
-        # Get basic stats with capinfos (faster than full tshark parse)
+        packet_count = 0
+        duration = 0.0
+        start_ts = ""
+        end_ts = ""
+        link_type = "Unknown"
+
+        # Tier 1: pure-Python PCAP / PCAPNG header walker. No external tools.
         try:
-            result = subprocess.run(
-                ["capinfos", "-T", "-M", path],
-                capture_output=True, text=True, timeout=30
-            )
-            if result.returncode != 0:
-                # Fall back to tshark if capinfos unavailable
-                raise FileNotFoundError("capinfos not found")
-
-            lines = result.stdout.strip().split("\n")
-            if len(lines) < 2:
-                raise ValueError("Invalid capinfos output")
-
-            fields = dict(zip(lines[0].split("\t"), lines[1].split("\t")))
-            packet_count = int(fields.get("Number of packets", 0))
-            raw_dur = fields.get("Capture duration (seconds)", "0")
+            from . import _pcap_header
+            summary = _pcap_header.read_capture_summary(path)
+            packet_count = summary.packet_count
+            duration = summary.duration_seconds
+            start_ts = _pcap_header._iso(summary.start_ts)
+            end_ts = _pcap_header._iso(summary.end_ts)
+            link_type = summary.link_type
+        except (ValueError, OSError) as e:
+            # Tier 2: capinfos. Same behaviour as before this change.
+            print(f"  [*] pure-Python parser declined ({e}); trying capinfos")
             try:
-                duration = float(raw_dur)
-            except (ValueError, TypeError):
-                duration = 0.0
-            start_ts = fields.get("First packet time", "")
-            end_ts = fields.get("Last packet time", "")
-            link_type = fields.get("Encapsulation", "Unknown")
+                result = subprocess.run(
+                    ["capinfos", "-T", "-M", path],
+                    capture_output=True, text=True, timeout=30
+                )
+                if result.returncode != 0:
+                    raise FileNotFoundError("capinfos not found")
 
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            # Fall back to tshark-only approach
-            stat_cmd = ["tshark", "-r", path, "-q", "-z", "io,stat,0"]
-            if self.no_reassembly:
-                stat_cmd.extend(["-o", "tcp.desegment_tcp_streams:FALSE",
-                                 "-o", "ip.defragment:FALSE"])
-            try:
-                result = subprocess.run(stat_cmd, capture_output=True, text=True, timeout=30)
-                match = re.search(r"(\d+)\s+frames", result.stdout)
-                packet_count = int(match.group(1)) if match else 0
-                duration = 0.0
-                start_ts = ""
-                end_ts = ""
-                link_type = "Unknown"
+                lines = result.stdout.strip().split("\n")
+                if len(lines) < 2:
+                    raise ValueError("Invalid capinfos output")
+
+                fields = dict(zip(lines[0].split("\t"), lines[1].split("\t")))
+                packet_count = int(fields.get("Number of packets", 0))
+                raw_dur = fields.get("Capture duration (seconds)", "0")
+                try:
+                    duration = float(raw_dur)
+                except (ValueError, TypeError):
+                    duration = 0.0
+                start_ts = fields.get("First packet time", "")
+                end_ts = fields.get("Last packet time", "")
+                link_type = fields.get("Encapsulation", "Unknown")
+
             except (FileNotFoundError, subprocess.TimeoutExpired):
-                # Minimal fallback for environments that rely on marlinspike-dpi
-                # and do not have Wireshark tooling installed.
-                packet_count = 0
-                duration = 0.0
-                start_ts = ""
-                end_ts = ""
-                link_type = "Unknown"
-                print("  [*] capinfos/tshark unavailable — using minimal file validation only")
+                # Tier 3: tshark stats. Slower than capinfos but ships in the
+                # same Wireshark install.
+                stat_cmd = ["tshark", "-r", path, "-q", "-z", "io,stat,0"]
+                if self.no_reassembly:
+                    stat_cmd.extend(["-o", "tcp.desegment_tcp_streams:FALSE",
+                                     "-o", "ip.defragment:FALSE"])
+                try:
+                    result = subprocess.run(stat_cmd, capture_output=True, text=True, timeout=30)
+                    match = re.search(r"(\d+)\s+frames", result.stdout)
+                    packet_count = int(match.group(1)) if match else 0
+                except (FileNotFoundError, subprocess.TimeoutExpired):
+                    # Tier 4: nothing worked. Caller (Stage 2) will still run
+                    # against the file via marlinspike-dpi if configured.
+                    print("  [*] no PCAP parser available — using minimal file validation only")
 
         # Unique addresses and protocols are deferred to Stage 2 (dissection)
         # to avoid a second full tshark pass. Stage 2 extracts every MAC, IP,
