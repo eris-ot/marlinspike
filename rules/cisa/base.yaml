@@ -1,0 +1,82 @@
+# CISA advisory keyword groups for common ICS/OT vendors and technologies.
+# Used to map report findings or network artifacts to relevant advisory searches.
+# Each group name is a suggested search term; aliases expand the match surface.
+
+groups:
+  - name: siemens
+    aliases: [simatic, "step 7", wincc, "s7-300", "s7-400", "s7-1200", "s7-1500", scalance, ruggedcom]
+
+  - name: rockwell
+    aliases: ["allen-bradley", "allen bradley", logix, factorytalk, micrologix, controllogix, compactlogix]
+
+  - name: schneider
+    aliases: ["schneider electric", modicon, "unity pro", ecostruxure, "power logic", "acti9"]
+
+  - name: ge
+    aliases: ["general electric", proficy, cimplicity, ifix, "ge digital", "ge fanuc"]
+
+  - name: honeywell
+    aliases: [experion, pks, "honeywell scada"]
+
+  - name: abb
+    aliases: ["abb automation", symphony, "800xa", freelance]
+
+  - name: emerson
+    aliases: ["delta v", deltav, ovation, "fisher rosemount"]
+
+  - name: yokogawa
+    aliases: [centum, exaopc, "yokogawa electric"]
+
+  - name: moxa
+    aliases: ["moxa nport", "moxa switch"]
+
+  - name: advantech
+    aliases: [webaccess, "advantech iview"]
+
+  - name: inductive-automation
+    aliases: ["ignition", "inductive automation"]
+
+  - name: kepware
+    aliases: [kepserverex, "kepware opc"]
+
+  - name: modbus
+    aliases: ["modbus tcp", "modbus rtu"]
+
+  - name: dnp3
+    aliases: ["distributed network protocol"]
+
+  - name: opc
+    aliases: ["opc ua", "opc da", "opc classic"]
+
+  - name: profinet
+    aliases: ["profibus", "profinet io"]
+
+  - name: ethernetip
+    aliases: ["ethernet/ip", "cip protocol"]
+
+  - name: ivanti
+    aliases: ["pulse secure", "ivanti connect"]
+
+  - name: fortinet
+    aliases: [fortigate, fortimanager, fortios, forticlient]
+
+  - name: citrix
+    aliases: ["citrix adc", "citrix gateway", netscaler]
+
+  - name: microsoft
+    aliases: [exchange, "active directory", sharepoint, "windows server", rdp, "remote desktop"]
+
+  - name: cisco
+    aliases: ["cisco ios", "cisco asa", "cisco aironet", "cisco webex"]
+
+  - name: vmware
+    aliases: [vsphere, vcenter, esxi, "vmware workspace"]
+
+  - name: apache
+    aliases: ["log4j", "log4shell", struts, "apache http"]
+
+  - name: atlassian
+    aliases: [confluence, jira, "atlassian crowd"]
+
+  - name: palo-alto
+    aliases: ["pan-os", "palo alto", globalprotect]
