@@ -113,6 +113,7 @@ def test_baseline_applies_to_empty_db(tmp_db):
     expected_tables = {
         "users",
         "projects",
+        "project_members",
         "scan_history",
         "password_reset_tokens",
         "asset_tags",
@@ -138,13 +139,13 @@ def test_upgrade_is_idempotent(tmp_db):
         upgrade()  # first run — applies baseline
         upgrade()  # second run — should be a no-op
 
-        # Verify still at revision 0001.
+        # Verify still at head revision after double-run.
         from alembic.runtime.migration import MigrationContext
         with db.engine.connect() as conn:
             ctx = MigrationContext.configure(conn)
             current = ctx.get_current_revision()
 
-    assert current == "0001", f"Expected revision '0001', got {current!r}"
+    assert current == "0002", f"Expected revision '0002', got {current!r}"
 
 
 def test_recovery_columns_present(tmp_db):

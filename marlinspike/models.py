@@ -45,12 +45,38 @@ class Project(db.Model):
     )
     # JSON-encoded per-project capture policy. NULL = use system defaults.
     # Shape: {"enabled": bool, "allowed_interfaces": [str, ...],
-    #         "max_session_duration_s": int|null, "max_total_bytes": int|null,
+    #         "max_session_duration_s": int|null,
+    #         "max_total_bytes": int|null,  # retained ring-buffer bytes on disk
     #         "operator_warning": str|null}
     capture_policy = db.Column(db.Text, nullable=True)
 
     __table_args__ = (
         db.UniqueConstraint("user_id", "name", name="uq_project_user_name"),
+    )
+
+
+class ProjectMember(db.Model):
+    """Additional members of a project beyond the creator.
+
+    The project creator (projects.user_id) is implicitly owner and is not
+    stored here.  This table only holds invited members.
+    """
+
+    __tablename__ = "project_members"
+
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(
+        db.Integer, db.ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id = db.Column(
+        db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    role = db.Column(db.String(20), nullable=False, default="viewer")  # viewer | editor | owner
+    invited_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint("project_id", "user_id", name="uq_project_member"),
     )
 
 
