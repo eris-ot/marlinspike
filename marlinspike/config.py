@@ -76,6 +76,12 @@ MARLINSPIKE_APT_RULES = os.environ.get(
     "MARLINSPIKE_APT_RULES",
     os.path.join(RULES_DIR, "apt", "base.yaml"),
 )
+MARLINSPIKE_CISA_ENABLED = os.environ.get("MARLINSPIKE_CISA_ENABLED", "true").lower() in ("true", "1", "yes")
+MARLINSPIKE_CISA_MODULE = os.environ.get("MARLINSPIKE_CISA_MODULE", "plugins.marlinspike_cisa")
+MARLINSPIKE_CISA_RULES = os.environ.get(
+    "MARLINSPIKE_CISA_RULES",
+    os.path.join(RULES_DIR, "cisa", "base.yaml"),
+)
 
 # Preset PCAPs (volume-backed, admin-editable at runtime)
 PRESETS_DIR = os.path.join(DATA_DIR, "presets")
@@ -102,6 +108,12 @@ ALLOW_NO_DATABASE_URL = _env_bool("MARLINSPIKE_ALLOW_NO_DATABASE_URL", default=F
 # Server
 PORT = int(os.environ.get("PORT", 5001))
 HOST = os.environ.get("HOST", "0.0.0.0")
+
+# Rate limiting backend. Leave empty for single-process dev/test to use
+# in-memory counters. Production deployments should point this at a shared
+# backend so auth/upload throttles survive restarts and span workers.
+# Example: redis://ratelimit:6379/0
+RATELIMIT_STORAGE_URI = os.environ.get("RATELIMIT_STORAGE_URI", "").strip()
 
 # Session cookies. v3.5.2 flipped the default to True (production-safe).
 # When the app is reached over plain HTTP (dev or behind a TLS-terminating

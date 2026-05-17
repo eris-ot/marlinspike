@@ -28,6 +28,7 @@ dependencies = [
     "flask>=2.3",
     "flask-sqlalchemy>=3.0",
     "flask-limiter>=3.0",
+    "redis>=5.0",
     "psycopg2-binary>=2.9",
     "PyYAML>=6.0",
     "zstandard>=0.21",

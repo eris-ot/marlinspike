@@ -1,6 +1,7 @@
 flask
 flask-sqlalchemy
 flask-limiter
+redis
 psycopg2-binary
 PyYAML
 zstandard

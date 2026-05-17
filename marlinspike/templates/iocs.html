@@ -146,6 +146,142 @@
   border-radius: 4px;
   padding: 10px;
 }
+.iocs-scan-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.iocs-scan-toolbar {
+  display: grid;
+  grid-template-columns: 1.4fr 0.8fr 0.8fr 0.9fr auto;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+@media (max-width: 1200px) {
+  .iocs-scan-toolbar { grid-template-columns: 1fr 1fr; }
+}
+.iocs-scan-toolbar input,
+.iocs-scan-toolbar select {
+  width: 100%;
+  padding: 6px 9px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 0.86em;
+}
+.iocs-scan-toolbar input:focus,
+.iocs-scan-toolbar select:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+.iocs-scan-toolbar-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.iocs-scan-group {
+  margin-top: 10px;
+  border: 1px solid var(--border-dim);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+.iocs-scan-group summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+}
+.iocs-scan-group summary::-webkit-details-marker { display: none; }
+.iocs-scan-group-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.iocs-scan-group-title strong {
+  font-size: 0.92em;
+}
+.iocs-scan-group-meta {
+  color: var(--text-muted);
+  font-size: 0.78em;
+  font-family: var(--font-mono);
+}
+.iocs-hit-card {
+  padding: 10px 12px;
+  border-top: 1px solid var(--border-dim);
+}
+.iocs-hit-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+.iocs-hit-card-title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.iocs-hit-card-value {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+.iocs-hit-card-meta {
+  margin-top: 6px;
+  color: var(--text-dim);
+  font-size: 0.8em;
+  font-family: var(--font-mono);
+  line-height: 1.4;
+}
+.iocs-hit-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.iocs-hit-pill-list {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.iocs-hit-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(91, 138, 240, 0.12);
+  border: 1px solid rgba(91, 138, 240, 0.24);
+  color: var(--text);
+  font-size: 0.74em;
+  font-family: var(--font-mono);
+}
+.iocs-hit-pill.is-muted {
+  background: rgba(255,255,255,0.05);
+  border-color: var(--border-dim);
+  color: var(--text-muted);
+}
+.iocs-hit-pill.is-action {
+  cursor: pointer;
+  background: rgba(6, 182, 212, 0.1);
+  border-color: rgba(6, 182, 212, 0.22);
+}
+.iocs-hit-pill.is-action:hover {
+  background: rgba(6, 182, 212, 0.16);
+}
+.iocs-scan-note {
+  color: var(--text-muted);
+  font-size: 0.82em;
+  margin-top: 8px;
+}
 .iocs-hit-row {
   padding: 6px 0;
   border-bottom: 1px solid var(--border-dim);
@@ -206,6 +342,13 @@ var IOC = (function() {
   var lists = [];
   var activeListId = null;
   var activeList = null;
+  var lastScanResult = null;
+  var scanFilters = {
+    q: '',
+    severity: '',
+    type: '',
+    report: '',
+  };
   var I18N = {{ i18n_dict() | tojson }};
 
   function tjs(key, params) {
@@ -234,6 +377,333 @@ var IOC = (function() {
       });
   }
 
+  function resetScanState() {
+    lastScanResult = null;
+    scanFilters = {
+      q: '',
+      severity: '',
+      type: '',
+      report: '',
+    };
+  }
+
+  function toLower(v) {
+    return String(v == null ? '' : v).toLowerCase();
+  }
+
+  function matchCount(hit) {
+    return (hit && hit.matches && hit.matches.length) ? hit.matches.length : 0;
+  }
+
+  function uniqueValues(items, picker) {
+    var seen = {};
+    var out = [];
+    items.forEach(function(item) {
+      var value = picker(item);
+      if (value == null || value === '') return;
+      var key = String(value);
+      if (seen[key]) return;
+      seen[key] = true;
+      out.push(value);
+    });
+    return out;
+  }
+
+  function jsStringLiteral(value) {
+    return "'" + String(value == null ? '' : value)
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'")
+      .replace(/\r/g, '\\r')
+      .replace(/\n/g, '\\n') + "'";
+  }
+
+  function severityRank(sev) {
+    var order = { critical: 0, high: 1, medium: 2, low: 3, info: 4, unknown: 5, '': 5 };
+    var key = toLower(sev);
+    return Object.prototype.hasOwnProperty.call(order, key) ? order[key] : 5;
+  }
+
+  function highestSeverity(hits) {
+    var winner = null;
+    hits.forEach(function(hit) {
+      var sev = toLower(hit && hit.ioc ? hit.ioc.severity : '');
+      if (!winner || severityRank(sev) < severityRank(winner)) winner = sev || 'unknown';
+    });
+    return winner || 'unknown';
+  }
+
+  function formatMatchPill(match) {
+    if (!match) return '';
+    var parts = [];
+    if (match.location) parts.push(match.location);
+    if (match.context && match.context !== match.location) parts.push(match.context);
+    return parts.join(' · ');
+  }
+
+  function setScanStatus(msg, tone) {
+    var el = document.getElementById('ioc-scan-status');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.style.color = tone === 'error' ? 'var(--color-danger)' : tone === 'success' ? 'var(--accent-green)' : 'var(--text-muted)';
+  }
+
+  function copyText(text) {
+    if (!navigator.clipboard || !navigator.clipboard.writeText) {
+      return Promise.reject(new Error('Clipboard unavailable'));
+    }
+    return navigator.clipboard.writeText(text);
+  }
+
+  function setScanFilter(key, value) {
+    scanFilters[key] = value || '';
+    renderScanResults(lastScanResult);
+  }
+
+  function clearScanFilters() {
+    scanFilters = {
+      q: '',
+      severity: '',
+      type: '',
+      report: '',
+    };
+    renderScanResults(lastScanResult);
+  }
+
+  function focusHit(hit) {
+    if (!hit || !hit.ioc) return;
+    scanFilters = {
+      q: hit.ioc.value || '',
+      severity: hit.ioc.severity || '',
+      type: hit.ioc.ioc_type || '',
+      report: hit.report || '',
+    };
+    renderScanResults(lastScanResult);
+  }
+
+  function findHit(report, value) {
+    var hits = (lastScanResult && lastScanResult.hits) ? lastScanResult.hits : [];
+    for (var i = 0; i < hits.length; i += 1) {
+      var hit = hits[i];
+      if (String(hit.report || '') === String(report || '') && String(hit.ioc && hit.ioc.value || '') === String(value || '')) {
+        return hit;
+      }
+    }
+    return null;
+  }
+
+  function focusHitByRef(report, value) {
+    var hit = findHit(report, value);
+    if (!hit) return;
+    focusHit(hit);
+  }
+
+  function copyHitValueByRef(report, value) {
+    var hit = findHit(report, value);
+    if (!hit || !hit.ioc) return;
+    copyHitValue(hit);
+  }
+
+  function copyHitMatchesByRef(report, value) {
+    var hit = findHit(report, value);
+    if (!hit) return;
+    copyHitMatches(hit);
+  }
+
+  function focusReport(report) {
+    scanFilters.report = report || '';
+    renderScanResults(lastScanResult);
+  }
+
+  function filterHit(hit) {
+    if (!hit || !hit.ioc) return false;
+    var q = toLower(scanFilters.q).trim();
+    var severity = toLower(scanFilters.severity);
+    var type = toLower(scanFilters.type);
+    var report = toLower(scanFilters.report);
+    var haystack = [
+      hit.report,
+      hit.ioc.value,
+      hit.ioc.label,
+      hit.ioc.ioc_type,
+      hit.ioc.severity,
+      (hit.matches || []).map(function(m) { return [m.location, m.context].join(' '); }).join(' ')
+    ].join(' ').toLowerCase();
+    if (q && haystack.indexOf(q) === -1) return false;
+    if (severity && toLower(hit.ioc.severity || 'unknown') !== severity) return false;
+    if (type && toLower(hit.ioc.ioc_type || '') !== type) return false;
+    if (report && toLower(hit.report || '') !== report) return false;
+    return true;
+  }
+
+  function buildFilterOptions(values, selected, label) {
+    var html = '<option value="">' + esc(label) + '</option>';
+    values.forEach(function(value) {
+      html += '<option value="' + esc(value) + '"' + (String(selected || '') === String(value) ? ' selected' : '') + '>' + esc(value) + '</option>';
+    });
+    return html;
+  }
+
+  function renderScanResults(result) {
+    var resEl = document.getElementById('ioc-scan-results');
+    if (!resEl) return;
+
+    if (!activeList) {
+      resEl.innerHTML = '';
+      return;
+    }
+
+    if (!result) {
+      resEl.innerHTML = '<div class="iocs-scan-note">' + tjs('iocs.run_scan') + ' to triage matches from this list.</div>';
+      return;
+    }
+
+    var allHits = result.hits || [];
+    var visibleHits = allHits.filter(filterHit);
+    var filteredOut = allHits.length - visibleHits.length;
+    var severityCounts = (result.summary && result.summary.by_severity) ? result.summary.by_severity : {};
+    var reportGroups = {};
+    visibleHits.forEach(function(hit) {
+      var name = hit.report || 'unknown';
+      if (!reportGroups[name]) reportGroups[name] = [];
+      reportGroups[name].push(hit);
+    });
+
+    var reportNames = Object.keys(reportGroups).sort(function(a, b) {
+      var diff = reportGroups[b].reduce(function(n, hit) { return n + matchCount(hit); }, 0) - reportGroups[a].reduce(function(n, hit) { return n + matchCount(hit); }, 0);
+      return diff || a.localeCompare(b);
+    });
+    var typeOptions = uniqueValues(allHits, function(hit) { return hit.ioc && hit.ioc.ioc_type; }).sort();
+    var severityOptions = ['critical', 'high', 'medium', 'low', 'info']
+      .filter(function(sev) { return Object.prototype.hasOwnProperty.call(severityCounts, sev); });
+    if (severityCounts.unknown) severityOptions.push('unknown');
+    var reportOptions = uniqueValues(allHits, function(hit) { return hit.report; }).sort();
+    var totalMatches = allHits.reduce(function(n, hit) { return n + matchCount(hit); }, 0);
+    var uniqueValuesHit = uniqueValues(visibleHits, function(hit) { return hit.ioc && hit.ioc.value; }).length;
+    var uniqueReportsHit = Object.keys(reportGroups).length;
+    var uniqueLocations = uniqueValues(visibleHits.reduce(function(acc, hit) {
+      return acc.concat((hit.matches || []).map(function(m) { return m.location || ''; }));
+    }, []), function(v) { return v; }).length;
+
+    var html = '';
+    html += '<div class="iocs-scan-results">';
+    html += '<h3>' + tjs('iocs.scan_results') + '</h3>';
+    html += '<div class="iocs-scan-summary">'
+      + '<div class="iocs-stat"><div class="label">' + tjs('iocs.scan_total_hits') + '</div><div class="value">' + totalMatches + '</div></div>'
+      + '<div class="iocs-stat"><div class="label">' + tjs('iocs.scan_reports') + '</div><div class="value">' + (result.scanned_reports || 0) + '</div></div>'
+      + '<div class="iocs-stat"><div class="label">Visible hits</div><div class="value">' + visibleHits.length + '</div></div>'
+      + '<div class="iocs-stat"><div class="label">Reports hit</div><div class="value">' + uniqueReportsHit + '</div></div>'
+      + '<div class="iocs-stat"><div class="label">IOC values</div><div class="value">' + uniqueValuesHit + '</div></div>'
+      + '<div class="iocs-stat"><div class="label">Match locations</div><div class="value">' + uniqueLocations + '</div></div>'
+      + '</div>';
+
+    html += '<div class="iocs-scan-toolbar">'
+      + '<input type="search" value="' + esc(scanFilters.q || '') + '" placeholder="Filter by value, label, report, or location" oninput="IOC.setScanFilter(\'q\', this.value)">'
+      + '<select onchange="IOC.setScanFilter(\'severity\', this.value)">'
+      + buildFilterOptions(severityOptions, scanFilters.severity, 'All severities')
+      + '</select>'
+      + '<select onchange="IOC.setScanFilter(\'type\', this.value)">'
+      + buildFilterOptions(typeOptions, scanFilters.type, 'All IOC types')
+      + '</select>'
+      + '<select onchange="IOC.setScanFilter(\'report\', this.value)">'
+      + buildFilterOptions(reportOptions, scanFilters.report, 'All reports')
+      + '</select>'
+      + '<div class="iocs-scan-toolbar-actions">'
+      + '<button class="btn btn-sm" type="button" onclick="IOC.clearScanFilters()">Clear filters</button>'
+      + '<button class="btn btn-sm" type="button" onclick="IOC.runScan()">Rescan</button>'
+      + '</div>'
+      + '</div>';
+    html += '<div class="iocs-scan-note" id="ioc-scan-status"></div>';
+
+    html += '<div class="iocs-scan-note">'
+      + 'Showing ' + visibleHits.length + ' of ' + allHits.length + ' hit group(s)'
+      + (filteredOut ? ' · ' + filteredOut + ' hidden by filters' : '')
+      + '</div>';
+
+    if (!allHits.length) {
+      html += '<div class="iocs-empty" style="padding:18px 12px">' + tjs('iocs.no_hits') + '</div>';
+    } else if (!visibleHits.length) {
+      html += '<div class="iocs-empty" style="padding:18px 12px">No scan hits match the current filters.</div>';
+    } else {
+      reportNames.forEach(function(report) {
+        var hits = reportGroups[report] || [];
+        var reportMatches = hits.reduce(function(n, hit) { return n + matchCount(hit); }, 0);
+        var reportValues = uniqueValues(hits, function(hit) { return hit.ioc && hit.ioc.value; }).length;
+        var reportTypeSummary = uniqueValues(hits, function(hit) { return hit.ioc && hit.ioc.ioc_type; }).join(', ');
+        html += '<details class="iocs-scan-group" open>'
+          + '<summary onclick="IOC.focusReport(' + jsStringLiteral(report) + ')">'
+          + '<div class="iocs-scan-group-title">'
+          + '<strong>' + esc(report) + '</strong>'
+          + '<span class="iocs-scan-group-meta">' + hits.length + ' hit group(s) · ' + reportMatches + ' match(es) · ' + reportValues + ' value(s)</span>'
+          + '</div>'
+          + '<div class="iocs-scan-group-meta">' + esc(highestSeverity(hits)) + (reportTypeSummary ? ' · ' + esc(reportTypeSummary) : '') + '</div>'
+          + '</summary>';
+        hits.sort(function(a, b) {
+          var sevDiff = severityRank(a.ioc && a.ioc.severity) - severityRank(b.ioc && b.ioc.severity);
+          if (sevDiff) return sevDiff;
+          var matchDiff = matchCount(b) - matchCount(a);
+          if (matchDiff) return matchDiff;
+          return String(a.ioc && a.ioc.value || '').localeCompare(String(b.ioc && b.ioc.value || ''));
+        }).forEach(function(hit) {
+          var matches = hit.matches || [];
+          var matchPreview = matches.slice(0, 4).map(function(m) {
+            return '<span class="iocs-hit-pill">' + esc(formatMatchPill(m)) + '</span>';
+          }).join('');
+          if (matches.length > 4) {
+            matchPreview += '<span class="iocs-hit-pill is-muted">+' + (matches.length - 4) + ' more</span>';
+          }
+          html += '<div class="iocs-hit-card">'
+            + '<div class="iocs-hit-card-head">'
+            + '<div>'
+            + '<div class="iocs-hit-card-title">'
+            + '<span class="iocs-hit-card-value">' + esc(hit.ioc.value) + '</span>'
+            + '<span class="iocs-type-chip">' + esc(hit.ioc.ioc_type) + '</span>'
+            + window.msEntityChip('ioc_entry')
+            + (hit.ioc.severity ? ' ' + window.msSevChip(hit.ioc.severity) : '')
+            + '</div>'
+            + (hit.ioc.label ? '<div class="iocs-hit-card-meta">' + esc(hit.ioc.label) + '</div>' : '')
+            + '<div class="iocs-hit-card-meta">' + matches.length + ' match(es)'
+            + (hit.ioc.severity ? ' · severity ' + esc(hit.ioc.severity) : '')
+            + '</div>'
+            + '</div>'
+            + '<div class="iocs-hit-card-actions">'
+            + '<button class="btn btn-sm" type="button" onclick="IOC.focusHitByRef(' + jsStringLiteral(report) + ', ' + jsStringLiteral(hit.ioc.value) + ')">Focus</button>'
+            + '<button class="btn btn-sm" type="button" onclick="IOC.copyHitValueByRef(' + jsStringLiteral(report) + ', ' + jsStringLiteral(hit.ioc.value) + ')">Copy value</button>'
+            + '<button class="btn btn-sm" type="button" onclick="IOC.copyHitMatchesByRef(' + jsStringLiteral(report) + ', ' + jsStringLiteral(hit.ioc.value) + ')">Copy matches</button>'
+            + '</div>'
+            + '</div>'
+            + '<div class="iocs-hit-pill-list">' + matchPreview + '</div>'
+            + '</div>';
+        });
+        html += '</details>';
+      });
+    }
+
+    if (result.truncated) {
+      html += '<div class="iocs-empty">' + tjs('iocs.scan_truncated') + '</div>';
+    }
+    html += '</div>';
+    resEl.innerHTML = html;
+  }
+
+  function copyHitValue(hit) {
+    if (!hit || !hit.ioc) return;
+    copyText(hit.ioc.value || '').then(function() {
+      setScanStatus('Copied IOC value to clipboard.', 'success');
+    }).catch(function(e) {
+      setScanStatus(e.message, 'error');
+    });
+  }
+
+  function copyHitMatches(hit) {
+    if (!hit || !hit.matches) return;
+    var text = hit.matches.map(function(m) { return formatMatchPill(m); }).join('\n');
+    copyText(text).then(function() {
+      setScanStatus('Copied match details to clipboard.', 'success');
+    }).catch(function(e) {
+      setScanStatus(e.message, 'error');
+    });
+  }
+
   function loadProjects() {
     return fetchJson('/api/projects').then(function(j) {
       var sel = document.getElementById('ioc-project-filter');
@@ -249,6 +719,7 @@ var IOC = (function() {
     var sel = document.getElementById('ioc-project-filter');
     pid = parseInt(sel.value, 10) || null;
     activeListId = null; activeList = null;
+    resetScanState();
     renderDetail();
     loadLists();
   }
@@ -280,6 +751,10 @@ var IOC = (function() {
 
   function openList(listId) {
     activeListId = listId;
+    activeList = null;
+    resetScanState();
+    renderLists();
+    renderDetail();
     fetchJson('/api/projects/' + pid + '/iocs/' + listId).then(function(j) {
       // GET response is {"list": {...}}, unwrap.
       activeList = (j && j.list) ? j.list : j;
@@ -336,6 +811,7 @@ var IOC = (function() {
 
     html += '<div id="ioc-scan-results"></div>';
     el.innerHTML = html;
+    renderScanResults(lastScanResult);
   }
 
   function byType(entries) {
@@ -412,30 +888,8 @@ var IOC = (function() {
       headers: { 'Content-Type': 'application/json' },
       body: '{}'
     }).then(function(j) {
-      var html = '<div class="iocs-scan-results"><h3>' + tjs('iocs.scan_results') + '</h3>';
-      var s = j.summary || {};
-      html += '<div class="iocs-detail-meta">'
-        + '<div class="iocs-stat"><div class="label">' + tjs('iocs.scan_total_hits') + '</div><div class="value">' + (s.total_hits || 0) + '</div></div>'
-        + '<div class="iocs-stat"><div class="label">' + tjs('iocs.scan_reports') + '</div><div class="value">' + (j.scanned_reports || 0) + '</div></div>'
-        + '</div>';
-      if (!(j.hits || []).length) {
-        html += '<div class="iocs-empty">' + tjs('iocs.no_hits') + '</div>';
-      } else {
-        html += '<div>';
-        j.hits.slice(0, 200).forEach(function(h) {
-          html += '<div class="iocs-hit-row">'
-            + '<strong>' + esc(h.ioc.value) + '</strong> '
-            + '<span class="iocs-type-chip">' + esc(h.ioc.ioc_type) + '</span> ' + window.msEntityChip('ioc_entry')
-            + (h.ioc.label ? ' — ' + esc(h.ioc.label) : '')
-            + '<div class="iocs-hit-meta">' + esc(h.report) + ' · ' + (h.matches || []).length + ' match(es): '
-            + (h.matches || []).slice(0, 3).map(function(m) { return esc(m.location); }).join(', ')
-            + '</div></div>';
-        });
-        if (j.truncated) html += '<div class="iocs-empty">' + tjs('iocs.scan_truncated') + '</div>';
-        html += '</div>';
-      }
-      html += '</div>';
-      resEl.innerHTML = html;
+      lastScanResult = j;
+      renderScanResults(lastScanResult);
     }).catch(function(e) {
       resEl.innerHTML = '<div style="padding:10px;color:var(--color-danger)">' + tjs('iocs.scan_failed') + ' ' + esc(e.message) + '</div>';
     });
@@ -449,6 +903,7 @@ var IOC = (function() {
       credentials: 'same-origin',
     }).then(function() {
       activeListId = null; activeList = null;
+      resetScanState();
       loadLists(); renderDetail();
     });
   }
@@ -465,6 +920,12 @@ var IOC = (function() {
     runScan: runScan,
     deleteList: deleteList,
     init: init,
+    setScanFilter: setScanFilter,
+    clearScanFilters: clearScanFilters,
+    focusReport: focusReport,
+    focusHitByRef: focusHitByRef,
+    copyHitValueByRef: copyHitValueByRef,
+    copyHitMatchesByRef: copyHitMatchesByRef,
   };
 })();
 

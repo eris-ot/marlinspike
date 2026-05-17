@@ -73,6 +73,11 @@ def _asset_ip(node: dict) -> str:
     return (node.get("ip") or "").strip()
 
 
+def _sorted_unique(values) -> list[str]:
+    """Return sorted unique non-empty string values."""
+    return sorted({str(v).strip() for v in values if str(v).strip()})
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -124,6 +129,12 @@ def compute_asset_baseline(
             "node": node,
             "filename": fname,
             "ts": ts,
+            "protocols": set(),
+            "peers": set(),
+            "findings": set(),
+            "anomalies": set(),
+            "conversation_count": 0,
+            "packet_total": 0,
         })
 
     if not presences:
@@ -162,6 +173,8 @@ def compute_asset_baseline(
 
         # Count conversations involving this asset, grouped by protocol.
         conv_counts: dict[str, int] = defaultdict(int)
+        conversation_count = 0
+        packet_total = 0
         asset_ip = _asset_ip(node)
         asset_mac_norm = _norm_mac(node.get("mac") or "")
 
@@ -179,11 +192,13 @@ def compute_asset_baseline(
             elif asset_mac_norm and (src_mac == asset_mac_norm or dst_mac == asset_mac_norm):
                 involved = True
             if involved:
+                conversation_count += 1
                 pkt = conv.get("packet_count") or conv.get("packets") or 0
                 try:
                     pkt = int(pkt)
                 except (TypeError, ValueError):
                     pkt = 0
+                packet_total += pkt
                 conv_counts[proto] += pkt
 
         # Protocols assigned to this node by the engine.
@@ -195,6 +210,10 @@ def compute_asset_baseline(
 
         # Merge: any protocol in node_protocols OR with conversation traffic.
         all_protos: set[str] = node_protocols | set(conv_counts.keys())
+
+        p["protocols"] = all_protos
+        p["conversation_count"] = conversation_count
+        p["packet_total"] = packet_total
 
         per_report_protocols.append({
             "filename": p["filename"],
@@ -269,6 +288,8 @@ def compute_asset_baseline(
                 baseline_peer_set.add(peer_ip)
             else:
                 latest_peer_set.add(peer_ip)
+
+            p["peers"].add(peer_ip)
 
             if peer_ip not in peer_data:
                 peer_data[peer_ip] = {
@@ -385,6 +406,8 @@ def compute_asset_baseline(
             else:
                 latest_finding_set.add(category)
 
+            p["findings"].add(category)
+
             if category not in finding_data:
                 finding_data[category] = {
                     "category": category,
@@ -448,6 +471,8 @@ def compute_asset_baseline(
                 continue
             if src_mac != asset_mac_norm and dst_mac != asset_mac_norm:
                 continue
+
+            p["anomalies"].add(atype)
 
             if atype not in anomaly_cadence:
                 anomaly_cadence[atype] = {
@@ -530,6 +555,111 @@ def compute_asset_baseline(
     }
 
     # ------------------------------------------------------------------ #
+    # selected_asset_summary / cross_report_delta                         #
+    # ------------------------------------------------------------------ #
+    def _summarize_presence(presence: dict) -> dict:
+        node = presence["node"]
+        ip = _asset_ip(node)
+        mac = _norm_mac(node.get("mac") or "")
+        return {
+            "report": presence["filename"],
+            "ts": presence["ts"],
+            "ip": ip or None,
+            "mac": mac or None,
+            "vendor": node.get("vendor") or None,
+            "device_type": node.get("device_type") or None,
+            "role": node.get("role") or None,
+            "purdue_level": node.get("purdue_level"),
+            "system_name": node.get("system_name") or None,
+            "auth_observed": bool(node.get("auth_observed")),
+            "protocols": _sorted_unique(presence["protocols"]),
+            "protocol_count": len(presence["protocols"]),
+            "peer_ips": _sorted_unique(presence["peers"]),
+            "peer_count": len(presence["peers"]),
+            "finding_categories": _sorted_unique(presence["findings"]),
+            "finding_count": len(presence["findings"]),
+            "anomaly_types": _sorted_unique(presence["anomalies"]),
+            "anomaly_count": len(presence["anomalies"]),
+            "conversation_count": int(presence["conversation_count"]),
+            "packet_total": int(presence["packet_total"]),
+        }
+
+    first_summary = _summarize_presence(presences[0])
+    previous_summary = _summarize_presence(presences[-2]) if len(presences) >= 2 else None
+    last_summary = _summarize_presence(presences[-1])
+
+    def _delta_block(previous: dict | None, latest: dict) -> dict:
+        if previous is None:
+            previous = {
+                "report": None,
+                "ts": None,
+                "ip": None,
+                "mac": None,
+                "vendor": None,
+                "device_type": None,
+                "role": None,
+                "purdue_level": None,
+                "system_name": None,
+                "auth_observed": None,
+                "protocols": [],
+                "peer_ips": [],
+                "finding_categories": [],
+                "anomaly_types": [],
+            }
+
+        identity_changes: dict[str, dict] = {}
+        for field in (
+            "ip",
+            "mac",
+            "vendor",
+            "device_type",
+            "role",
+            "purdue_level",
+            "system_name",
+            "auth_observed",
+        ):
+            if previous.get(field) != latest.get(field):
+                identity_changes[field] = {
+                    "previous": previous.get(field),
+                    "last": latest.get(field),
+                }
+
+        def _set_delta(field: str) -> dict:
+            prev_items = set(previous.get(field) or [])
+            last_items = set(latest.get(field) or [])
+            added = sorted(last_items - prev_items)
+            removed = sorted(prev_items - last_items)
+            return {
+                "added": added,
+                "removed": removed,
+                "previous_count": len(prev_items),
+                "last_count": len(last_items),
+                "added_count": len(added),
+                "removed_count": len(removed),
+            }
+
+        return {
+            "available": previous_summary is not None,
+            "from_report": previous.get("report"),
+            "from_ts": previous.get("ts"),
+            "to_report": latest.get("report"),
+            "to_ts": latest.get("ts"),
+            "identity_changes": identity_changes,
+            "protocols": _set_delta("protocols"),
+            "peers": _set_delta("peer_ips"),
+            "findings": _set_delta("finding_categories"),
+            "anomalies": _set_delta("anomaly_types"),
+        }
+
+    selected_asset_summary = {
+        "report_count": len(presences),
+        "first": first_summary,
+        "previous": previous_summary,
+        "last": last_summary,
+    }
+    cross_report_delta = _delta_block(previous_summary, last_summary)
+
+    # ------------------------------------------------------------------ #
     # Derive the "latest" IP for MAC-matched assets (may drift via DHCP). #
     # ------------------------------------------------------------------ #
     latest_node = presences[-1]["node"]
@@ -556,4 +686,6 @@ def compute_asset_baseline(
         "anomaly_cadence": anomaly_cadence_out,
         "stability": stability,
         "novelty_vs_baseline": novelty_vs_baseline,
+        "selected_asset_summary": selected_asset_summary,
+        "cross_report_delta": cross_report_delta,
     }

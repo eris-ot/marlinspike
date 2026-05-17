@@ -39,6 +39,7 @@ from flask import (
 )
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from limits.storage import storage_from_string
 
 from marlinspike import config
 from marlinspike.aggregate import aggregate_reports
@@ -82,6 +83,7 @@ from marlinspike.models import (
     IocList,
     PasswordResetToken,
     Project,
+    ProjectMember,
     ScanHistory,
     User,
     db,
@@ -802,6 +804,9 @@ MAX_CONCURRENT_SCANS = 1
 # Reject common predictable passwords explicitly — the bar is "not in the
 # top-100 most common", not a full HIBP integration.
 
+_MEMBER_ROLE_RANK: dict[str, int] = {"viewer": 1, "editor": 2, "owner": 3}
+_VALID_MEMBER_ROLES = frozenset(_MEMBER_ROLE_RANK)
+
 _PASSWORD_MIN_LENGTH = 12
 _PASSWORD_REJECT = {
     "password", "password1", "password123", "passw0rd",
@@ -841,6 +846,28 @@ def _password_policy_message() -> str:
         f"include at least two of: uppercase, lowercase, digits, symbols. "
         f"Common predictable passwords are rejected."
     )
+
+
+def _get_project_for_user(pid: int, min_role: str = "viewer") -> "Project | None":
+    """Return the project if the current session user can access it.
+
+    Access is granted when the user is the project creator (always owner)
+    OR has a ProjectMember row whose role rank >= min_role.
+    Returns None when the project doesn't exist or the user lacks access.
+    """
+    from flask import session as _session
+    uid = _session.get("user_id")
+    if not uid:
+        return None
+    proj = Project.query.get(pid)
+    if proj is None:
+        return None
+    if proj.user_id == uid:
+        return proj
+    member = ProjectMember.query.filter_by(project_id=pid, user_id=uid).first()
+    if member and _MEMBER_ROLE_RANK.get(member.role, 0) >= _MEMBER_ROLE_RANK.get(min_role, 1):
+        return proj
+    return None
 
 
 def _get_active_runs(user_id=None):
@@ -1211,6 +1238,28 @@ def _finalize_run(app, run_id, run_state, report_path):
                 if stage["number"] == apt_stage_num and stage["state"] == "running":
                     stage["state"] = "complete"
 
+        if config.MARLINSPIKE_CISA_ENABLED and run_state.get("command") == "chain":
+            cisa_stage_num = len(run_state["stages"])
+            _set_run_stage(run_state, cisa_stage_num, "CISA Advisories")
+            if os.path.isfile(report_path):
+                run_state["output"].append("[*] Running marlinspike-cisa...")
+                try:
+                    artifact_path, plugin_output = _run_cisa_plugin(report_path)
+                    if artifact_path:
+                        run_state["artifacts_produced"]["marlinspike-cisa"] = artifact_path
+                    run_state["output"].extend(plugin_output)
+                    if artifact_path:
+                        run_state["output"].append(
+                            f"[+] CISA artifact saved: {os.path.basename(artifact_path)}"
+                        )
+                except Exception as exc:
+                    run_state["output"].append(f"[!] marlinspike-cisa skipped: {exc}")
+            else:
+                run_state["output"].append("[!] marlinspike-cisa skipped: report file missing")
+            for stage in run_state["stages"]:
+                if stage["number"] == cisa_stage_num and stage["state"] == "running":
+                    stage["state"] = "complete"
+
         run_state["status"] = "completed"
         for stage in run_state["stages"]:
             if stage["state"] in ("running", "complete"):
@@ -1361,6 +1410,11 @@ def _arp_sidecar_path(report_path: str) -> str:
 def _apt_sidecar_path(report_path: str) -> str:
     base, _ = os.path.splitext(report_path)
     return base + "-apt.json"
+
+
+def _cisa_sidecar_path(report_path: str) -> str:
+    base, _ = os.path.splitext(report_path)
+    return base + "-cisa.json"
 
 
 def _run_mitre_plugin(report_path: str) -> tuple[str, list[str]]:
@@ -1527,6 +1581,51 @@ def _run_apt_plugin(report_path: str) -> tuple[str, list[str]]:
     return output_path, output_lines
 
 
+def _run_cisa_plugin(report_path: str) -> tuple[str, list[str]]:
+    if not config.MARLINSPIKE_CISA_ENABLED:
+        return "", []
+    if not os.path.isfile(report_path):
+        raise FileNotFoundError(f"Report not found: {report_path}")
+
+    output_path = _cisa_sidecar_path(report_path)
+    cmd = [
+        config.PYTHON_EXE,
+        "-u",
+        "-m",
+        config.MARLINSPIKE_CISA_MODULE,
+        "--input-report",
+        report_path,
+        "--output",
+        output_path,
+    ]
+    if config.MARLINSPIKE_CISA_RULES and os.path.isfile(config.MARLINSPIKE_CISA_RULES):
+        cmd.extend(["--rules", config.MARLINSPIKE_CISA_RULES])
+
+    env = os.environ.copy()
+    existing_pythonpath = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = (
+        config.BASE_DIR + (os.pathsep + existing_pythonpath if existing_pythonpath else "")
+    )
+
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        cwd=config.BASE_DIR,
+        env=env,
+        timeout=120,
+    )
+    output_lines = [
+        line.strip()
+        for line in ((result.stdout or "") + "\n" + (result.stderr or "")).splitlines()
+        if line.strip()
+    ]
+    if result.returncode != 0:
+        detail = output_lines[-1] if output_lines else f"exit code {result.returncode}"
+        raise RuntimeError(detail)
+    return output_path, output_lines
+
+
 def _load_report_with_extensions(path: str, ensure_mitre: bool = False) -> dict:
     with open(path) as handle:
         report = json.load(handle)
@@ -1571,6 +1670,16 @@ def _load_report_with_extensions(path: str, ensure_mitre: bool = False) -> dict:
                 extensions["marlinspike-apt"] = artifact
         except Exception as exc:
             log.warning("Failed to load APT sidecar %s: %s", apt_path, exc)
+
+    cisa_path = _cisa_sidecar_path(path)
+    if os.path.isfile(cisa_path):
+        try:
+            with open(cisa_path) as handle:
+                artifact = json.load(handle)
+            if isinstance(artifact, dict) and artifact.get("plugin_id") == "marlinspike-cisa":
+                extensions["marlinspike-cisa"] = artifact
+        except Exception as exc:
+            log.warning("Failed to load CISA sidecar %s: %s", cisa_path, exc)
 
     if extensions:
         merged["extensions"] = extensions
@@ -2755,8 +2864,30 @@ def create_app():
         PERMANENT_SESSION_LIFETIME=86400,
     )
 
-    # Rate limiter
-    limiter = Limiter(get_remote_address, app=app, default_limits=[])
+    # Rate limiter. Production deployments should use a shared backend so
+    # auth and upload throttles survive restarts and span workers.
+    rate_limit_storage_uri = config.RATELIMIT_STORAGE_URI or "memory://"
+    if config.RATELIMIT_STORAGE_URI:
+        try:
+            if not storage_from_string(config.RATELIMIT_STORAGE_URI).check():
+                raise RuntimeError("health check failed")
+        except Exception as exc:
+            raise RuntimeError(
+                "RATELIMIT_STORAGE_URI is configured but unavailable. "
+                "Refusing to start with ineffective shared rate limiting."
+            ) from exc
+    else:
+        log.warning(
+            "RATELIMIT_STORAGE_URI not set — using in-memory rate limits. "
+            "Suitable only for single-process dev/test deployments."
+        )
+
+    limiter = Limiter(
+        get_remote_address,
+        app=app,
+        default_limits=[],
+        storage_uri=rate_limit_storage_uri,
+    )
 
     # Ensure writable paths exist before database initialization.
     os.makedirs(config.DATA_DIR, exist_ok=True)
@@ -3158,8 +3289,8 @@ def create_app():
         new_password = body.get("new_password", "")
         if not raw_token or not new_password:
             return jsonify({"ok": False, "error": "Token and new_password required"}), 400
-        if len(new_password) < 8:
-            return jsonify({"ok": False, "error": "Password must be at least 8 characters"}), 400
+        if not _password_meets_policy(new_password):
+            return jsonify({"ok": False, "error": _password_policy_message()}), 400
         token = validate_reset_token(raw_token)
         if not token:
             return jsonify({"ok": False, "error": "Invalid or expired token"}), 400
@@ -3268,11 +3399,23 @@ def create_app():
     @app.route("/api/projects")
     @login_required
     def api_projects_list():
-        projects = Project.query.filter_by(user_id=session["user_id"]).order_by(Project.created_at).all()
+        from sqlalchemy import or_
+        uid = session["user_id"]
+        shared_pids = db.session.query(ProjectMember.project_id).filter_by(user_id=uid)
+        projects = Project.query.filter(
+            or_(Project.user_id == uid, Project.id.in_(shared_pids))
+        ).order_by(Project.created_at).all()
+        # Build a role lookup for shared projects
+        memberships = {
+            m.project_id: m.role
+            for m in ProjectMember.query.filter_by(user_id=uid).all()
+        }
         result = []
         for p in projects:
-            up_dir = os.path.join(config.UPLOADS_DIR, str(session["user_id"]), str(p.id))
-            rp_dir = os.path.join(config.REPORTS_DIR, str(session["user_id"]), str(p.id))
+            is_owner = p.user_id == uid
+            member_role = "owner" if is_owner else memberships.get(p.id, "viewer")
+            up_dir = os.path.join(config.UPLOADS_DIR, str(p.user_id), str(p.id))
+            rp_dir = os.path.join(config.REPORTS_DIR, str(p.user_id), str(p.id))
             pcap_count = 0
             report_count = 0
             if os.path.isdir(up_dir):
@@ -3286,6 +3429,8 @@ def create_app():
                 "pcap_count": pcap_count,
                 "report_count": report_count,
                 "created_at": p.created_at.isoformat() if p.created_at else None,
+                "is_owner": is_owner,
+                "member_role": member_role,
             })
         return jsonify({"projects": result})
 
@@ -3309,7 +3454,7 @@ def create_app():
     @app.route("/api/projects/<int:pid>", methods=["PUT"])
     @login_required
     def api_projects_rename(pid):
-        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        proj = _get_project_for_user(pid, "owner")
         if not proj:
             return jsonify({"ok": False, "error": "Project not found"}), 404
         if proj.name == "Default":
@@ -3332,7 +3477,7 @@ def create_app():
     def api_projects_delete(pid):
         if request.args.get("confirm") != "true":
             return jsonify({"ok": False, "error": "Add ?confirm=true to delete"}), 400
-        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        proj = _get_project_for_user(pid, "owner")
         if not proj:
             return jsonify({"ok": False, "error": "Project not found"}), 404
         if proj.name == "Default":
@@ -3353,6 +3498,98 @@ def create_app():
         )
         db.session.delete(proj)
         db.session.commit()
+        return jsonify({"ok": True})
+
+    # ── Project membership ───────────────────────────────────────
+
+    @app.route("/api/projects/<int:pid>/members")
+    @login_required
+    def api_project_members_list(pid):
+        proj = _get_project_for_user(pid)
+        if not proj:
+            return jsonify({"error": "Project not found"}), 404
+        creator = User.query.get(proj.user_id)
+        members = [{
+            "user_id": proj.user_id,
+            "username": creator.username if creator else "unknown",
+            "role": "owner",
+            "is_creator": True,
+            "invited_by": None,
+            "created_at": None,
+        }]
+        for m in ProjectMember.query.filter_by(project_id=pid).all():
+            u = User.query.get(m.user_id)
+            members.append({
+                "user_id": m.user_id,
+                "username": u.username if u else "unknown",
+                "role": m.role,
+                "is_creator": False,
+                "invited_by": m.invited_by,
+                "created_at": m.created_at.isoformat() if m.created_at else None,
+            })
+        return jsonify({"members": members})
+
+    @app.route("/api/projects/<int:pid>/members", methods=["POST"])
+    @login_required
+    def api_project_members_add(pid):
+        proj = _get_project_for_user(pid, "owner")
+        if not proj:
+            return jsonify({"error": "Project not found"}), 404
+        body = request.get_json(silent=True) or {}
+        username = (body.get("username") or "").strip()
+        role = body.get("role", "viewer")
+        if role not in _VALID_MEMBER_ROLES:
+            return jsonify({"error": f"role must be one of: {sorted(_VALID_MEMBER_ROLES)}"}), 400
+        target = User.query.filter_by(username=username).first()
+        if not target:
+            return jsonify({"error": "User not found"}), 404
+        if target.id == proj.user_id:
+            return jsonify({"error": "Project creator is already an owner"}), 409
+        existing = ProjectMember.query.filter_by(project_id=pid, user_id=target.id).first()
+        if existing:
+            existing.role = role
+        else:
+            existing = ProjectMember(
+                project_id=pid,
+                user_id=target.id,
+                role=role,
+                invited_by=session["user_id"],
+            )
+            db.session.add(existing)
+        db.session.commit()
+        return jsonify({"ok": True, "user_id": target.id, "username": target.username, "role": role})
+
+    @app.route("/api/projects/<int:pid>/members/<int:uid>", methods=["PUT"])
+    @login_required
+    def api_project_members_update(pid, uid):
+        proj = _get_project_for_user(pid, "owner")
+        if not proj:
+            return jsonify({"error": "Project not found"}), 404
+        if uid == proj.user_id:
+            return jsonify({"error": "Cannot change the project creator's role"}), 400
+        body = request.get_json(silent=True) or {}
+        role = body.get("role")
+        if role not in _VALID_MEMBER_ROLES:
+            return jsonify({"error": f"role must be one of: {sorted(_VALID_MEMBER_ROLES)}"}), 400
+        member = ProjectMember.query.filter_by(project_id=pid, user_id=uid).first()
+        if not member:
+            return jsonify({"error": "Member not found"}), 404
+        member.role = role
+        db.session.commit()
+        return jsonify({"ok": True})
+
+    @app.route("/api/projects/<int:pid>/members/<int:uid>", methods=["DELETE"])
+    @login_required
+    def api_project_members_remove(pid, uid):
+        proj = _get_project_for_user(pid, "owner")
+        if not proj:
+            return jsonify({"error": "Project not found"}), 404
+        if uid == proj.user_id:
+            return jsonify({"error": "Cannot remove the project creator"}), 400
+        member = ProjectMember.query.filter_by(project_id=pid, user_id=uid).first()
+        if member:
+            db.session.delete(member)
+            db.session.commit()
         return jsonify({"ok": True})
 
     # ── Asset tags (Bet 2) ───────────────────────────────────────
@@ -3400,7 +3637,7 @@ def create_app():
     @app.route("/api/projects/<int:pid>/asset-tags")
     @login_required
     def api_asset_tags_list(pid):
-        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        proj = _get_project_for_user(pid)
         if not proj:
             return jsonify({"error": "Project not found"}), 404
         tags = AssetTag.query.filter_by(project_id=pid).order_by(AssetTag.asset_key).all()
@@ -3409,7 +3646,7 @@ def create_app():
     @app.route("/api/projects/<int:pid>/asset-tags/<path:asset_key>", methods=["PUT"])
     @login_required
     def api_asset_tags_upsert(pid, asset_key):
-        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        proj = _get_project_for_user(pid, "editor")
         if not proj:
             return jsonify({"error": "Project not found"}), 404
         err = _validate_asset_key(asset_key)
@@ -3441,7 +3678,7 @@ def create_app():
     @app.route("/api/projects/<int:pid>/asset-tags/<path:asset_key>", methods=["DELETE"])
     @login_required
     def api_asset_tags_delete(pid, asset_key):
-        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        proj = _get_project_for_user(pid, "editor")
         if not proj:
             return jsonify({"error": "Project not found"}), 404
         tag = AssetTag.query.filter_by(project_id=pid, asset_key=asset_key).first()
@@ -3455,7 +3692,7 @@ def create_app():
     @app.route("/api/projects/<int:pid>/notes")
     @login_required
     def api_notes_list(pid):
-        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        proj = _get_project_for_user(pid)
         if not proj:
             return jsonify({"error": "Project not found"}), 404
         q = FindingNote.query.filter_by(project_id=pid)
@@ -3468,7 +3705,7 @@ def create_app():
     @app.route("/api/projects/<int:pid>/notes/<finding_signature>", methods=["PUT"])
     @login_required
     def api_notes_upsert(pid, finding_signature):
-        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        proj = _get_project_for_user(pid, "editor")
         if not proj:
             return jsonify({"error": "Project not found"}), 404
         err = _validate_asset_key(finding_signature)  # same constraints: no control chars, ≤64
@@ -3503,7 +3740,7 @@ def create_app():
     @app.route("/api/projects/<int:pid>/notes/<finding_signature>", methods=["DELETE"])
     @login_required
     def api_notes_delete(pid, finding_signature):
-        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        proj = _get_project_for_user(pid, "editor")
         if not proj:
             return jsonify({"error": "Project not found"}), 404
         note = FindingNote.query.filter_by(
@@ -3517,11 +3754,11 @@ def create_app():
     @app.route("/api/projects/<int:pid>/files")
     @login_required
     def api_project_files(pid):
-        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        proj = _get_project_for_user(pid)
         if not proj:
             return jsonify({"error": "Project not found"}), 404
         files = []
-        udir = os.path.join(config.UPLOADS_DIR, str(session["user_id"]), str(pid))
+        udir = os.path.join(config.UPLOADS_DIR, str(proj.user_id), str(pid))
         if os.path.isdir(udir):
             for fn in os.listdir(udir):
                 if not fn.lower().endswith((".pcap", ".pcapng", ".cap")):
@@ -3544,11 +3781,11 @@ def create_app():
     @app.route("/api/projects/<int:pid>/reports")
     @login_required
     def api_project_reports(pid):
-        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        proj = _get_project_for_user(pid)
         if not proj:
             return jsonify({"error": "Project not found"}), 404
         reports = []
-        rdir = os.path.join(config.REPORTS_DIR, str(session["user_id"]), str(pid))
+        rdir = os.path.join(config.REPORTS_DIR, str(proj.user_id), str(pid))
         if os.path.isdir(rdir):
             for fn in os.listdir(rdir):
                 if _is_primary_report_filename(fn):
@@ -3570,7 +3807,7 @@ def create_app():
     @app.route("/projects/<int:pid>/assets/<path:asset_key>")
     @login_required
     def asset_baseline_page(pid, asset_key):
-        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        proj = _get_project_for_user(pid)
         if not proj:
             return "Project not found", 404
         return render_template(
@@ -3583,7 +3820,7 @@ def create_app():
     @app.route("/api/projects/<int:pid>/assets/<path:asset_key>/baseline")
     @login_required
     def api_asset_baseline(pid, asset_key):
-        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        proj = _get_project_for_user(pid)
         if not proj:
             return jsonify({"error": "Project not found"}), 404
 
@@ -3594,7 +3831,7 @@ def create_app():
             limit = 30
         limit = max(1, min(500, limit))
 
-        rdir = os.path.join(config.REPORTS_DIR, str(session["user_id"]), str(pid))
+        rdir = os.path.join(config.REPORTS_DIR, str(proj.user_id), str(pid))
         candidates: list[tuple[str, str]] = []  # (sort_key, path) — pre-sort by mtime descending
         if os.path.isdir(rdir):
             for fn in os.listdir(rdir):
@@ -3640,16 +3877,17 @@ def create_app():
                 "limit_reports_applied": limit,
             }), 404
         baseline["limit_reports_applied"] = limit
+        baseline["scanned_reports"] = len(loaded)
         return jsonify(baseline)
 
     @app.route("/api/projects/<int:pid>/aggregate")
     @login_required
     def api_project_aggregate(pid):
-        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        proj = _get_project_for_user(pid)
         if not proj:
             return jsonify({"error": "Project not found"}), 404
 
-        rdir = os.path.join(config.REPORTS_DIR, str(session["user_id"]), str(pid))
+        rdir = os.path.join(config.REPORTS_DIR, str(proj.user_id), str(pid))
         report_paths: list[str] = []
         report_meta: dict[str, dict] = {}
         if os.path.isdir(rdir):
@@ -3692,9 +3930,9 @@ def create_app():
         }
         return jsonify(aggregate)
 
-    def _project_report_paths(pid: int) -> list[str]:
-        """Return primary report.json paths for every report in this user's project."""
-        rdir = os.path.join(config.REPORTS_DIR, str(session["user_id"]), str(pid))
+    def _project_report_paths(pid: int, owner_uid: int) -> list[str]:
+        """Return primary report.json paths for every report in this project."""
+        rdir = os.path.join(config.REPORTS_DIR, str(owner_uid), str(pid))
         if not os.path.isdir(rdir):
             return []
         paths = []
@@ -3714,12 +3952,12 @@ def create_app():
         Each report's sibling ``.ocsf.ndjson`` is preferred when present;
         on-the-fly application-layer rendering happens otherwise.
         """
-        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        proj = _get_project_for_user(pid)
         if not proj:
             return jsonify({"error": "Project not found"}), 404
         from marlinspike.emit import ocsf as _ocsf_emit
         from flask import Response
-        paths = _project_report_paths(pid)
+        paths = _project_report_paths(pid, proj.user_id)
         if not paths:
             return jsonify({"error": "No reports in project"}), 404
 
@@ -3759,13 +3997,13 @@ def create_app():
         + metadata are union-merged with the report filename appended so
         defenders can see which capture(s) drove each technique.
         """
-        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        proj = _get_project_for_user(pid)
         if not proj:
             return jsonify({"error": "Project not found"}), 404
         domain = request.args.get("domain", "ics-attack").lower()
         from marlinspike.emit import navigator as _nav_emit
         from flask import Response
-        paths = _project_report_paths(pid)
+        paths = _project_report_paths(pid, proj.user_id)
         if not paths:
             return jsonify({"error": "No reports in project"}), 404
 
@@ -3837,11 +4075,11 @@ def create_app():
         concatenated. Stable IDs mean the same finding across reports
         appears once.
         """
-        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        proj = _get_project_for_user(pid)
         if not proj:
             return jsonify({"error": "Project not found"}), 404
         from marlinspike.emit import stix as _stix_emit
-        paths = _project_report_paths(pid)
+        paths = _project_report_paths(pid, proj.user_id)
         if not paths:
             return jsonify({"error": "No reports in project"}), 404
 
@@ -3883,12 +4121,12 @@ def create_app():
         Rules are deduplicated by their stable ``id`` field — same finding
         across reports appears once in the output.
         """
-        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        proj = _get_project_for_user(pid)
         if not proj:
             return jsonify({"error": "Project not found"}), 404
         from marlinspike.emit import sigma as _sigma_emit
         from flask import Response
-        paths = _project_report_paths(pid)
+        paths = _project_report_paths(pid, proj.user_id)
         if not paths:
             return jsonify({"error": "No reports in project"}), 404
 
@@ -3923,7 +4161,7 @@ def create_app():
     @login_required
     @limiter.limit("10 per minute")
     def api_project_upload(pid):
-        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        proj = _get_project_for_user(pid, "editor")
         if not proj:
             return jsonify({"ok": False, "error": "Project not found"}), 404
         return _handle_upload(pid)
@@ -3931,11 +4169,11 @@ def create_app():
     @app.route("/api/projects/<int:pid>/files/<filename>", methods=["DELETE"])
     @login_required
     def api_project_file_delete(pid, filename):
-        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        proj = _get_project_for_user(pid, "editor")
         if not proj:
             return jsonify({"ok": False, "error": "Project not found"}), 404
         safe_name = os.path.basename(filename)
-        path = os.path.join(config.UPLOADS_DIR, str(session["user_id"]), str(pid), safe_name)
+        path = os.path.join(config.UPLOADS_DIR, str(proj.user_id), str(pid), safe_name)
         if os.path.isfile(path):
             os.unlink(path)
         return jsonify({"ok": True})
@@ -5653,8 +5891,8 @@ def create_app():
         role = body.get("role", "user")
         if not username or not password:
             return jsonify({"ok": False, "error": "Username and password required"}), 400
-        if len(password) < 8:
-            return jsonify({"ok": False, "error": "Password must be at least 8 characters"}), 400
+        if not _password_meets_policy(password):
+            return jsonify({"ok": False, "error": _password_policy_message()}), 400
         if role not in ("admin", "user"):
             return jsonify({"ok": False, "error": "Invalid role"}), 400
         if User.query.filter_by(username=username).first():
@@ -5880,8 +6118,8 @@ def create_app():
             d["entries"] = [_ioc_entry_to_dict(e) for e in lst.entries]
         return d
 
-    def _get_ioc_list_or_404(pid: int, list_id: int):
-        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+    def _get_ioc_list_or_404(pid: int, list_id: int, min_role: str = "viewer"):
+        proj = _get_project_for_user(pid, min_role)
         if not proj:
             return None, None
         lst = IocList.query.filter_by(id=list_id, project_id=pid).first()
@@ -5890,7 +6128,7 @@ def create_app():
     @app.route("/api/projects/<int:pid>/iocs")
     @login_required
     def api_ioc_lists(pid):
-        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        proj = _get_project_for_user(pid)
         if not proj:
             return jsonify({"error": "Project not found"}), 404
         lists = IocList.query.filter_by(project_id=pid).order_by(IocList.created_at).all()
@@ -5899,7 +6137,7 @@ def create_app():
     @app.route("/api/projects/<int:pid>/iocs", methods=["POST"])
     @login_required
     def api_ioc_lists_create(pid):
-        proj = Project.query.filter_by(id=pid, user_id=session["user_id"]).first()
+        proj = _get_project_for_user(pid, "editor")
         if not proj:
             return jsonify({"error": "Project not found"}), 404
 
@@ -5968,7 +6206,7 @@ def create_app():
     @app.route("/api/projects/<int:pid>/iocs/<int:list_id>", methods=["PUT"])
     @login_required
     def api_ioc_list_replace(pid, list_id):
-        proj, lst = _get_ioc_list_or_404(pid, list_id)
+        proj, lst = _get_ioc_list_or_404(pid, list_id, "editor")
         if proj is None:
             return jsonify({"error": "Project not found"}), 404
         if lst is None:
@@ -6027,7 +6265,7 @@ def create_app():
     @app.route("/api/projects/<int:pid>/iocs/<int:list_id>", methods=["DELETE"])
     @login_required
     def api_ioc_list_delete(pid, list_id):
-        proj, lst = _get_ioc_list_or_404(pid, list_id)
+        proj, lst = _get_ioc_list_or_404(pid, list_id, "editor")
         if proj is None:
             return jsonify({"error": "Project not found"}), 404
         if lst is None:
@@ -6039,7 +6277,7 @@ def create_app():
     @app.route("/api/projects/<int:pid>/iocs/<int:list_id>/import", methods=["POST"])
     @login_required
     def api_ioc_list_import(pid, list_id):
-        proj, lst = _get_ioc_list_or_404(pid, list_id)
+        proj, lst = _get_ioc_list_or_404(pid, list_id, "editor")
         if proj is None:
             return jsonify({"error": "Project not found"}), 404
         if lst is None:
@@ -6095,7 +6333,7 @@ def create_app():
         ]
 
         # Collect all report paths for this project
-        rdir = os.path.join(config.REPORTS_DIR, str(session["user_id"]), str(pid))
+        rdir = os.path.join(config.REPORTS_DIR, str(proj.user_id), str(pid))
         report_paths: list[str] = []
         if os.path.isdir(rdir):
             for fn in sorted(os.listdir(rdir)):

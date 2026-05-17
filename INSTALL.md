@@ -14,7 +14,9 @@ cp .env.example .env
 - `SECRET_KEY`
 - `ADMIN_PASSWORD`
 
-For local HTTP use, leave `SESSION_COOKIE_SECURE=false` so the browser will send the session cookie back to `http://127.0.0.1:5001`. Only set `SESSION_COOKIE_SECURE=true` when you are behind a TLS-terminating reverse proxy and serving the app over HTTPS.
+Keep `SESSION_COOKIE_SECURE=true` for HTTPS and reverse-proxy deployments. Only set it to `false` for plain-HTTP local development at `http://127.0.0.1:5001`.
+
+Docker Compose now defaults `RATELIMIT_STORAGE_URI` to the bundled Redis service so login, reset, and upload throttles are shared across restarts and workers. Leave it blank in `.env` unless you want to point at a different Redis/Valkey instance.
 
 3. Build and start the stack.
 
@@ -30,7 +32,7 @@ docker compose logs -f app
 
 5. Open the app at `http://127.0.0.1:5001`.
 
-If `ADMIN_PASSWORD` is blank, the first boot generates a random admin password and prints it to the container logs.
+If `ADMIN_PASSWORD` is blank, the first boot generates a random admin password and writes it to `/app/data/instance/admin-bootstrap-password.txt` inside the app container. Change it immediately after first login and delete the file.
 
 ### Optional malware stage
 
@@ -74,7 +76,7 @@ The application listens on `127.0.0.1:5001` by default through Docker Compose. I
 
 Use the proxy to terminate TLS and forward only the app port internally. Keep the app bound to localhost unless you have a deliberate reason to expose it directly.
 
-When you are serving MarlinSpike behind HTTPS, set `SESSION_COOKIE_SECURE=true` in `.env` before starting the app so the session cookie is marked secure.
+When you are serving MarlinSpike behind HTTPS, leave `SESSION_COOKIE_SECURE=true` in `.env` so the session cookie stays marked secure. Only turn it off for local plain-HTTP development.
 
 ## Upgrades
 
