@@ -434,6 +434,44 @@ def test_start_session_duration_cap_applied(flask_app, monkeypatch, admin_client
     assert detail["applied"] == 3600
 
 
+def test_start_session_total_bytes_cap_applied(flask_app, monkeypatch, admin_client):
+    """Request a 20 MiB ring with a 5 MiB policy cap → ring settings are reduced."""
+    from marlinspike import config as ms_config
+    monkeypatch.setattr(ms_config, "MARLINSPIKE_CAPTURE_INTERFACE_ALLOWLIST", [])
+    monkeypatch.setattr(ms_config, "LIVE_CAPTURE_ENABLED", True)
+
+    client, app = admin_client
+    pid, _ = _get_or_create_project(app, "policy_admin", "BytesCap")
+    _set_project_policy(app, pid, {"max_total_bytes": 5 * 1024 * 1024})
+
+    audit_calls = []
+    import marlinspike.capture.api as cap_api
+    monkeypatch.setattr(cap_api, "audit", lambda event, **kw: audit_calls.append((event, kw)))
+    _mock_capture_deps(monkeypatch, app)
+
+    resp = client.post(
+        "/api/capture/sessions",
+        json={
+            "project_id": pid,
+            "interface": "eth0",
+            "ring_filesize_kb": 2048,
+            "ring_files": 10,
+        },
+        headers={**_CSRF_HEADERS, "Content-Type": "application/json"},
+    )
+    assert resp.status_code == 201
+    j = resp.get_json()
+    assert j["ok"] is True
+
+    retained_bytes = j["session"]["ring_filesize_kb"] * 1024 * j["session"]["ring_files"]
+    assert retained_bytes <= 5 * 1024 * 1024
+
+    kw_detail = next(kw for e, kw in audit_calls if e == "capture.policy_capped" and '"field": "max_total_bytes"' in kw["detail"])
+    detail = json.loads(kw_detail["detail"])
+    assert detail["requested"] == 2048 * 1024 * 10
+    assert detail["applied"] == retained_bytes
+
+
 def test_start_session_operator_warning_propagated(flask_app, monkeypatch, admin_client):
     """operator_warning present in policy → included in start response."""
     from marlinspike import config as ms_config
