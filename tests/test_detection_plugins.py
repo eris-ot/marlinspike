@@ -176,20 +176,37 @@ def _malware_available() -> bool:
     reason="marlinspike-malware binary/rules absent — Stage 4b is built only "
            "in the Docker image; integration cannot run here",
 )
-def test_stage4b_malware_integration(fixtures, tmp_path):
-    """When the Rust malware engine *is* present, a chain run must complete
-    Stage 4b cleanly and carry a well-formed ``malware_findings`` list whose
-    entries (if any) round-trip into MALWARE_IOC_MATCH risk findings.
+def test_stage4b_malware_ioc_match(fixtures, tmp_path):
+    """With the Rust malware engine present, the malware_ioc fixture (a DNS
+    lookup for the rule packs' deterministic bootstrap IOC
+    ``bad.example.invalid``) must produce a real Stage 4b match that merges
+    into both risk_findings and c2_indicators as MALWARE_IOC_MATCH.
 
-    Note: this asserts the integration path, not a specific signature hit —
-    the rule packs are external and not controlled by this repo, so a
-    deterministic IOC match cannot be synthesized here.
+    This is a genuine end-to-end signature hit, not just an integration
+    smoke check — the ``bootstrap-bad-host`` rule is the rules repo's
+    stable self-validation indicator. If a future rules ref drops it this
+    fails loudly, which is the correct signal.
     """
-    rep = _run_engine(fixtures["c2_beacon"], str(tmp_path))["report"]
+    rep = _run_engine(fixtures["malware_ioc"], str(tmp_path))["report"]
+
     mw = rep.get("malware_findings")
     assert isinstance(mw, list), "malware_findings missing/not a list after Stage 4b"
-    if mw:
-        cats = {f.get("category") for f in (rep.get("risk_findings") or [])}
-        assert "MALWARE_IOC_MATCH" in cats, (
-            "malware_findings present but not merged into risk_findings"
-        )
+    assert mw, "Stage 4b ran but did not match the bootstrap IOC bad.example.invalid"
+    assert any(f.get("rule_id") == "bootstrap-bad-host" for f in mw), (
+        f"expected bootstrap-bad-host hit; got {[f.get('rule_id') for f in mw]}"
+    )
+
+    risk_cats = {f.get("category") for f in (rep.get("risk_findings") or [])}
+    assert "MALWARE_IOC_MATCH" in risk_cats, "match not merged into risk_findings"
+    c2_types = {c.get("type") for c in (rep.get("c2_indicators") or [])}
+    assert "MALWARE_IOC_MATCH" in c2_types, "match not merged into c2_indicators"
+
+
+@pytest.mark.skipif(
+    not _malware_available(),
+    reason="marlinspike-malware binary/rules absent — Stage 4b is Docker-only",
+)
+def test_stage4b_clean_has_no_malware_match(fixtures, tmp_path):
+    """Benign baseline must not produce a Stage 4b false positive."""
+    rep = _run_engine(fixtures["clean"], str(tmp_path))["report"]
+    assert (rep.get("malware_findings") or []) == []

@@ -262,6 +262,20 @@ def scen_lateral_smb():
     return pkts
 
 
+def scen_malware_ioc():
+    """A DNS lookup for the rules repo's deterministic bootstrap IOC
+    (`bad.example.invalid`, rule ``bootstrap-bad-host``). Trips Stage 4b
+    -> MALWARE_IOC_MATCH *only* when the marlinspike-malware Rust engine
+    and rule packs are present (Docker/CI-with-binary); benign otherwise.
+    Asserted in test_detection_plugins.py behind a binary-presence gate."""
+    pkts = baseline()
+    q = (_eth(77, 2) / IP(src=EXFIL_HOST, dst=DNS_SRV) / UDP(sport=55000, dport=53)
+         / DNS(rd=1, qd=DNSQR(qname=b"bad.example.invalid")))
+    q.time = 55.0
+    pkts.append(q)
+    return pkts
+
+
 SCENARIOS = {
     "clean": scen_clean,
     "c2_beacon": scen_c2_beacon,
@@ -272,6 +286,7 @@ SCENARIOS = {
     "c2_data_exfil": scen_c2_data_exfil,
     "modbus_write": scen_modbus_write,
     "lateral_smb": scen_lateral_smb,
+    "malware_ioc": scen_malware_ioc,
 }
 
 
