@@ -96,7 +96,9 @@ def _now_iso_date() -> str:
 
 def _stable_uuid(category: str, key: str) -> str:
     """Sigma ``id`` field — UUID-shape stable hash."""
-    h = hashlib.sha1(f"marlinspike|{category}|{key}".encode()).hexdigest()
+    h = hashlib.sha1(
+        f"marlinspike|{category}|{key}".encode(), usedforsecurity=False
+    ).hexdigest()
     # Format as a UUID for Sigma compatibility
     return f"{h[0:8]}-{h[8:12]}-{h[12:16]}-{h[16:20]}-{h[20:32]}"
 

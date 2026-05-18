@@ -116,11 +116,11 @@ def _print_summary(env: dict[str, str], env_path: Path):
     print("=" * 60)
     print(f"  .env written: {env_path.resolve()} (mode 0600)")
     print(f"  DATABASE_URL: {_redact(env.get('DATABASE_URL', ''))}")
-    print(f"  SECRET_KEY:   <generated, 64 hex chars>")
+    print("  SECRET_KEY:   <generated, 64 hex chars>")
     if env.get("ADMIN_PASSWORD"):
         print()
         print("  ADMIN BOOTSTRAP CREDENTIAL")
-        print(f"  username: admin")
+        print("  username: admin")
         print(f"  password: {env['ADMIN_PASSWORD']}")
         print("  Change this immediately after first login.")
     print()

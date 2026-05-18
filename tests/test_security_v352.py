@@ -13,7 +13,6 @@ Covers:
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 
@@ -226,7 +225,7 @@ def test_setup_wizard_auto_writes_env(tmp_path, monkeypatch):
 
 
 def test_setup_wizard_secret_key_strength(tmp_path):
-    from marlinspike.setup_wizard import run, _gen_secret_hex
+    from marlinspike.setup_wizard import _gen_secret_hex
     # The auto-generated key should be 64 hex chars (256 bits)
     assert len(_gen_secret_hex(32)) == 64
     # And different on every call
