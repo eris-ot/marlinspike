@@ -5,22 +5,19 @@ chip helpers, severity chip mapping, and JSON export round-trip.
 """
 
 import json
-import pytest
 
 from marlinspike.taxonomy import (
+    ENTITY_VISUALS,
     EntityType,
     EntityVisual,
     RelationshipType,
-    ENTITY_VISUALS,
-    SEVERITY_CHIP,
     chip_for,
     chip_for_full,
-    severity_chip_class,
     label,
+    severity_chip_class,
     taxonomy_export,
     taxonomy_export_json,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. Every EntityType has a visual entry

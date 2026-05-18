@@ -28,11 +28,9 @@ always an association between an existing entity and an IOC, not a new node.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
-from enum import Enum
-from typing import Optional
 import json
-
+from dataclasses import dataclass
+from enum import Enum
 
 # ---------------------------------------------------------------------------
 # Entity types

@@ -6,8 +6,6 @@ import json
 import os
 import sys
 
-import pytest
-
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("SECRET_KEY", "test-sigma")
 
@@ -16,7 +14,6 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from marlinspike.emit import sigma  # noqa: E402
-
 
 SAMPLE_REPORT = {
     "capture_info": {"capture_source": "test-001"},

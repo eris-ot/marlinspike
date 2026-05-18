@@ -6,8 +6,6 @@ import json
 import os
 import sys
 
-import pytest
-
 # Set DATABASE_URL BEFORE importing marlinspike (config reads at import time).
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("SECRET_KEY", "test-ocsf")
@@ -17,7 +15,6 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from marlinspike.emit import ocsf  # noqa: E402
-
 
 # ── Sample report fixture ────────────────────────────────────────────────────
 

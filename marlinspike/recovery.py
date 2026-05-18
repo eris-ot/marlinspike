@@ -36,7 +36,7 @@ import time
 from datetime import datetime, timezone
 
 from marlinspike import config, run_store
-from marlinspike.models import ScanHistory, db
+from marlinspike.models import ScanHistory
 
 log = logging.getLogger("marlinspike.recovery")
 

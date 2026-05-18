@@ -6,8 +6,6 @@ import json
 import os
 import sys
 
-import pytest
-
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("SECRET_KEY", "test-stix")
 
@@ -16,7 +14,6 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from marlinspike.emit import stix  # noqa: E402
-
 
 SAMPLE_REPORT = {
     "timestamp_start": "2026-05-09T15:10:00Z",
