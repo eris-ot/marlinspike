@@ -5119,6 +5119,35 @@ def _save_intermediate(report, path, stage_name):
         print(f"  [!] Failed to save intermediate report: {e}")
 
 
+def _maybe_enrich(args):
+    """Run the enrichment plugins after a chain and merge them into the report
+    on disk, so a headless consumer of report.json gets a complete report.
+    Gated by --enrich/--no-enrich (default on). A broken plugin never fails
+    the chain."""
+    if not getattr(args, "enrich", True):
+        return
+    try:
+        from marlinspike import enrich as _enrich
+        produced = _enrich.write_enriched(args.output)
+        print(f"[+] enrich: {', '.join(sorted(produced))}" if produced
+              else "[*] enrich: no plugins enabled")
+    except Exception as exc:  # noqa: BLE001 — enrichment must not fail the chain
+        print(f"[!] enrich skipped: {exc}")
+
+
+def run_enrich(args):
+    """Standalone enrichment: run plugins + merge into an existing report
+    JSON in place. Idempotent."""
+    from marlinspike import enrich as _enrich
+    path = getattr(args, "input_report", "") or args.output
+    if not os.path.isfile(path):
+        print(f"[!] enrich: report not found: {path}")
+        return
+    produced = _enrich.write_enriched(path)
+    print(f"[+] enriched {path}: "
+          f"{', '.join(sorted(produced)) or '(no plugins enabled)'}")
+
+
 def run_chain(args):
     """Full attack chain: ingest → dissect → topology → risk.
 
@@ -5290,6 +5319,8 @@ def run_chain(args):
     report.timestamp_end = datetime.now(timezone.utc).isoformat()
     report.interrupted = False
     report.save(args.output)
+
+    _maybe_enrich(args)
 
     # YAML relationship map
     yaml_path = args.yaml_map
@@ -5715,6 +5746,8 @@ def run_chain_from_conversations(args):
     report.interrupted = False
     report.save(args.output)
 
+    _maybe_enrich(args)
+
     _active_report = None
     _active_report_path = None
     return report
@@ -5779,9 +5812,17 @@ def main():
                        help="Stage 2 DPI engine to use (default: auto)")
     parser.add_argument("--dpi-binary", default="",
                        help="Path to marlinspike-dpi binary (default: PATH or MARLINSPIKE_DPI_BIN)")
+    parser.add_argument("--enrich", action=argparse.BooleanOptionalAction,
+                       default=True,
+                       help="After chain, run MITRE/ARP/APT/CISA plugins and "
+                            "merge them into the report (default: on; "
+                            "--no-enrich to skip for speed)")
+    parser.add_argument("--input-report", default="",
+                       help="Existing report JSON to enrich (for the `enrich` command)")
 
     # Subcommands
     sub = parser.add_subparsers(dest="command")
+    sub.add_parser("enrich", help="Run enrichment plugins on an existing report and merge in place").set_defaults(func=run_enrich)
     sub.add_parser("chain", help="Full chain: ingest → dissect → topology → risk").set_defaults(func=run_chain)
     sub.add_parser("ingest", help="Stage 1: capture ingestion").set_defaults(func=run_ingest)
     sub.add_parser("dissect", help="Stage 2: protocol dissection").set_defaults(func=run_dissect)

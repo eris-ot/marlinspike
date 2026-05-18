@@ -42,6 +42,7 @@ from flask_limiter.util import get_remote_address
 from limits.storage import storage_from_string
 
 from marlinspike import config
+from marlinspike import enrich as _enrich
 from marlinspike.aggregate import aggregate_reports
 from marlinspike.baselines import compute_asset_baseline
 from marlinspike.audit import audit
@@ -89,7 +90,7 @@ from marlinspike.models import (
     db,
 )
 
-APP_VERSION = "3.5.6"
+APP_VERSION = "3.6.0"
 
 log = logging.getLogger("marlinspike")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(message)s")
@@ -1398,362 +1399,50 @@ def _is_primary_report_filename(filename: str) -> bool:
 
 
 def _mitre_sidecar_path(report_path: str) -> str:
-    base, _ = os.path.splitext(report_path)
-    return base + "-mitre.json"
+    return _enrich.sidecar_path(report_path, "-mitre.json")
 
 
 def _arp_sidecar_path(report_path: str) -> str:
-    base, _ = os.path.splitext(report_path)
-    return base + "-arp.json"
+    return _enrich.sidecar_path(report_path, "-arp.json")
 
 
 def _apt_sidecar_path(report_path: str) -> str:
-    base, _ = os.path.splitext(report_path)
-    return base + "-apt.json"
+    return _enrich.sidecar_path(report_path, "-apt.json")
 
 
 def _cisa_sidecar_path(report_path: str) -> str:
-    base, _ = os.path.splitext(report_path)
-    return base + "-cisa.json"
+    return _enrich.sidecar_path(report_path, "-cisa.json")
 
 
+# Enrichment now lives in marlinspike/enrich.py so the headless engine and the
+# web app share one implementation. These thin wrappers preserve the names /
+# signatures the rest of app.py (and _finalize_run) already call.
 def _run_mitre_plugin(report_path: str) -> tuple[str, list[str]]:
-    if not config.MARLINSPIKE_MITRE_ENABLED:
-        return "", []
-    if not os.path.isfile(report_path):
-        raise FileNotFoundError(f"Report not found: {report_path}")
-
-    output_path = _mitre_sidecar_path(report_path)
-    cmd = [
-        config.PYTHON_EXE,
-        "-u",
-        "-m",
-        config.MARLINSPIKE_MITRE_MODULE,
-        "--input-report",
-        report_path,
-        "--output",
-        output_path,
-    ]
-    # Collect rule packs: explicit config path + all *.yaml in rules/mitre/
-    rule_pack_paths: list[str] = []
-    rules_dir = os.path.join(config.BASE_DIR, "rules", "mitre")
-    if os.path.isdir(rules_dir):
-        for fname in sorted(os.listdir(rules_dir)):
-            if fname.endswith(".yaml") or fname.endswith(".yml"):
-                rule_pack_paths.append(os.path.join(rules_dir, fname))
-    if config.MARLINSPIKE_MITRE_RULES and os.path.isfile(config.MARLINSPIKE_MITRE_RULES):
-        if config.MARLINSPIKE_MITRE_RULES not in rule_pack_paths:
-            rule_pack_paths.insert(0, config.MARLINSPIKE_MITRE_RULES)
-    for pack_path in rule_pack_paths:
-        cmd.extend(["--rules", pack_path])
-
-    env = os.environ.copy()
-    existing_pythonpath = env.get("PYTHONPATH", "")
-    env["PYTHONPATH"] = (
-        config.BASE_DIR + (os.pathsep + existing_pythonpath if existing_pythonpath else "")
-    )
-
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        cwd=config.BASE_DIR,
-        env=env,
-        timeout=120,
-    )
-    output_lines = [
-        line.strip()
-        for line in ((result.stdout or "") + "\n" + (result.stderr or "")).splitlines()
-        if line.strip()
-    ]
-    if result.returncode != 0:
-        detail = output_lines[-1] if output_lines else f"exit code {result.returncode}"
-        raise RuntimeError(detail)
-    return output_path, output_lines
+    return _enrich.run_one("marlinspike-mitre", report_path)
 
 
 def _run_arp_plugin(report_path: str) -> tuple[str, list[str]]:
-    if not config.MARLINSPIKE_ARP_ENABLED:
-        return "", []
-    if not os.path.isfile(report_path):
-        raise FileNotFoundError(f"Report not found: {report_path}")
-
-    output_path = _arp_sidecar_path(report_path)
-    cmd = [
-        config.PYTHON_EXE,
-        "-u",
-        "-m",
-        config.MARLINSPIKE_ARP_MODULE,
-        "--input-report",
-        report_path,
-        "--output",
-        output_path,
-    ]
-    # Collect rule packs: all *.yaml in rules/arp/ plus explicit config path
-    rule_pack_paths: list[str] = []
-    rules_dir = os.path.join(config.BASE_DIR, "rules", "arp")
-    if os.path.isdir(rules_dir):
-        for fname in sorted(os.listdir(rules_dir)):
-            if fname.endswith(".yaml") or fname.endswith(".yml"):
-                rule_pack_paths.append(os.path.join(rules_dir, fname))
-    if config.MARLINSPIKE_ARP_RULES and os.path.isfile(config.MARLINSPIKE_ARP_RULES):
-        if config.MARLINSPIKE_ARP_RULES not in rule_pack_paths:
-            rule_pack_paths.insert(0, config.MARLINSPIKE_ARP_RULES)
-    for pack_path in rule_pack_paths:
-        cmd.extend(["--rules", pack_path])
-
-    env = os.environ.copy()
-    existing_pythonpath = env.get("PYTHONPATH", "")
-    env["PYTHONPATH"] = (
-        config.BASE_DIR + (os.pathsep + existing_pythonpath if existing_pythonpath else "")
-    )
-
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        cwd=config.BASE_DIR,
-        env=env,
-        timeout=120,
-    )
-    output_lines = [
-        line.strip()
-        for line in ((result.stdout or "") + "\n" + (result.stderr or "")).splitlines()
-        if line.strip()
-    ]
-    if result.returncode != 0:
-        detail = output_lines[-1] if output_lines else f"exit code {result.returncode}"
-        raise RuntimeError(detail)
-    return output_path, output_lines
+    return _enrich.run_one("marlinspike-arp", report_path)
 
 
 def _run_apt_plugin(report_path: str) -> tuple[str, list[str]]:
-    if not config.MARLINSPIKE_APT_ENABLED:
-        return "", []
-    if not os.path.isfile(report_path):
-        raise FileNotFoundError(f"Report not found: {report_path}")
-
-    output_path = _apt_sidecar_path(report_path)
-    cmd = [
-        config.PYTHON_EXE,
-        "-u",
-        "-m",
-        config.MARLINSPIKE_APT_MODULE,
-        "--input-report",
-        report_path,
-        "--output",
-        output_path,
-    ]
-    rule_pack_paths: list[str] = []
-    rules_dir = os.path.join(config.BASE_DIR, "rules", "apt")
-    if os.path.isdir(rules_dir):
-        for fname in sorted(os.listdir(rules_dir)):
-            if fname.endswith(".yaml") or fname.endswith(".yml"):
-                rule_pack_paths.append(os.path.join(rules_dir, fname))
-    if config.MARLINSPIKE_APT_RULES and os.path.isfile(config.MARLINSPIKE_APT_RULES):
-        if config.MARLINSPIKE_APT_RULES not in rule_pack_paths:
-            rule_pack_paths.insert(0, config.MARLINSPIKE_APT_RULES)
-    for pack_path in rule_pack_paths:
-        cmd.extend(["--rules", pack_path])
-
-    env = os.environ.copy()
-    existing_pythonpath = env.get("PYTHONPATH", "")
-    env["PYTHONPATH"] = (
-        config.BASE_DIR + (os.pathsep + existing_pythonpath if existing_pythonpath else "")
-    )
-
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        cwd=config.BASE_DIR,
-        env=env,
-        timeout=120,
-    )
-    output_lines = [
-        line.strip()
-        for line in ((result.stdout or "") + "\n" + (result.stderr or "")).splitlines()
-        if line.strip()
-    ]
-    if result.returncode != 0:
-        detail = output_lines[-1] if output_lines else f"exit code {result.returncode}"
-        raise RuntimeError(detail)
-    return output_path, output_lines
+    return _enrich.run_one("marlinspike-apt", report_path)
 
 
 def _run_cisa_plugin(report_path: str) -> tuple[str, list[str]]:
-    if not config.MARLINSPIKE_CISA_ENABLED:
-        return "", []
-    if not os.path.isfile(report_path):
-        raise FileNotFoundError(f"Report not found: {report_path}")
-
-    output_path = _cisa_sidecar_path(report_path)
-    cmd = [
-        config.PYTHON_EXE,
-        "-u",
-        "-m",
-        config.MARLINSPIKE_CISA_MODULE,
-        "--input-report",
-        report_path,
-        "--output",
-        output_path,
-    ]
-    if config.MARLINSPIKE_CISA_RULES and os.path.isfile(config.MARLINSPIKE_CISA_RULES):
-        cmd.extend(["--rules", config.MARLINSPIKE_CISA_RULES])
-
-    env = os.environ.copy()
-    existing_pythonpath = env.get("PYTHONPATH", "")
-    env["PYTHONPATH"] = (
-        config.BASE_DIR + (os.pathsep + existing_pythonpath if existing_pythonpath else "")
-    )
-
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        cwd=config.BASE_DIR,
-        env=env,
-        timeout=120,
-    )
-    output_lines = [
-        line.strip()
-        for line in ((result.stdout or "") + "\n" + (result.stderr or "")).splitlines()
-        if line.strip()
-    ]
-    if result.returncode != 0:
-        detail = output_lines[-1] if output_lines else f"exit code {result.returncode}"
-        raise RuntimeError(detail)
-    return output_path, output_lines
+    return _enrich.run_one("marlinspike-cisa", report_path)
 
 
 def _load_report_with_extensions(path: str, ensure_mitre: bool = False) -> dict:
-    with open(path) as handle:
-        report = json.load(handle)
-    if not isinstance(report, dict):
-        return report
-
-    merged = report.copy()
-    extensions = dict(merged.get("extensions") or {})
-    mitre_path = _mitre_sidecar_path(path)
-
-    if ensure_mitre and config.MARLINSPIKE_MITRE_ENABLED and not os.path.isfile(mitre_path):
-        try:
-            _run_mitre_plugin(path)
-        except Exception as exc:
-            log.warning("marlinspike-mitre generation failed for %s: %s", path, exc)
-
-    if os.path.isfile(mitre_path):
-        try:
-            with open(mitre_path) as handle:
-                artifact = json.load(handle)
-            if isinstance(artifact, dict) and artifact.get("plugin_id") == "marlinspike-mitre":
-                extensions["marlinspike-mitre"] = artifact
-        except Exception as exc:
-            log.warning("Failed to load MITRE sidecar %s: %s", mitre_path, exc)
-
-    arp_path = _arp_sidecar_path(path)
-    if os.path.isfile(arp_path):
-        try:
-            with open(arp_path) as handle:
-                artifact = json.load(handle)
-            if isinstance(artifact, dict) and artifact.get("plugin_id") == "marlinspike-arp":
-                extensions["marlinspike-arp"] = artifact
-        except Exception as exc:
-            log.warning("Failed to load ARP sidecar %s: %s", arp_path, exc)
-
-    apt_path = _apt_sidecar_path(path)
-    if os.path.isfile(apt_path):
-        try:
-            with open(apt_path) as handle:
-                artifact = json.load(handle)
-            if isinstance(artifact, dict) and artifact.get("plugin_id") == "marlinspike-apt":
-                extensions["marlinspike-apt"] = artifact
-        except Exception as exc:
-            log.warning("Failed to load APT sidecar %s: %s", apt_path, exc)
-
-    cisa_path = _cisa_sidecar_path(path)
-    if os.path.isfile(cisa_path):
-        try:
-            with open(cisa_path) as handle:
-                artifact = json.load(handle)
-            if isinstance(artifact, dict) and artifact.get("plugin_id") == "marlinspike-cisa":
-                extensions["marlinspike-cisa"] = artifact
-        except Exception as exc:
-            log.warning("Failed to load CISA sidecar %s: %s", cisa_path, exc)
-
-    if extensions:
-        merged["extensions"] = extensions
-
-    plugin_findings = _collect_plugin_risk_findings(extensions)
-    if plugin_findings:
-        existing = list(merged.get("risk_findings") or [])
-        merged["risk_findings"] = existing + plugin_findings
-
-    return merged
+    return _enrich.load_report_with_extensions(path, ensure_mitre=ensure_mitre)
 
 
 def _collect_plugin_risk_findings(extensions: dict) -> list[dict]:
-    """Adapt findings emitted by plugin sidecars into the engine risk_finding schema."""
-    out: list[dict] = []
-    for plugin_id, artifact in extensions.items():
-        if not isinstance(artifact, dict):
-            continue
-        data = artifact.get("data") if isinstance(artifact.get("data"), dict) else {}
-        for raw in data.get("findings") or []:
-            adapted = _plugin_finding_to_risk_finding(plugin_id, raw)
-            if adapted:
-                out.append(adapted)
-    return out
+    return _enrich.collect_plugin_risk_findings(extensions)
 
 
-def _plugin_finding_to_risk_finding(plugin_id: str, finding: dict) -> dict | None:
-    if not isinstance(finding, dict):
-        return None
-    category = str(finding.get("category") or "").strip()
-    if not category:
-        return None
-
-    affected: list[str] = []
-    seen: set[str] = set()
-
-    def _add(value):
-        if value is None:
-            return
-        text = str(value).strip()
-        if text and text not in seen:
-            seen.add(text)
-            affected.append(text)
-
-    for key in ("src_ip", "ip", "host", "address", "source_ip"):
-        _add(finding.get(key))
-    for key in ("distinct_target_ips", "affected_nodes", "target_ips", "involved_ips", "claimed_by_macs"):
-        for v in finding.get(key) or []:
-            _add(v)
-
-    severity = str(finding.get("severity") or "MEDIUM").upper()
-    if severity not in {"CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"}:
-        severity = "MEDIUM"
-
-    description = (
-        finding.get("detail")
-        or finding.get("description")
-        or finding.get("message")
-        or category
-    )
-
-    attack_ids = list(finding.get("attack_techniques") or finding.get("attack_ids") or [])
-
-    return {
-        "category": category,
-        "severity": severity,
-        "description": str(description),
-        "affected_nodes": affected,
-        "affected_edges": list(finding.get("affected_edges") or []),
-        "cvss_impact": float(finding.get("cvss_impact") or 0.0),
-        "remediation": str(finding.get("remediation") or ""),
-        "attack_ids": [str(a).strip().upper() for a in attack_ids if str(a).strip()],
-        "source": plugin_id,
-    }
+def _plugin_finding_to_risk_finding(plugin_id: str, finding: dict):
+    return _enrich.plugin_finding_to_risk_finding(plugin_id, finding)
 
 
 def _viewer_anchor(value: str) -> str:

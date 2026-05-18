@@ -1,5 +1,30 @@
 # Upgrading MarlinSpike
 
+## v3.5.6 → v3.6.0 — enrichment runs in the engine
+
+Enrichment (MITRE / ARP / APT / CISA) moved out of the web app
+(`app.py:_finalize_run`) into the engine (`marlinspike/enrich.py`, called by
+`chain`). There is **no schema or database migration** and no API change.
+
+**Behavior change — headless callers only.** `engine.py chain` and
+`chain-from-conversations` now run the enrichment plugins by default and merge
+them into `report.json` (`extensions` + plugin-sourced `risk_findings`).
+Previously a headless `chain` produced a core-only report and only the web
+app added enrichment.
+
+- To keep the old core-only output (e.g. a fast/triage path), pass
+  `--no-enrich`. Enrichment is also skippable per-plugin via the existing
+  `MARLINSPIKE_<MITRE|ARP|APT|CISA>_ENABLED=false`.
+- A slow or failing plugin is logged and skipped — it never fails the chain.
+- `report.json` is now self-complete after `chain`; consumers no longer need
+  to read the `*-mitre.json` / `*-arp.json` / … sidecars separately (the
+  sidecars are still written, unchanged).
+- The web app is unaffected: it delegates to the same `marlinspike.enrich`
+  implementation; rendering and the viewer behave exactly as before.
+
+No action required for web/Docker deployments. Headless / batch / CI callers
+that depend on the exact previous `chain` output should add `--no-enrich`.
+
 ## v3.5.3 → v3.5.4 — Alembic migrations
 
 v3.5.4 replaces the ad-hoc `db.create_all()` + `ALTER TABLE ADD COLUMN IF NOT

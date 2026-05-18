@@ -1,6 +1,7 @@
 # Engine composition — making the headless engine the real product boundary
 
-Status: proposal · Audience: marlinspike + cloudmarlin maintainers
+Status: **implemented in v3.6.0** — `marlinspike/enrich.py` + `chain --enrich`
++ app delegates (Steps 1–3 below) · Audience: marlinspike + cloudmarlin maintainers
 
 ## TL;DR
 
