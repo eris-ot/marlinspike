@@ -73,7 +73,7 @@ class ProjectMember(db.Model):
     )
     role = db.Column(db.String(20), nullable=False, default="viewer")  # viewer | editor | owner
     invited_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
         db.UniqueConstraint("project_id", "user_id", name="uq_project_member"),

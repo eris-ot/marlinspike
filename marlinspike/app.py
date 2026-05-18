@@ -859,7 +859,7 @@ def _get_project_for_user(pid: int, min_role: str = "viewer") -> "Project | None
     uid = _session.get("user_id")
     if not uid:
         return None
-    proj = Project.query.get(pid)
+    proj = db.session.get(Project, pid)
     if proj is None:
         return None
     if proj.user_id == uid:
@@ -3508,7 +3508,7 @@ def create_app():
         proj = _get_project_for_user(pid)
         if not proj:
             return jsonify({"error": "Project not found"}), 404
-        creator = User.query.get(proj.user_id)
+        creator = db.session.get(User, proj.user_id)
         members = [{
             "user_id": proj.user_id,
             "username": creator.username if creator else "unknown",
@@ -3518,7 +3518,7 @@ def create_app():
             "created_at": None,
         }]
         for m in ProjectMember.query.filter_by(project_id=pid).all():
-            u = User.query.get(m.user_id)
+            u = db.session.get(User, m.user_id)
             members.append({
                 "user_id": m.user_id,
                 "username": u.username if u else "unknown",
