@@ -37,3 +37,6 @@ windows/wine-lab/
 instance/
 release-artifacts/
 marlinspike-*.tar.gz
+
+# Generated detection-scenario fixtures (test regenerates to tmp)
+tests/fixtures/pcaps/
