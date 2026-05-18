@@ -792,7 +792,7 @@ body {
 {% block head %}{% endblock %}
 </head>
 <body>
-{% from "_macros.html" import tax_chip, sev_chip %}
+{% from "_macros.html" import tax_chip, sev_chip with context %}
 
 <nav class="ms-nav">
   <a href="/dashboard" class="ms-nav-brand">

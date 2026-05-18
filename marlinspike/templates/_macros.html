@@ -2,7 +2,7 @@
   MarlinSpike — shared Jinja2 macros
   ===================================
   Import with:
-    {% from "_macros.html" import tax_chip, sev_chip %}
+    {% from "_macros.html" import tax_chip, sev_chip with context %}
 
   tax_chip(entity_key, label_override=None, count=None)
   ──────────────────────────────────────────────────────
