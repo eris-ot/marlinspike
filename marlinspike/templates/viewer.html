@@ -2217,7 +2217,7 @@ textarea.ms-input {
     </div>
   </div>
 
-  <!-- Hidden fields preserved for JS binding (focus filter, search) -->
+  <!-- Hidden fields preserved for JS binding (focus filter, search, note status) -->
   <input id="ms-search" type="search" style="display:none" autocomplete="off">
   <select id="ms-focus" style="display:none">
     <option value="all">{{ t('viewer.focus.all') }}</option>
@@ -2231,6 +2231,13 @@ textarea.ms-input {
     <option value="level-1">{{ t('viewer.focus.level_1') }}</option>
     <option value="level-2">{{ t('viewer.focus.level_2') }}</option>
     <option value="level-3">{{ t('viewer.focus.level_3') }}</option>
+  </select>
+  <select id="ms-note-status" style="display:none">
+    <option value="all">All findings</option>
+    <option value="open">{{ t('viewer.note.status.open') }}</option>
+    <option value="investigating">{{ t('viewer.note.status.investigating') }}</option>
+    <option value="resolved">{{ t('viewer.note.status.resolved') }}</option>
+    <option value="false_positive">{{ t('viewer.note.status.false_positive') }}</option>
   </select>
 
   <!-- Lens strip -->
@@ -2256,6 +2263,13 @@ textarea.ms-input {
         <option value="unclassified">{{ t('viewer.focus.unclassified') }}</option>
         <option value="ot">{{ t('viewer.focus.ot') }}</option>
         <option value="external">{{ t('viewer.focus.external') }}</option>
+      </select>
+      <select id="ms-note-status-visible" style="background:rgba(15,24,39,0.6);border:1px solid var(--border-dim);border-radius:5px;color:var(--text-dim);font-family:var(--font-ui);font-size:0.78em;padding:3px 6px;cursor:pointer;" onchange="document.getElementById('ms-note-status').value=this.value;MS.applyFilters()">
+        <option value="all">All findings</option>
+        <option value="open">{{ t('viewer.note.status.open') }}</option>
+        <option value="investigating">{{ t('viewer.note.status.investigating') }}</option>
+        <option value="resolved">{{ t('viewer.note.status.resolved') }}</option>
+        <option value="false_positive">{{ t('viewer.note.status.false_positive') }}</option>
       </select>
       <button class="ms-btn" onclick="MS.clearFilters()">{{ t('viewer.toolbar.clear_focus') }}</button>
       <div class="ms-lens-divider"></div>
@@ -2296,6 +2310,7 @@ textarea.ms-input {
       <!-- Map legend overlay (bottom-left corner of canvas) -->
       <div id="ms-map-legend" style="position:absolute;bottom:12px;left:12px;background:rgba(12,20,34,0.88);border:1px solid var(--border-dim);border-radius:8px;padding:10px 12px;font-size:0.8em;z-index:5;max-width:220px;">
         <div style="font-weight:700;font-size:0.78em;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:6px;">{{ t('viewer.legend.title') }}</div>
+        <div id="ms-legend-mode-note" style="display:none;margin-bottom:6px;color:var(--text-dim);line-height:1.45;"></div>
         <div id="ms-role-legend"></div>
         <div style="margin-top:6px;color:var(--text-dim);line-height:1.5;">
           <div style="padding:1px 0;"><svg width="12" height="8" style="vertical-align:middle;margin-right:4px;"><circle cx="6" cy="4" r="3" fill="var(--text-dim)"/></svg>{{ t('viewer.legend.circle_size') }}</div>
@@ -2947,7 +2962,7 @@ var MS = (function() {
     '5': '#ec4899'
   };
 
-  var filterState = { query: '', focus: 'all', timeWindow: null };
+  var filterState = { query: '', focus: 'all', noteStatus: 'all', timeWindow: null };
   var timelineData = null;
   var timelineSelectingFrom = null;
   var riskOverlay = false;
@@ -2958,6 +2973,8 @@ var MS = (function() {
   var edges = [];
   var nodeByIp = {};
   var selectedNode = null;
+  var highlightedIps = [];
+  var baselineSummaryCache = {};
   var assetEvidenceByIp = (VIEWER_CONTEXT.asset_evidence || {});
   var moduleViewsByLocation = (VIEWER_CONTEXT.module_views_by_location || {});
   var svgEl = null;
@@ -3187,12 +3204,81 @@ var MS = (function() {
     return n._searchBlob.indexOf(query) >= 0;
   }
 
+  function noteStatusForFinding(finding) {
+    var note = (finding && finding._note) || (finding && finding.note) || null;
+    return note && note.status ? String(note.status) : '';
+  }
+
+  function noteStatusLabel(status) {
+    if (!status || status === 'all') return 'All findings';
+    var key = 'viewer.note.status.' + status;
+    var label = tjs(key);
+    return label === key ? status : label;
+  }
+
+  function noteStatusMatchesFinding(finding, status) {
+    if (!status || status === 'all') return true;
+    return noteStatusForFinding(finding) === status;
+  }
+
+  function noteStatusMatchesNode(n, status) {
+    if (!status || status === 'all') return true;
+    return nodeRiskFindings(n).some(function(finding) {
+      return noteStatusMatchesFinding(finding, status);
+    });
+  }
+
+  function hasHighlightedIps() {
+    return highlightedIps.length > 0;
+  }
+
+  function isHighlightedIp(ip) {
+    return !!ip && highlightedIps.indexOf(ip) >= 0;
+  }
+
+  function uniqueValidIps(ips) {
+    var seen = {};
+    var out = [];
+    toArray(ips).forEach(function(ip) {
+      var key = String(ip || '').trim();
+      if (!key || seen[key] || !nodeByIp[key]) return;
+      seen[key] = true;
+      out.push(key);
+    });
+    return out;
+  }
+
   function matchesNodeFilter(n) {
-    return focusMatches(n, filterState.focus) && queryMatches(n, filterState.query);
+    return focusMatches(n, filterState.focus)
+      && queryMatches(n, filterState.query)
+      && noteStatusMatchesNode(n, filterState.noteStatus);
   }
 
   function getFilteredNodes() {
     return nodes.filter(matchesNodeFilter).sort(compareNodes);
+  }
+
+  function getFilteredFindings() {
+    return (VIEWER_CONTEXT.top_findings || [])
+      .concat(VIEWER_CONTEXT.c2_indicators || [])
+      .filter(function(finding) {
+        return noteStatusMatchesFinding(finding, filterState.noteStatus);
+      });
+  }
+
+  function renderActiveLens() {
+    if (activeLens === 'findings') renderFindingsLens();
+    else if (activeLens === 'ioc') renderIocLens();
+    else if (activeLens === 'attck') renderAttckLens();
+    else if (activeLens === 'baseline') renderBaselineLens();
+    else if (activeLens === 'peers') renderPeersLens();
+  }
+
+  function invalidateDrawerTabs(tabs) {
+    toArray(tabs).forEach(function(tab) {
+      var el = document.getElementById('ms-drawer-' + tab);
+      if (el) el.removeAttribute('data-rendered');
+    });
   }
 
   function getQueueNodes(focus) {
@@ -4446,6 +4532,12 @@ var MS = (function() {
     if (selectedNode) {
       parts.push('<span class="ms-status-pill">' + esc(tjs('viewer.toolbar.status.selected')) + ' <strong>' + esc(selectedNode._ip) + '</strong></span>');
     }
+    if (filterState.noteStatus && filterState.noteStatus !== 'all') {
+      parts.push('<span class="ms-status-pill">Findings <strong>' + esc(noteStatusLabel(filterState.noteStatus)) + '</strong></span>');
+    }
+    if (hasHighlightedIps()) {
+      parts.push('<span class="ms-status-pill"><strong>' + highlightedIps.length + '</strong> highlighted</span>');
+    }
     if (filterState.timeWindow) {
       var w = filterState.timeWindow;
       var spanS = w.end - w.start;
@@ -4462,6 +4554,40 @@ var MS = (function() {
   var assetTagsByKey = (VIEWER_CONTEXT.asset_tags_by_key || {});
   var findingNotesBySig = (VIEWER_CONTEXT.finding_notes_by_sig || {});
   var projectId = (VIEWER_CONTEXT.project_id != null ? VIEWER_CONTEXT.project_id : null);
+
+  function renderMapLegend() {
+    var legendEl = document.getElementById('ms-role-legend');
+    var modeNoteEl = document.getElementById('ms-legend-mode-note');
+    if (!legendEl) return;
+    var hmi = (typeof window.msHmiActive === 'function') && window.msHmiActive();
+    if (modeNoteEl) {
+      modeNoteEl.style.display = hmi ? 'block' : 'none';
+      modeNoteEl.textContent = hmi
+        ? 'HP-HMI active: Purdue colors are muted on purpose. Color is reserved for abnormal conditions.'
+        : '';
+    }
+    if (!nodes.length) {
+      legendEl.innerHTML = '';
+      return;
+    }
+    if (hmi) {
+      var alarmed = nodes.filter(nodeHasRisk).length;
+      var normal = Math.max(0, nodes.length - alarmed);
+      legendEl.innerHTML = ''
+        + '<div class="ms-legend-item"><span class="ms-legend-dot" style="background:#ef4444"></span><span>Alarm-state assets</span><span class="ms-legend-count">' + alarmed + '</span></div>'
+        + '<div class="ms-legend-item"><span class="ms-legend-dot" style="background:var(--text-dim)"></span><span>Normal assets muted</span><span class="ms-legend-count">' + normal + '</span></div>';
+      return;
+    }
+    var rc = {};
+    nodes.forEach(function(n) { var r = n._role || 'Unknown'; rc[r] = (rc[r] || 0) + 1; });
+    var sorted = Object.keys(rc).sort(function(a, b) { return rc[b] - rc[a]; });
+    var lhtml = '';
+    sorted.slice(0, 8).forEach(function(r) {
+      var st = resolveRoleStyle(r);
+      lhtml += '<div class="ms-legend-item"><span class="ms-legend-dot" style="background:' + st.color + '"></span><span>' + esc(r) + '</span><span class="ms-legend-count">' + rc[r] + '</span></div>';
+    });
+    legendEl.innerHTML = lhtml;
+  }
 
   function assetTagFor(node) {
     if (!node) return null;
@@ -4897,19 +5023,7 @@ var MS = (function() {
     document.getElementById('ms-sidebar-content').innerHTML = html;
     renderWorkbenchStage();
     renderToolbarStatus();
-    // Populate role legend from live node data
-    var legendEl = document.getElementById('ms-role-legend');
-    if (legendEl && nodes.length) {
-      var rc = {};
-      nodes.forEach(function(n) { var r = n._role || 'Unknown'; rc[r] = (rc[r] || 0) + 1; });
-      var sorted = Object.keys(rc).sort(function(a, b) { return rc[b] - rc[a]; });
-      var lhtml = '';
-      sorted.forEach(function(r) {
-        var st = resolveRoleStyle(r);
-        lhtml += '<div class="ms-legend-item"><span class="ms-legend-dot" style="background:' + st.color + '"></span><span>' + esc(r) + '</span><span class="ms-legend-count">' + rc[r] + '</span></div>';
-      });
-      legendEl.innerHTML = lhtml;
-    }
+    renderMapLegend();
   }
 
   var SVG2D = (function() {
@@ -4938,9 +5052,15 @@ var MS = (function() {
         var node = nodeByIp[ip];
         var selected = selectedNode && selectedNode._ip === ip;
         var connected = connectedToSelected(ip);
+        var highlighted = isHighlightedIp(ip);
         var matched = matchesNodeFilter(node);
         var opacity = matched ? 1 : 0.12;
-        if (selectedNode) {
+        if (hasHighlightedIps()) {
+          if (selected) opacity = 1;
+          else if (highlighted) opacity = 0.98;
+          else if (matched) opacity = 0.14;
+          else opacity = 0.05;
+        } else if (selectedNode) {
           if (selected) opacity = 1;
           else if (connected && matched) opacity = 0.95;
           else if (connected) opacity = 0.4;
@@ -4950,6 +5070,9 @@ var MS = (function() {
         nodeEls[ip].g.style.opacity = String(opacity);
         nodeEls[ip].circle.setAttribute('stroke-width', selected ? '3' : '2');
         nodeEls[ip].circle.setAttribute('r', String((nodeEls[ip].baseRadius || node._r) + (selected ? 4 : 0)));
+        if (nodeEls[ip].highlightRing) {
+          nodeEls[ip].highlightRing.setAttribute('stroke-opacity', highlighted ? '0.8' : '0');
+        }
       });
 
       edgeEls.forEach(function(entry) {
@@ -4957,9 +5080,19 @@ var MS = (function() {
         var dstMatched = matchesNodeFilter(nodeByIp[entry.dst]);
         var visible = srcMatched && dstMatched;
         var selectedEdge = selectedNode && (entry.src === selectedNode._ip || entry.dst === selectedNode._ip);
+        var highlightedEdge = isHighlightedIp(entry.src) && isHighlightedIp(entry.dst);
         var opacity = visible ? entry.baseOpacity : 0.04;
         var width = entry.baseWidth;
-        if (selectedNode) {
+        if (hasHighlightedIps()) {
+          if (highlightedEdge) {
+            opacity = 0.72;
+            width = entry.baseWidth + 1;
+          } else if (visible) {
+            opacity = 0.08;
+          } else {
+            opacity = 0.03;
+          }
+        } else if (selectedNode) {
           if (selectedEdge) {
             opacity = 0.95;
             width = entry.baseWidth + 1;
@@ -5139,6 +5272,15 @@ var MS = (function() {
           nodeColor = 'var(--text-dim)';
           nodeFillOpacity = '0.08';
         }
+        var highlightRing = document.createElementNS(ns, 'circle');
+        highlightRing.setAttribute('cx', n._x);
+        highlightRing.setAttribute('cy', n._y);
+        highlightRing.setAttribute('r', n._r + 8);
+        highlightRing.setAttribute('fill', 'none');
+        highlightRing.setAttribute('stroke', '#32b8c6');
+        highlightRing.setAttribute('stroke-width', '2');
+        highlightRing.setAttribute('stroke-opacity', '0');
+        g.appendChild(highlightRing);
         var circle = document.createElementNS(ns, 'circle');
         circle.setAttribute('cx', n._x);
         circle.setAttribute('cy', n._y);
@@ -5197,7 +5339,7 @@ var MS = (function() {
           hideTooltip();
         });
         gNodes.appendChild(g);
-        nodeEls[n._ip] = { g: g, circle: circle, baseRadius: n._r };
+        nodeEls[n._ip] = { g: g, circle: circle, highlightRing: highlightRing, baseRadius: n._r };
       });
 
       svg.addEventListener('mousedown', function(ev) {
@@ -5266,16 +5408,38 @@ var MS = (function() {
     if (focusEl && focusEl.value !== filterState.focus) focusEl.value = filterState.focus;
     var focusVisEl = document.getElementById('ms-focus-visible');
     if (focusVisEl && focusVisEl.value !== filterState.focus) focusVisEl.value = filterState.focus;
+    invalidateDrawerTabs(['findings', 'conversations', 'assets', 'iocs', 'attck', 'dns']);
     renderSidebar();
     if (svgEl) SVG2D.syncState();
+    renderActiveLens();
+    renderDrawerCount();
   }
 
   function setSearch(query) {
     filterState.query = String(query || '').trim().toLowerCase();
     var searchEl = document.getElementById('ms-search');
     if (searchEl && searchEl.value !== String(query || '')) searchEl.value = String(query || '');
+    var searchVisEl = document.getElementById('ms-search-visible');
+    if (searchVisEl && searchVisEl.value !== String(query || '')) searchVisEl.value = String(query || '');
+    invalidateDrawerTabs(['findings', 'conversations', 'assets', 'iocs', 'attck', 'dns']);
     renderSidebar();
     if (svgEl) SVG2D.syncState();
+    renderActiveLens();
+    renderDrawerCount();
+  }
+
+  function setNoteStatus(status) {
+    filterState.noteStatus = status || 'all';
+    var noteStatusEl = document.getElementById('ms-note-status');
+    if (noteStatusEl && noteStatusEl.value !== filterState.noteStatus) noteStatusEl.value = filterState.noteStatus;
+    var noteStatusVisEl = document.getElementById('ms-note-status-visible');
+    if (noteStatusVisEl && noteStatusVisEl.value !== filterState.noteStatus) noteStatusVisEl.value = filterState.noteStatus;
+    invalidateDrawerTabs(['findings']);
+    renderSidebar();
+    renderToolbarStatus();
+    if (svgEl) SVG2D.syncState();
+    renderActiveLens();
+    renderDrawerCount();
   }
 
   function applySearchTerm(term) {
@@ -5290,23 +5454,51 @@ var MS = (function() {
   function clearFilters() {
     filterState.query = '';
     filterState.focus = 'all';
+    filterState.noteStatus = 'all';
     var searchEl = document.getElementById('ms-search');
     var focusEl = document.getElementById('ms-focus');
+    var noteStatusEl = document.getElementById('ms-note-status');
     var searchVisEl = document.getElementById('ms-search-visible');
     var focusVisEl = document.getElementById('ms-focus-visible');
+    var noteStatusVisEl = document.getElementById('ms-note-status-visible');
     if (searchEl) searchEl.value = '';
     if (focusEl) focusEl.value = 'all';
+    if (noteStatusEl) noteStatusEl.value = 'all';
     if (searchVisEl) searchVisEl.value = '';
     if (focusVisEl) focusVisEl.value = 'all';
+    if (noteStatusVisEl) noteStatusVisEl.value = 'all';
+    invalidateDrawerTabs(['findings', 'conversations', 'assets', 'iocs', 'attck', 'dns']);
     renderSidebar();
+    if (svgEl) SVG2D.syncState();
+    renderActiveLens();
+    renderDrawerCount();
+  }
+
+  function setHighlightedIps(ips, options) {
+    options = options || {};
+    highlightedIps = uniqueValidIps(ips);
+    if (highlightedIps.length && options.selectFirst) {
+      selectNode(nodeByIp[highlightedIps[0]], !!options.center, true);
+      return;
+    }
+    renderToolbarStatus();
+    if (svgEl) SVG2D.syncState();
+  }
+
+  function clearHighlightedIps() {
+    highlightedIps = [];
+    renderToolbarStatus();
     if (svgEl) SVG2D.syncState();
   }
 
   function selectNode(n, center) {
     if (!n) return;
+    var preserveHighlights = arguments.length > 2 ? !!arguments[2] : false;
+    if (!preserveHighlights) highlightedIps = [];
     selectedNode = n;
     renderInspector();
     renderSidebar();
+    renderToolbarStatus();
     if (svgEl) {
       SVG2D.syncState();
       if (center) SVG2D.focusNode(n);
@@ -5324,8 +5516,10 @@ var MS = (function() {
 
   function deselectNode() {
     selectedNode = null;
+    highlightedIps = [];
     renderInspector();
     renderSidebar();
+    renderToolbarStatus();
     if (svgEl) SVG2D.syncState();
   }
 
@@ -5924,6 +6118,7 @@ var MS = (function() {
   function bindControls() {
     var searchEl = document.getElementById('ms-search');
     var focusEl = document.getElementById('ms-focus');
+    var noteStatusEl = document.getElementById('ms-note-status');
     searchEl.addEventListener('input', function(ev) {
       setSearch(ev.target.value);
     });
@@ -5936,6 +6131,9 @@ var MS = (function() {
     focusEl.addEventListener('change', function(ev) {
       setFocus(ev.target.value);
     });
+    noteStatusEl.addEventListener('change', function(ev) {
+      setNoteStatus(ev.target.value);
+    });
     document.addEventListener('keydown', function(ev) {
       var target = ev.target;
       var tag = target && target.tagName ? target.tagName.toLowerCase() : '';
@@ -5946,11 +6144,15 @@ var MS = (function() {
         searchEl.select();
       }
       if (ev.key === 'Escape') {
+        if (hasHighlightedIps()) {
+          clearHighlightedIps();
+          return;
+        }
         if (selectedNode) {
           deselectNode();
           return;
         }
-        if (filterState.query || filterState.focus !== 'all') {
+        if (filterState.query || filterState.focus !== 'all' || filterState.noteStatus !== 'all') {
           clearFilters();
         }
       }
@@ -6088,7 +6290,9 @@ var MS = (function() {
 
   function onTimeWindowChanged() {
     // Re-render the active workbench pane so it picks up the new time filter.
+    invalidateDrawerTabs(['conversations']);
     renderWorkbenchStage();
+    if (drawerOpen && activeDrawerTab === 'conversations') renderDrawerTab('conversations');
     renderToolbarStatus();
   }
 
@@ -6230,7 +6434,7 @@ var MS = (function() {
   function renderFindingsLens() {
     var el = document.getElementById('ms-lens-findings');
     if (!el) return;
-    var findings = (VIEWER_CONTEXT.top_findings || []).concat(VIEWER_CONTEXT.c2_indicators || []);
+    var findings = getFilteredFindings();
     if (!findings.length) {
       el.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:48px 0;">' + esc(tjs('viewer.report.findings.empty')) + '</div>';
       return;
@@ -6272,7 +6476,11 @@ var MS = (function() {
       el.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:48px 0;">' + esc(tjs('viewer.report.iocs_empty') || 'No IOC matches in this report.') + '</div>';
       return;
     }
+    var uniqueAssets = uniqueValidIps(iocMatches.map(function(match) { return match.matched_asset; }));
     var html = '<div style="margin-bottom:12px;color:var(--text-dim);font-size:0.82em;">' + iocMatches.length + ' IOC matches detected</div>';
+    if (uniqueAssets.length > 1) {
+      html += '<div style="margin-bottom:10px;"><button class="ms-btn" onclick="MS.highlightIocAssets()">Highlight matched assets</button></div>';
+    }
     html += '<div style="display:flex;flex-direction:column;gap:6px;">';
     iocMatches.forEach(function(match) {
       html += '<div class="ms-finding-card" style="border-left:3px solid var(--sev-critical);">';
@@ -6383,14 +6591,24 @@ var MS = (function() {
     var classifications = toArray(VIEWER_CONTEXT.mitre_classifications).concat(toArray(VIEWER_CONTEXT.mitre_platform_coverage));
     var match = classifications.find(function(c) { return c.technique_id === techniqueId; });
     if (!match) return;
-    var affected = toArray(match.affected_nodes);
+    var affected = uniqueValidIps(match.affected_nodes);
     if (!affected.length) {
       msToast('No assets affected by ' + techniqueId, 'info');
       return;
     }
-    // Pulse-highlight by selecting first; full multi-highlight could be added.
-    selectNodeByIp(affected[0], true);
+    setHighlightedIps(affected, { selectFirst: true, center: true });
     msToast(techniqueId + ' affects ' + affected.length + ' asset(s)', 'info');
+  }
+
+  function highlightIocAssets() {
+    var matches = toArray(VIEWER_CONTEXT.ioc_matches);
+    var assets = uniqueValidIps(matches.map(function(match) { return match.matched_asset; }));
+    if (!assets.length) {
+      msToast('No IOC-matched assets available to highlight', 'info');
+      return;
+    }
+    setHighlightedIps(assets, { selectFirst: true, center: true });
+    msToast('Highlighted ' + assets.length + ' IOC-matched asset(s)', 'info');
   }
 
   // ── Baseline lens — per-asset novelty vs longitudinal baseline ────────────
@@ -6439,10 +6657,10 @@ var MS = (function() {
   function renderBaselineCard(cardId, node, baseline) {
     var c = document.getElementById(cardId);
     if (!c) return;
-    var novelty = (baseline && baseline.novelty) || {};
+    var novelty = (baseline && (baseline.novelty_vs_baseline || baseline.novelty)) || {};
     var newPeers = toArray(novelty.new_peers).length;
     var newProtos = toArray(novelty.new_protocols).length;
-    var newFindings = toArray(novelty.new_finding_categories).length;
+    var newFindings = toArray(novelty.new_findings || novelty.new_finding_categories).length;
     var lostPeers = toArray(novelty.lost_peers).length;
     var reportCount = (baseline && baseline.report_count) || 0;
     var hasNovelty = newPeers + newProtos + newFindings + lostPeers > 0;
@@ -6535,9 +6753,10 @@ var MS = (function() {
   }
 
   function peersHighlight(ips) {
-    if (!ips || !ips.length) return;
-    selectNodeByIp(ips[0], true);
-    msToast(ips.length + ' assets in this group', 'info');
+    var valid = uniqueValidIps(ips);
+    if (!valid.length) return;
+    setHighlightedIps(valid, { selectFirst: true, center: true });
+    msToast(valid.length + ' assets in this group', 'info');
   }
 
   // ── Inspector ──────────────────────────────────────────────
@@ -6551,6 +6770,68 @@ var MS = (function() {
     if (panel) panel.classList.toggle('collapsed', inspectorCollapsed);
     if (body) body.classList.toggle('inspector-collapsed', inspectorCollapsed);
     if (toggle) toggle.innerHTML = inspectorCollapsed ? '&#8249;' : '&#8250;';
+  }
+
+  function renderInspectorBaselineSummary(node) {
+    if (projectId == null || !node) return '';
+    var key = assetKeyForNode(node);
+    if (!key) return '';
+    return '<div style="font-size:0.74em;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin:10px 0 5px;">Longitudinal context</div>'
+      + '<div id="ms-inspector-baseline" class="ms-service-item" data-asset-key="' + esc(key) + '" style="line-height:1.5;">Loading baseline context…</div>';
+  }
+
+  function renderBaselineSummaryHtml(data) {
+    if (!data) return 'No baseline available for this asset.';
+    var summary = data.selected_asset_summary || {};
+    var delta = data.cross_report_delta || {};
+    var last = summary.last || {};
+    var previous = summary.previous || null;
+    var novelty = data.novelty_vs_baseline || {};
+    var html = '';
+    html += '<div style="color:var(--text);margin-bottom:6px;">Seen in <strong>' + esc(String(summary.report_count || data.report_count || 0)) + '</strong> of <strong>' + esc(String(data.scanned_reports || summary.report_count || data.report_count || 0)) + '</strong> scanned report(s).</div>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">';
+    html += '<span class="ms-chip">Current peers ' + esc(String(last.peer_count || 0)) + '</span>';
+    html += '<span class="ms-chip">Protocols ' + esc(String(last.protocol_count || 0)) + '</span>';
+    html += '<span class="ms-chip">Findings ' + esc(String(last.finding_count || 0)) + '</span>';
+    if (previous) html += '<span class="ms-chip">Previous ' + esc(previous.report || 'baseline') + '</span>';
+    html += '</div>';
+    if (delta.available) {
+      html += '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">';
+      if ((delta.protocols && delta.protocols.added_count) || toArray(novelty.new_protocols).length) html += '<span class="ms-finding-chip" style="color:var(--sev-medium);border-color:var(--sev-medium)44">+' + esc(String((delta.protocols && delta.protocols.added_count) || toArray(novelty.new_protocols).length)) + ' protocols</span>';
+      if ((delta.peers && delta.peers.added_count) || toArray(novelty.new_peers).length) html += '<span class="ms-finding-chip" style="color:var(--sev-medium);border-color:var(--sev-medium)44">+' + esc(String((delta.peers && delta.peers.added_count) || toArray(novelty.new_peers).length)) + ' peers</span>';
+      if ((delta.findings && delta.findings.added_count) || toArray(novelty.new_findings).length) html += '<span class="ms-finding-chip" style="color:var(--sev-high);border-color:var(--sev-high)44">+' + esc(String((delta.findings && delta.findings.added_count) || toArray(novelty.new_findings).length)) + ' findings</span>';
+      if (delta.identity_changes && delta.identity_changes.length) html += '<span class="ms-finding-chip">' + esc(String(delta.identity_changes.length)) + ' identity change(s)</span>';
+      html += '</div>';
+    }
+    if (summary.last && summary.last.report) {
+      html += '<div style="color:var(--text-dim);font-size:0.78em;">Latest report: ' + esc(summary.last.report) + '</div>';
+    }
+    return html;
+  }
+
+  function hydrateInspectorBaselineSummary(node) {
+    if (projectId == null || !node) return;
+    var key = assetKeyForNode(node);
+    var el = document.getElementById('ms-inspector-baseline');
+    if (!key || !el) return;
+    if (baselineSummaryCache[key] && baselineSummaryCache[key].status === 'ready') {
+      el.innerHTML = renderBaselineSummaryHtml(baselineSummaryCache[key].data);
+      return;
+    }
+    fetch('/api/projects/' + projectId + '/assets/' + encodeURIComponent(key) + '/baseline')
+      .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function(data) {
+        baselineSummaryCache[key] = { status: 'ready', data: data };
+        if (!selectedNode) return;
+        var currentKey = assetKeyForNode(selectedNode);
+        var target = document.getElementById('ms-inspector-baseline');
+        if (currentKey === key && target) target.innerHTML = renderBaselineSummaryHtml(data);
+      })
+      .catch(function() {
+        baselineSummaryCache[key] = { status: 'error' };
+        var target = document.getElementById('ms-inspector-baseline');
+        if (target) target.textContent = 'No baseline available for this asset.';
+      });
   }
 
   function renderInspector() {
@@ -6603,6 +6884,7 @@ var MS = (function() {
       html += '<div class="ms-field"><span class="label">' + esc(f[0]) + '</span><span class="value">' + esc(f[1]) + '</span></div>';
     });
     html += '</div>';
+    html += renderInspectorBaselineSummary(n);
 
     // Protocols
     if (n._protocols && n._protocols.length) {
@@ -6670,6 +6952,7 @@ var MS = (function() {
     html += '</div>';
 
     el.innerHTML = html;
+    hydrateInspectorBaselineSummary(n);
   }
 
   // ── Bottom drawer ──────────────────────────────────────────
@@ -6703,7 +6986,7 @@ var MS = (function() {
   function renderDrawerCount() {
     var countEl = document.getElementById('ms-drawer-count');
     if (!countEl) return;
-    var findings = (VIEWER_CONTEXT.top_findings || []).length + (VIEWER_CONTEXT.c2_indicators || []).length;
+    var findings = getFilteredFindings().length;
     countEl.textContent = findings ? findings + ' findings' : '';
   }
 
@@ -6735,7 +7018,7 @@ var MS = (function() {
   }
 
   function renderDrawerFindings() {
-    var findings = (VIEWER_CONTEXT.top_findings || []).concat(VIEWER_CONTEXT.c2_indicators || []);
+    var findings = getFilteredFindings();
     if (!findings.length) return '<div style="color:var(--text-dim);padding:16px;">' + esc(tjs('viewer.report.findings.empty')) + '</div>';
     var sevOrder = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, INFO: 4 };
     var sorted = findings.slice().sort(function(a, b) { return (sevOrder[a.severity] || 5) - (sevOrder[b.severity] || 5); });
@@ -6793,7 +7076,11 @@ var MS = (function() {
   function renderDrawerIocs() {
     var iocMatches = (VIEWER_CONTEXT.ioc_matches || []);
     if (!iocMatches.length) return '<div style="color:var(--text-dim);padding:16px;">No IOC matches in this report.</div>';
-    var html = tableHeader([tjs('viewer.drawer.iocs.col.indicator'), tjs('viewer.drawer.iocs.col.type'), tjs('viewer.drawer.iocs.col.matched')]);
+    var html = '';
+    if (uniqueValidIps(iocMatches.map(function(match) { return match.matched_asset; })).length > 1) {
+      html += '<div class="ms-drawer-actions"><button class="ms-btn" onclick="MS.highlightIocAssets()">Highlight matched assets</button></div>';
+    }
+    html += tableHeader([tjs('viewer.drawer.iocs.col.indicator'), tjs('viewer.drawer.iocs.col.type'), tjs('viewer.drawer.iocs.col.matched')]);
     iocMatches.forEach(function(match) {
       var indHtml = '<code style="font-size:0.9em">' + esc(match.indicator || match.value || '') + '</code>';
       var matchHtml = match.matched_asset ? '<span style="cursor:pointer;color:var(--accent-cyan);font-family:var(--font-mono)" onclick="MS.selectNodeByIp(\'' + esc(match.matched_asset) + '\',true)">' + esc(match.matched_asset) + '</span>' : '—';
@@ -6854,8 +7141,10 @@ var MS = (function() {
   function applyFilters() {
     var searchEl = document.getElementById('ms-search');
     var focusEl = document.getElementById('ms-focus');
+    var noteStatusEl = document.getElementById('ms-note-status');
     if (searchEl) setSearch(searchEl.value);
     if (focusEl) setFocus(focusEl.value);
+    if (noteStatusEl) setNoteStatus(noteStatusEl.value);
   }
 
   function start() {
@@ -6868,19 +7157,7 @@ var MS = (function() {
     fetchTaxonomy().then(function() {
       renderLensStrip();
     });
-    // Render role legend in canvas overlay
-    var legendEl = document.getElementById('ms-role-legend');
-    if (legendEl && nodes.length) {
-      var rc = {};
-      nodes.forEach(function(n) { var r = n._role || 'Unknown'; rc[r] = (rc[r] || 0) + 1; });
-      var sorted = Object.keys(rc).sort(function(a, b) { return rc[b] - rc[a]; });
-      var lhtml = '';
-      sorted.slice(0, 8).forEach(function(r) {
-        var st = resolveRoleStyle(r);
-        lhtml += '<div class="ms-legend-item"><span class="ms-legend-dot" style="background:' + st.color + '"></span><span>' + esc(r) + '</span><span class="ms-legend-count">' + rc[r] + '</span></div>';
-      });
-      legendEl.innerHTML = lhtml;
-    }
+    renderMapLegend();
     // Legacy sidebar-content shim (sidebar is hidden but renderSidebar still
     // writes to ms-sidebar-content which may exist in old pane — create dummy)
     if (!document.getElementById('ms-sidebar-content')) {
@@ -6909,6 +7186,7 @@ var MS = (function() {
   // Re-render topology when HP-HMI mode toggles — node fills depend on it.
   document.addEventListener('ms:hmi-changed', function() {
     if (svgEl) SVG2D.init();
+    renderMapLegend();
   });
 
   return {
@@ -6939,6 +7217,7 @@ var MS = (function() {
     // Workbench v3.4
     setLens: setLens,
     attckHighlight: attckHighlight,
+    highlightIocAssets: highlightIocAssets,
     peersHighlight: peersHighlight,
     toggleInspector: toggleInspector,
     toggleDrawer: toggleDrawer,

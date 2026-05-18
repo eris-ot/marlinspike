@@ -123,6 +123,51 @@ def _resolve_interface_allowlist(policy: dict) -> list[str] | None:
     return [i for i in project_ifaces if i in system_set]
 
 
+def _apply_max_total_bytes_cap(
+    ring_filesize_kb: int,
+    ring_files: int,
+    max_total_bytes: int | None,
+) -> tuple[int, int, int, int] | tuple[None, None, int, None]:
+    """Clamp ring-buffer settings so retained capture bytes stay within policy.
+
+    Returns ``(filesize_kb, files, requested_total_bytes, applied_total_bytes)``.
+    When the policy is too small to express a valid dumpcap ring (minimum 1 KiB),
+    returns ``(None, None, requested_total_bytes, None)`` so the caller can reject.
+    """
+    requested_total_bytes = ring_filesize_kb * 1024 * ring_files
+    if max_total_bytes is None:
+        return ring_filesize_kb, ring_files, requested_total_bytes, requested_total_bytes
+    if max_total_bytes < 1024:
+        return None, None, requested_total_bytes, None
+
+    max_total_kb = max_total_bytes // 1024
+    applied_ring_files = max(1, min(ring_files, max_total_kb))
+    applied_ring_filesize_kb = min(
+        ring_filesize_kb,
+        max(1, max_total_kb // applied_ring_files),
+    )
+
+    while (
+        applied_ring_files > 1
+        and applied_ring_files * applied_ring_filesize_kb > max_total_kb
+    ):
+        applied_ring_files -= 1
+        applied_ring_filesize_kb = min(
+            ring_filesize_kb,
+            max(1, max_total_kb // applied_ring_files),
+        )
+
+    applied_total_bytes = applied_ring_files * applied_ring_filesize_kb * 1024
+    if applied_total_bytes > max_total_bytes:
+        return None, None, requested_total_bytes, None
+    return (
+        applied_ring_filesize_kb,
+        applied_ring_files,
+        requested_total_bytes,
+        applied_total_bytes,
+    )
+
+
 # ── Helpers ───────────────────────────────────────────────────
 
 def _client() -> CapdClient:
@@ -253,13 +298,18 @@ def start_session():
     body = request.get_json(silent=True) or {}
     interface = str(body.get("interface", "")).strip()
     bpf_filter = str(body.get("bpf_filter", "") or body.get("bpf", ""))
-    ring_filesize_kb = int(body.get("ring_filesize_kb") or 200_000)
-    ring_files = int(body.get("ring_files") or 10)
-    max_duration_s = int(body.get("max_duration_s") or 0)
+    try:
+        ring_filesize_kb = int(body.get("ring_filesize_kb") or 200_000)
+        ring_files = int(body.get("ring_files") or 10)
+        max_duration_s = int(body.get("max_duration_s") or 0)
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "ring_filesize_kb, ring_files, and max_duration_s must be integers"}), 400
     project = _require_project(body.get("project_id"))
 
     if not interface:
         return jsonify({"ok": False, "error": "interface required"}), 400
+    if ring_filesize_kb < 1 or ring_files < 1 or max_duration_s < 0:
+        return jsonify({"ok": False, "error": "ring_filesize_kb and ring_files must be >= 1; max_duration_s must be >= 0"}), 400
     if project is None:
         return jsonify({"ok": False, "error": "valid project_id required"}), 400
 
@@ -294,7 +344,46 @@ def start_session():
                       "interface": interface,
                   }))
 
-    # ── Gate 4: operator_warning (non-blocking, pass through) ─
+    # ── Gate 4: retained-bytes cap (ring buffer on disk) ──────
+    policy_max_bytes = policy.get("max_total_bytes")
+    applied_ring_filesize_kb = ring_filesize_kb
+    applied_ring_files = ring_files
+    if policy_max_bytes is not None and isinstance(policy_max_bytes, int):
+        capped = _apply_max_total_bytes_cap(
+            ring_filesize_kb,
+            ring_files,
+            policy_max_bytes,
+        )
+        if capped[0] is None or capped[1] is None or capped[3] is None:
+            return jsonify({
+                "ok": False,
+                "error": "project max_total_bytes policy is below dumpcap's minimum 1024-byte ring size",
+            }), 403
+        (
+            applied_ring_filesize_kb,
+            applied_ring_files,
+            requested_total_bytes,
+            applied_total_bytes,
+        ) = capped
+        if (
+            applied_ring_filesize_kb != ring_filesize_kb
+            or applied_ring_files != ring_files
+        ):
+            audit("capture.policy_capped",
+                  target_type="project", target_id=str(project.id),
+                  detail=json.dumps({
+                      "field": "max_total_bytes",
+                      "requested": requested_total_bytes,
+                      "applied": applied_total_bytes,
+                      "project_id": project.id,
+                      "interface": interface,
+                      "requested_ring_filesize_kb": ring_filesize_kb,
+                      "requested_ring_files": ring_files,
+                      "applied_ring_filesize_kb": applied_ring_filesize_kb,
+                      "applied_ring_files": applied_ring_files,
+                  }))
+
+    # ── Gate 5: operator_warning (non-blocking, pass through) ─
     operator_warning = policy.get("operator_warning") or None
     if isinstance(operator_warning, str):
         operator_warning = operator_warning.strip() or None
@@ -317,8 +406,8 @@ def start_session():
         project_id=project.id,
         interface=interface,
         bpf_filter=bpf_filter,
-        ring_filesize_kb=ring_filesize_kb,
-        ring_files=ring_files,
+        ring_filesize_kb=applied_ring_filesize_kb,
+        ring_files=applied_ring_files,
         max_duration_s=applied_duration_s,
         status="pending",
     )
@@ -333,8 +422,8 @@ def start_session():
             session_id=session_uuid,
             interface=interface,
             bpf_filter=bpf_filter,
-            ring_filesize_kb=ring_filesize_kb,
-            ring_files=ring_files,
+            ring_filesize_kb=applied_ring_filesize_kb,
+            ring_files=applied_ring_files,
             max_duration_s=applied_duration_s,
         )
     except (CapdUnavailable, CapdError) as exc:

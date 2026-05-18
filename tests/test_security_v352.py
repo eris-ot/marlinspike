@@ -42,6 +42,24 @@ def client(app):
     return app.test_client()
 
 
+def _ensure_user(app, username: str, password: str, role: str = "user") -> None:
+    with app.app_context():
+        from marlinspike.auth import create_user
+        from marlinspike.models import User
+
+        if User.query.filter_by(username=username).first() is None:
+            create_user(username, password, role=role)
+
+
+def _login(client, username: str, password: str):
+    return client.post(
+        "/login",
+        data={"username": username, "password": password},
+        headers={"Origin": "http://localhost"},
+        follow_redirects=False,
+    )
+
+
 # ── Password reset never returns the token (CRITICAL fix) ────────────────────
 
 
@@ -71,6 +89,25 @@ def test_reset_request_does_not_return_token_in_log_mode(client, monkeypatch, ca
     assert "token" not in body
     assert body["ok"] is True
     assert "If the account exists" in body["message"]
+
+
+def test_reset_confirm_enforces_password_policy(app):
+    from marlinspike.auth import create_reset_token
+    from marlinspike.models import User
+
+    _ensure_user(app, "reset_policy_user", "StrongResetPass1!")
+    with app.app_context():
+        user = User.query.filter_by(username="reset_policy_user").first()
+        token = create_reset_token(user, ip_address="127.0.0.1")
+
+    client = app.test_client()
+    resp = client.post(
+        "/api/auth/reset-confirm",
+        json={"token": token, "new_password": "weakpass"},
+        headers={"Origin": "http://localhost"},
+    )
+    assert resp.status_code == 400
+    assert "at least 12 characters" in resp.get_json()["error"]
 
 
 # ── Browser security headers (MEDIUM fix) ────────────────────────────────────
@@ -201,6 +238,29 @@ def test_capture_stop_requires_admin_when_logged_out(client):
         headers={"Origin": "http://localhost"},
     )
     assert resp.status_code in (401, 302)
+
+
+def test_admin_user_create_enforces_password_policy(app):
+    _ensure_user(app, "policy_admin_api", "AdminCreatePass1!", role="admin")
+    client = app.test_client()
+    _login(client, "policy_admin_api", "AdminCreatePass1!")
+
+    resp = client.post(
+        "/api/users",
+        json={"username": "weak-api-user", "password": "weakpass123", "role": "user"},
+        headers={"Origin": "http://localhost"},
+    )
+    assert resp.status_code == 400
+    assert "at least 12 characters" in resp.get_json()["error"]
+
+
+def test_create_app_rejects_invalid_rate_limit_storage_uri(monkeypatch):
+    import marlinspike.config as ms_config
+    from marlinspike.app import create_app
+
+    monkeypatch.setattr(ms_config, "RATELIMIT_STORAGE_URI", "not-a-real-backend://ratelimit")
+    with pytest.raises(RuntimeError, match="RATELIMIT_STORAGE_URI"):
+        create_app()
 
 
 # ── Setup wizard ─────────────────────────────────────────────────────────────
